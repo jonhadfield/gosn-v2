@@ -15,80 +15,6 @@ import (
 	"gopkg.in/matryer/try.v1"
 )
 
-// NewNote returns an Item of type Note without content
-func NewNote() Note {
-	now := time.Now().UTC().Format(timeLayout)
-	var note Note
-	note.ContentType = "Note"
-	note.CreatedAt = now
-	note.UpdatedAt = now
-	note.UUID = GenUUID()
-
-	return note
-}
-
-// NewTag returns an Item of type Tag without content
-func NewTag() Tag {
-	now := time.Now().UTC().Format(timeLayout)
-	var tag Tag
-	tag.ContentType = "Tag"
-	tag.CreatedAt = now
-	tag.UpdatedAt = now
-	tag.UUID = GenUUID()
-	return tag
-}
-
-//
-//// ClientStructure defines behaviour of a Component Item's content entry
-//type ComponentClientStructure interface {
-//	// return name
-//	GetName() string
-//	// return active status
-//	GetActive() bool
-//	// get item associations
-//	GetItemAssociations() []string
-//	// get item disassociations
-//	GetItemDisassociations() []string
-//	// associate items
-//	AssociateItems(items []string)
-//	// disassociate items
-//	DisassociateItems(items []string)
-//}
-
-//// ClientStructure defines behaviour of a Component Item's content entry
-//type NoteClientStructure interface {
-//	// set text
-//	SetText(input string)
-//	// return text
-//	GetText() string
-//	// get last update time
-//}
-//
-//// ClientStructure defines behaviour of an Item's content entry
-//type ClientStructure interface {
-//	References() ItemReferences
-//	// update or insert item references
-//	UpsertReferences(input ItemReferences)
-//	// set references
-//	SetReferences(input ItemReferences)
-//	// return title
-//	GetTitle() string
-//	// set title
-//	SetTitle(input string)
-//	// get last update time
-//	GetUpdateTime() (time.Time, error)
-//	// set last update time
-//	SetUpdateTime(time.Time)
-//	// get appdata
-//	GetAppData() AppDataContent
-//	// set appdata
-//	SetAppData(data AppDataContent)
-//	// client structure methods for Note
-//	NoteClientStructure
-//	// client structure methods for Component
-//	ComponentClientStructure
-//}
-
 type syncResponse struct {
 	Items       EncryptedItems `json:"retrieved_items"`
 	SavedItems  EncryptedItems `json:"saved_items"`
@@ -481,48 +407,6 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 		Items: updated,
 	}
 }
-func (noteContent *NoteContent) SetReferences(newRefs ItemReferences) {
-	noteContent.ItemReferences = newRefs
-}
-func (tagContent *TagContent) SetReferences(newRefs ItemReferences) {
-	tagContent.ItemReferences = newRefs
-}
-
-//func (tagContent *TagContent) References() ItemReferences {
-//	return tagContent.ItemReferences
-//}
-
-func (tagContent *TagContent) UpsertReferences(newRefs ItemReferences) {
-	for _, newRef := range newRefs {
-		var found bool
-
-		for _, existingRef := range tagContent.ItemReferences {
-			if existingRef.UUID == newRef.UUID {
-				found = true
-			}
-		}
-
-		if !found {
-			tagContent.ItemReferences = append(tagContent.ItemReferences, newRef)
-		}
-	}
-}
-
-func (noteContent *NoteContent) UpsertReferences(newRefs ItemReferences) {
-	for _, newRef := range newRefs {
-		var found bool
-
-		for _, existingRef := range noteContent.ItemReferences {
-			if existingRef.UUID == newRef.UUID {
-				found = true
-			}
-		}
-
-		if !found {
-			noteContent.ItemReferences = append(noteContent.ItemReferences, newRef)
-		}
-	}
-}
 
 func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody []byte, err error) {
 	var request *http.Request
@@ -712,14 +596,6 @@ type ComponentContent struct {
 	AppData            AppDataContent `json:"appData"`
 }
 
-func (cc *ComponentContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
-}
-
-func (cc *ComponentContent) SetReferences(input ItemReferences) {
-	panic("implement me")
-}
-
 func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 	for _, si := range inSl {
 		if inSt != si {
@@ -727,71 +603,6 @@ func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 		}
 	}
 	return
-}
-
-func (cc *ComponentContent) DisassociateItems(itemsToRemove []string) {
-	// remove from associated item ids
-	for _, delRef := range itemsToRemove {
-		var existingFound bool
-
-		for _, existingRef := range cc.AssociatedItemIds {
-			if existingRef == delRef {
-				existingFound = true
-			}
-		}
-
-		// remove reference (from disassociated) if it does exist in that list
-		if existingFound {
-			cc.AssociatedItemIds = removeStringFromSlice(delRef, cc.AssociatedItemIds)
-		}
-	}
-}
-
-func (cc *ComponentContent) SetText(input string) {
-	panic("implement me")
-}
-
-func (cc ComponentContent) GetText() string {
-	return ""
-}
-
-func (cc *ComponentContent) GetUpdateTime() (time.Time, error) {
-	if cc.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
-		return time.Time{}, fmt.Errorf("notset")
-	}
-
-	return time.Parse(timeLayout, cc.AppData.OrgStandardNotesSN.ClientUpdatedAt)
-}
-
-func (cc *ComponentContent) SetUpdateTime(uTime time.Time) {
-	cc.AppData.OrgStandardNotesSN.ClientUpdatedAt = uTime.Format(timeLayout)
-}
-
-func (cc ComponentContent) GetTitle() string {
-	return ""
-}
-
-func (cc *ComponentContent) GetName() string {
-	return cc.Name
-}
-
-func (cc *ComponentContent) GetActive() bool {
-	return cc.Active.(bool)
-}
-
-func (cc *ComponentContent) SetTitle(title string) {
-}
-
-func (cc *ComponentContent) GetAppData() AppDataContent {
-	return cc.AppData
-}
-
-func (cc *ComponentContent) SetAppData(data AppDataContent) {
-	cc.AppData = data
-}
-
-func (cc ComponentContent) References() ItemReferences {
-	return cc.ItemReferences
 }
 
 type ItemReferences []ItemReference
@@ -919,8 +730,6 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseComponent(i)
 		}
 
-		//var processedItem Item
-
 		p = append(p, pi)
 	}
 
@@ -1006,18 +815,6 @@ func (i *Items) RemoveDeleted() {
 	*i = clean
 }
 
-func (n *Notes) RemoveDeleted() {
-	var clean Notes
-
-	for _, j := range *n {
-		if !j.IsDeleted() {
-			clean = append(clean, j)
-		}
-	}
-
-	*n = clean
-}
-
 func (di *DecryptedItems) RemoveDeleted() {
 	var clean DecryptedItems
 
@@ -1028,125 +825,4 @@ func (di *DecryptedItems) RemoveDeleted() {
 	}
 
 	*di = clean
-}
-
-func (tagContent TagContent) Equals(e TagContent) bool {
-	// TODO: compare references
-	return tagContent.Title == e.Title
-}
-
-//func (item Item) Equals(e Item) bool {
-//	if item.GetUUID() != e.GetUUID() {
-//		return false
-//	}
-//
-//	if item.GetContentType() != e.GetContentType() {
-//		return false
-//	}
-//
-//	if item.IsDeleted() != e.IsDeleted() {
-//		return false
-//	}
-//
-//	if item.GetContent().GetTitle() != e.GetContent().GetTitle() {
-//		return false
-//	}
-//
-//	if item.GetContent().GetText() != e.GetContent().GetText() {
-//		return false
-//	}
-//
-//	return true
-//}
-
-func (n Note) Equals(e Note) bool {
-	if n.UUID != e.UUID {
-		return false
-	}
-
-	if n.ContentType != e.ContentType {
-		return false
-	}
-
-	if n.Deleted != e.Deleted {
-		return false
-	}
-
-	if n.Content.Title != e.Content.Title {
-		return false
-	}
-
-	if n.Content.Text != e.Content.Text {
-		return false
-	}
-
-	return true
-}
-
-func (noteContent NoteContent) Copy() NoteContent {
-	res := *new(NoteContent)
-	res.Title = noteContent.Title
-	res.Text = noteContent.Text
-	res.AppData = noteContent.AppData
-	res.ItemReferences = noteContent.ItemReferences
-
-	return res
-}
-func (tagContent TagContent) Copy() TagContent {
-	res := *new(TagContent)
-	res.Title = tagContent.Title
-	res.AppData = tagContent.AppData
-	res.ItemReferences = tagContent.ItemReferences
-
-	return res
-}
-
-//
-//func (n Note) Copy() *Note {
-//	res := new(Item)
-//
-//	switch item.Content.(type) {
-//	case *NoteContent:
-//		tContent := item.Content.(*NoteContent)
-//		res.Content = tContent.Copy()
-//	case *TagContent:
-//		tContent := item.Content.(*TagContent)
-//		res.Content = tContent.Copy()
-//	default:
-//		fmt.Printf("unable to copy items with content of type: %s", reflect.TypeOf(item.Content))
-//	}
-//
-//	res.UpdatedAt = item.UpdatedAt
-//	res.CreatedAt = item.CreatedAt
-//	res.ContentSize = item.ContentSize
-//	res.ContentType = item.ContentType
-//	res.UUID = item.UUID
-//
-//	return res
-//}
-
-func (n Note) Copy() Note {
-	c := NewNote()
-	tContent := n.Content
-	c.Content = tContent.Copy()
-	c.UpdatedAt = n.UpdatedAt
-	c.CreatedAt = n.CreatedAt
-	c.ContentSize = n.ContentSize
-	c.ContentType = n.ContentType
-	c.UUID = n.UUID
-
-	return c
-}
-
-func (t Tag) Copy() Tag {
-	c := NewTag()
-	tContent := t.Content
-	c.Content = tContent.Copy()
-	c.UpdatedAt = t.UpdatedAt
-	c.CreatedAt = t.CreatedAt
-	c.ContentSize = t.ContentSize
-	c.ContentType = t.ContentType
-	c.UUID = t.UUID
-
-	return c
 }

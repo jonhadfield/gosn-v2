@@ -157,3 +157,69 @@ func (cc *ComponentContent) GetItemAssociations() []string {
 func (cc *ComponentContent) GetItemDisassociations() []string {
 	return cc.DissociatedItemIds
 }
+
+func (cc *ComponentContent) DisassociateItems(itemsToRemove []string) {
+	// remove from associated item ids
+	for _, delRef := range itemsToRemove {
+		var existingFound bool
+
+		for _, existingRef := range cc.AssociatedItemIds {
+			if existingRef == delRef {
+				existingFound = true
+			}
+		}
+
+		// remove reference (from disassociated) if it does exist in that list
+		if existingFound {
+			cc.AssociatedItemIds = removeStringFromSlice(delRef, cc.AssociatedItemIds)
+		}
+	}
+}
+
+func (cc *ComponentContent) GetUpdateTime() (time.Time, error) {
+	if cc.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
+		return time.Time{}, fmt.Errorf("notset")
+	}
+
+	return time.Parse(timeLayout, cc.AppData.OrgStandardNotesSN.ClientUpdatedAt)
+}
+
+func (cc *ComponentContent) SetUpdateTime(uTime time.Time) {
+	cc.AppData.OrgStandardNotesSN.ClientUpdatedAt = uTime.Format(timeLayout)
+}
+
+func (cc ComponentContent) GetTitle() string {
+	return ""
+}
+
+func (cc *ComponentContent) GetName() string {
+	return cc.Name
+}
+
+func (cc *ComponentContent) GetActive() bool {
+	return cc.Active.(bool)
+}
+
+func (cc *ComponentContent) SetTitle(title string) {
+}
+
+func (cc *ComponentContent) GetAppData() AppDataContent {
+	return cc.AppData
+}
+
+func (cc *ComponentContent) SetAppData(data AppDataContent) {
+	cc.AppData = data
+}
+
+func (cc ComponentContent) References() ItemReferences {
+	return cc.ItemReferences
+}
+
+
+func (cc *ComponentContent) UpsertReferences(input ItemReferences) {
+	panic("implement me")
+}
+
+func (cc *ComponentContent) SetReferences(input ItemReferences) {
+	panic("implement me")
+}
