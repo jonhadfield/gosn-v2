@@ -10,6 +10,17 @@ type Tag struct {
 	Content TagContent
 }
 
+// NewTag returns an Item of type Tag without content
+func NewTag() Tag {
+	now := time.Now().UTC().Format(timeLayout)
+	var tag Tag
+	tag.ContentType = "Tag"
+	tag.CreatedAt = now
+	tag.UpdatedAt = now
+	tag.UUID = GenUUID()
+	return tag
+}
+
 // NewTagContent returns an empty Tag content instance
 func NewTagContent() *TagContent {
 	c := &TagContent{}
@@ -117,7 +128,6 @@ func (t *Tag) SetContentSize(s int) {
 	t.ContentSize = s
 }
 
-
 func (t *Tag) SetUpdatedAt(ca string) {
 	t.UpdatedAt = ca
 }
@@ -188,4 +198,51 @@ func (tagContent *TagContent) GetUpdateTime() (time.Time, error) {
 	}
 
 	return time.Parse(timeLayout, tagContent.AppData.OrgStandardNotesSN.ClientUpdatedAt)
+}
+
+func (tagContent TagContent) Equals(e TagContent) bool {
+	// TODO: compare references
+	return tagContent.Title == e.Title
+}
+
+func (tagContent TagContent) Copy() TagContent {
+	res := *new(TagContent)
+	res.Title = tagContent.Title
+	res.AppData = tagContent.AppData
+	res.ItemReferences = tagContent.ItemReferences
+
+	return res
+}
+
+func (t Tag) Copy() Tag {
+	c := NewTag()
+	tContent := t.Content
+	c.Content = tContent.Copy()
+	c.UpdatedAt = t.UpdatedAt
+	c.CreatedAt = t.CreatedAt
+	c.ContentSize = t.ContentSize
+	c.ContentType = t.ContentType
+	c.UUID = t.UUID
+
+	return c
+}
+
+func (tagContent *TagContent) SetReferences(newRefs ItemReferences) {
+	tagContent.ItemReferences = newRefs
+}
+
+func (tagContent *TagContent) UpsertReferences(newRefs ItemReferences) {
+	for _, newRef := range newRefs {
+		var found bool
+
+		for _, existingRef := range tagContent.ItemReferences {
+			if existingRef.UUID == newRef.UUID {
+				found = true
+			}
+		}
+
+		if !found {
+			tagContent.ItemReferences = append(tagContent.ItemReferences, newRef)
+		}
+	}
 }

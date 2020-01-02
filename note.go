@@ -10,6 +10,19 @@ type Note struct {
 	Content NoteContent
 }
 
+
+// NewNote returns an Item of type Note without content
+func NewNote() Note {
+	now := time.Now().UTC().Format(timeLayout)
+	var note Note
+	note.ContentType = "Note"
+	note.CreatedAt = now
+	note.UpdatedAt = now
+	note.UUID = GenUUID()
+
+	return note
+}
+
 // NewNoteContent returns an empty Note content instance
 func NewNoteContent() *NoteContent {
 	c := &NoteContent{}
@@ -200,4 +213,85 @@ func (noteContent *NoteContent) DisassociateItems(newItems []string) {
 
 func (tagContent *TagContent) DisassociateItems(newItems []string) {
 
+}
+
+
+func (n Note) Equals(e Note) bool {
+	if n.UUID != e.UUID {
+		return false
+	}
+
+	if n.ContentType != e.ContentType {
+		return false
+	}
+
+	if n.Deleted != e.Deleted {
+		return false
+	}
+
+	if n.Content.Title != e.Content.Title {
+		return false
+	}
+
+	if n.Content.Text != e.Content.Text {
+		return false
+	}
+
+	return true
+}
+
+func (noteContent NoteContent) Copy() NoteContent {
+	res := *new(NoteContent)
+	res.Title = noteContent.Title
+	res.Text = noteContent.Text
+	res.AppData = noteContent.AppData
+	res.ItemReferences = noteContent.ItemReferences
+
+	return res
+}
+
+func (n Note) Copy() Note {
+	c := NewNote()
+	tContent := n.Content
+	c.Content = tContent.Copy()
+	c.UpdatedAt = n.UpdatedAt
+	c.CreatedAt = n.CreatedAt
+	c.ContentSize = n.ContentSize
+	c.ContentType = n.ContentType
+	c.UUID = n.UUID
+
+	return c
+}
+
+
+func (noteContent *NoteContent) UpsertReferences(newRefs ItemReferences) {
+	for _, newRef := range newRefs {
+		var found bool
+
+		for _, existingRef := range noteContent.ItemReferences {
+			if existingRef.UUID == newRef.UUID {
+				found = true
+			}
+		}
+
+		if !found {
+			noteContent.ItemReferences = append(noteContent.ItemReferences, newRef)
+		}
+	}
+}
+
+func (noteContent *NoteContent) SetReferences(newRefs ItemReferences) {
+	noteContent.ItemReferences = newRefs
+}
+
+func (n *Notes) RemoveDeleted() {
+	var clean Notes
+
+	for _, j := range *n {
+		if !j.IsDeleted() {
+			clean = append(clean, j)
+		}
+	}
+
+	*n = clean
 }
