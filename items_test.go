@@ -201,13 +201,13 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 }
 
 func _getItems(session Session, itemFilters ItemFilters) (items Items, err error) {
-	getItemsInput := GetItemsInput{
+	si := SyncInput{
 		Session: session,
 	}
 
-	var gio GetItemsOutput
+	var so SyncOutput
 
-	gio, err = GetItems(getItemsInput)
+	so, err = Sync(si)
 	if err != nil {
 		err = fmt.Errorf("GetItems Failed: %v", err)
 		return
@@ -215,7 +215,7 @@ func _getItems(session Session, itemFilters ItemFilters) (items Items, err error
 
 	var di DecryptedItems
 
-	di, err = gio.Items.Decrypt(session.Mk, session.Ak, true)
+	di, err = so.Items.Decrypt(session.Mk, session.Ak, true)
 	if err != nil {
 		return
 	}
