@@ -11,7 +11,7 @@ import (
 )
 
 // GetItemsInput defines the input for retrieving items
-type SyncItemsInput struct {
+type SyncInput struct {
 	Session     Session
 	SyncToken   string
 	CursorToken string
@@ -25,7 +25,7 @@ type SyncItemsInput struct {
 // GetItemsOutput defines the output from retrieving items
 // It contains slices of items based on their state
 // see: https://standardfile.org/ for state details
-type SyncItemsOutput struct {
+type SyncOutput struct {
 	Items      EncryptedItems // items new or modified since last sync
 	SavedItems EncryptedItems // dirty items needing resolution
 	Unsaved    EncryptedItems // items not saved during sync
@@ -34,11 +34,11 @@ type SyncItemsOutput struct {
 }
 
 // GetItems retrieves items from the API using optional filters
-func SyncItems(input SyncItemsInput) (output SyncItemsOutput, err error) {
+func Sync(input SyncInput) (output SyncOutput, err error) {
 	giStart := time.Now()
 
 	defer func() {
-		debugPrint(input.Debug, fmt.Sprintf("SyncItems | duration %v", time.Since(giStart)))
+		debugPrint(input.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
 	}()
 
 	if !input.Session.Valid() {
@@ -48,20 +48,20 @@ func SyncItems(input SyncItemsInput) (output SyncItemsOutput, err error) {
 
 	var sResp syncResponse
 
-	debugPrint(input.Debug, fmt.Sprintf("SyncItems | PageSize %d", input.PageSize))
+	debugPrint(input.Debug, fmt.Sprintf("Sync | PageSize %d", input.PageSize))
 	// retry logic is to handle responses that are too large
 	// so we can reduce number we retrieve with each sync request
 	start := time.Now()
 	rErr := try.Do(func(attempt int) (bool, error) {
-		debugPrint(input.Debug, fmt.Sprintf("SyncItems | attempt %d", attempt))
+		debugPrint(input.Debug, fmt.Sprintf("Sync | attempt %d", attempt))
 		var rErr error
 
 		sResp, rErr = syncItemsViaAPI(input)
 		if rErr != nil && strings.Contains(strings.ToLower(rErr.Error()), "too large") {
-			debugPrint(input.Debug, fmt.Sprintf("SyncItems | %s", rErr.Error()))
+			debugPrint(input.Debug, fmt.Sprintf("Sync | %s", rErr.Error()))
 			initialSize := input.PageSize
 			resizeForRetry2(&input)
-			debugPrint(input.Debug, fmt.Sprintf("SyncItems | failed to retrieve %d items "+
+			debugPrint(input.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 				"at a time so reducing to %d", initialSize, input.PageSize))
 		}
 		return attempt < 3, rErr
@@ -73,7 +73,7 @@ func SyncItems(input SyncItemsInput) (output SyncItemsOutput, err error) {
 
 	elapsed := time.Since(start)
 
-	debugPrint(input.Debug, fmt.Sprintf("SyncItems | took %v to get all items", elapsed))
+	debugPrint(input.Debug, fmt.Sprintf("Sync | took %v to get all items", elapsed))
 
 	postStart := time.Now()
 	output.Items = sResp.Items
@@ -86,13 +86,13 @@ func SyncItems(input SyncItemsInput) (output SyncItemsOutput, err error) {
 	output.SyncToken = sResp.SyncToken
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
 	postElapsed := time.Since(postStart)
-	debugPrint(input.Debug, fmt.Sprintf("SyncItems | post processing took %v", postElapsed))
-	debugPrint(input.Debug, fmt.Sprintf("SyncItems | sync token: %+v", stripLineBreak(output.SyncToken)))
+	debugPrint(input.Debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
+	debugPrint(input.Debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
 
 	return output, err
 }
 
-func syncItemsViaAPI(input SyncItemsInput) (out syncResponse, err error) {
+func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | items: %+v", input.Items))
 
 	// determine how many items to retrieve with each call
@@ -196,7 +196,7 @@ func syncItemsViaAPI(input SyncItemsInput) (out syncResponse, err error) {
 	return out, err
 }
 
-func resizeForRetry2(in *SyncItemsInput) {
+func resizeForRetry2(in *SyncInput) {
 	switch {
 	case in.BatchSize != 0:
 		in.BatchSize = int(math.Ceil(float64(in.BatchSize) * retryScaleFactor))

@@ -298,24 +298,24 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	dItems := Items{&newComponent}
 	assert.NoError(t, dItems.Validate())
 	eItems, _ := dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	syncInput := SyncItemsInput{
+	syncInput := SyncInput{
 		Items:   eItems,
 		Session: sOutput.Session,
 		Debug:   true,
 	}
 
-	var syncOutput SyncItemsOutput
+	var syncOutput SyncOutput
 
-	syncOutput, err = SyncItems(syncInput)
+	syncOutput, err = Sync(syncInput)
 	assert.NoError(t, err, "PutItems Failed", err)
 	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
 	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
 	uuidOfNewItem := syncOutput.SavedItems[0].UUID
-	syncInput = SyncItemsInput{
+	syncInput = SyncInput{
 		Session: sOutput.Session,
 		Debug:   true,
 	}
-	syncOutput, err = SyncItems(syncInput)
+	syncOutput, err = Sync(syncInput)
 	if err != nil {
 		return
 	}
