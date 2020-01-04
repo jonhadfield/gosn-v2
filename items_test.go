@@ -74,7 +74,7 @@ func randInt(min int, max int) int {
 	rand.Seed(time.Now().UTC().UnixNano())
 	return min + rand.Intn(max-min)
 }
-func _createNotes(session Session, input map[string]string) (output PutItemsOutput, err error) {
+func _createNotes(session Session, input map[string]string) (so SyncOutput, err error) {
 	var newNotes Items
 
 	for k, v := range input {
@@ -88,12 +88,12 @@ func _createNotes(session Session, input map[string]string) (output PutItemsOutp
 
 	if len(newNotes) > 0 {
 		eNotes, _ := newNotes.Encrypt(session.Mk, session.Ak, true)
-		putItemsInput := PutItemsInput{
+		si := SyncInput{
 			Session: session,
 			Items:   eNotes,
 		}
 
-		output, err = PutItems(putItemsInput)
+		so, err = Sync(si)
 		if err != nil {
 			err = fmt.Errorf("PutItems Failed: %v", err)
 		}
@@ -102,7 +102,7 @@ func _createNotes(session Session, input map[string]string) (output PutItemsOutp
 	return
 }
 
-func _createTags(session Session, input []string) (output PutItemsOutput, err error) {
+func _createTags(session Session, input []string) (output SyncOutput, err error) {
 	for _, tt := range input {
 		newTag := NewTag()
 		newTagContent := TagContent{
@@ -113,11 +113,11 @@ func _createTags(session Session, input []string) (output PutItemsOutput, err er
 
 		dItems := Items{&newTag}
 		eItems, _ := dItems.Encrypt(session.Mk, session.Ak, true)
-		putItemsInput := PutItemsInput{
+		si := SyncInput{
 			Session: session,
 			Items:   eItems,
 		}
-		output, err = PutItems(putItemsInput)
+		output, err = Sync(si)
 
 		if err != nil {
 			err = fmt.Errorf("PutItems Failed: %v", err)
@@ -808,7 +808,7 @@ func TestSearchNotesByUUID(t *testing.T) {
 		"GNU":         "Is Not Unix",
 	}
 
-	var cnO PutItemsOutput
+	var cnO SyncOutput
 	cnO, err = _createNotes(sOutput.Session, noteInput)
 	assert.NoError(t, err, "failed to create notes")
 
@@ -816,7 +816,7 @@ func TestSearchNotesByUUID(t *testing.T) {
 
 	var di DecryptedItems
 
-	di, err = cnO.ResponseBody.SavedItems.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	di, err = cnO.SavedItems.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	assert.NoError(t, err)
 
 	var dis Items
