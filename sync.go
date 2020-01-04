@@ -126,6 +126,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		if len(input.Items) == 0 {
 			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
 		} else {
+			// TODO: This may be too large!!!
 			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 				`,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
 		}
@@ -146,7 +147,8 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
 
 	msrStart := time.Now()
-	responseBody, err := makeSyncRequest(input.Session, requestBody, input.Debug)
+	var responseBody []byte
+	responseBody, err = makeSyncRequest(input.Session, requestBody, input.Debug)
 	msrEnd := time.Since(msrStart)
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 
