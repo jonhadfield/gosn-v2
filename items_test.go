@@ -206,7 +206,7 @@ func _getItems(session Session, itemFilters ItemFilters) (items Items, err error
 		err = fmt.Errorf("sync failed: %v", err)
 		return
 	}
-	
+
 	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
 	if err != nil {
 		return
@@ -969,6 +969,7 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 
 func TestSearchTagsByText(t *testing.T) {
 	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err)
 	cleanup(&sOutput.Session)
 	assert.NoError(t, err, "sign-in failed", err)
 
@@ -1135,12 +1136,12 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	newNotes := genNotes(numNotes, 10)
 	assert.NoError(t, newNotes.Validate())
 	eItems, _ := newNotes.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	pii := PutItemsInput{
+	si := SyncInput{
 		Session: sOutput.Session,
 		Items:   eItems,
 	}
 
-	_, err = PutItems(pii)
+	_, err = Sync(si)
 	assert.NoError(t, err)
 
 	var retrievedNotes Items
@@ -1157,33 +1158,33 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	}
 
 	for {
-		gii := GetItemsInput{
+		si = SyncInput{
 			Session:     sOutput.Session,
 			CursorToken: cursorToken,
 		}
 
-		var gio GetItemsOutput
+		var so SyncOutput
 
-		gio, err = GetItems(gii)
+		so, err = Sync(si)
 		if err != nil {
 			t.Error(err)
 		}
 
-		gio.Items.DeDupe()
+		so.Items.DeDupe()
 
 		var items Items
 
-		items, err = gio.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
+		items, err = so.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
 		if err != nil {
 			t.Error(err)
 		}
 
 		retrievedNotes = append(retrievedNotes, items...)
 
-		if stripLineBreak(gio.Cursor) == "" {
+		if stripLineBreak(so.Cursor) == "" {
 			break
 		} else {
-			cursorToken = gio.Cursor
+			cursorToken = so.Cursor
 		}
 	}
 	retrievedNotes.Filter(giFilters)
