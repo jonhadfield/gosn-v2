@@ -142,30 +142,24 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		Filters:  []Filter{gnf, gtf, gcf},
 		MatchAny: true,
 	}
-	gii := GetItemsInput{
+	si := SyncInput{
 		Session: *session,
 	}
 
-	var gio GetItemsOutput
+	var so SyncOutput
 
-	gio, err = GetItems(gii)
-	if err != nil {
-		return
-	}
-
-	var di DecryptedItems
-
-	di, err = gio.Items.Decrypt(session.Mk, session.Ak, true)
+	so, err = Sync(si)
 	if err != nil {
 		return
 	}
 
 	var items Items
 
-	items, err = di.Parse()
+	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
 	if err != nil {
 		return
 	}
+
 	items.Filter(f)
 
 	var toDel Items
@@ -186,12 +180,12 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 
 	if len(toDel) > 0 {
 		eToDel, _ := toDel.Encrypt(session.Mk, session.Ak, true)
-		putItemsInput := PutItemsInput{
+		si := SyncInput{
 			Session: *session,
 			Items:   eToDel,
 		}
 
-		_, err = PutItems(putItemsInput)
+		_, err = Sync(si)
 		if err != nil {
 			return fmt.Errorf("PutItems Failed: %v", err)
 		}
@@ -209,7 +203,7 @@ func _getItems(session Session, itemFilters ItemFilters) (items Items, err error
 
 	so, err = Sync(si)
 	if err != nil {
-		err = fmt.Errorf("GetItems Failed: %v", err)
+		err = fmt.Errorf("sync failed: %v", err)
 		return
 	}
 
@@ -785,7 +779,6 @@ func TestNoteTagging(t *testing.T) {
 		Session: sOutput.Session,
 	}
 
-
 	so, err = Sync(getNotesInput)
 	assert.NoError(t, err, "failed to retrieve notes using regex")
 
@@ -1076,13 +1069,13 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 	assert.NoError(t, newNotes.Validate())
 
 	eItems, _ := newNotes.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	pii := PutItemsInput{
+	si := SyncInput{
 		Session: sOutput.Session,
 		Items:   eItems,
 		Debug:   true,
 	}
 
-	_, err = PutItems(pii)
+	_, err = Sync(si)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -1091,21 +1084,21 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 
 	var cursorToken string
 
+	var so SyncOutput
+
 	for {
-		gii := GetItemsInput{
+		si = SyncInput{
 			Session:     sOutput.Session,
 			CursorToken: cursorToken,
 			BatchSize:   50,
 			Debug:       true,
 		}
 
-		var gio GetItemsOutput
-
-		gio, err = GetItems(gii)
+		so, err = Sync(si)
 		assert.NoError(t, err)
 
 		var di DecryptedItems
-		di, err = gio.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+		di, err = so.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 		assert.NoError(t, err)
 
 		var items Items
@@ -1115,10 +1108,10 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 
 		retrievedNotes = append(retrievedNotes, items...)
 
-		if stripLineBreak(gio.Cursor) == "" {
+		if stripLineBreak(so.Cursor) == "" {
 			break
 		} else {
-			cursorToken = gio.Cursor
+			cursorToken = so.Cursor
 		}
 	}
 	retrievedNotes.DeDupe()
