@@ -298,37 +298,41 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	dItems := Items{&newComponent}
 	assert.NoError(t, dItems.Validate())
 	eItems, _ := dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	putItemsInput := PutItemsInput{
+	syncInput := SyncItemsInput{
 		Items:   eItems,
 		Session: sOutput.Session,
+		Debug:   true,
 	}
 
-	var putItemsOutput PutItemsOutput
+	var syncOutput SyncItemsOutput
 
-	putItemsOutput, err = PutItems(putItemsInput)
+	syncOutput, err = SyncItems(syncInput)
 	assert.NoError(t, err, "PutItems Failed", err)
-	assert.Len(t, putItemsOutput.ResponseBody.SavedItems, 1, "expected 1")
-	uuidOfNewItem := putItemsOutput.ResponseBody.SavedItems[0].UUID
-	getItemsInput := GetItemsInput{
+	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
+	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
+	uuidOfNewItem := syncOutput.SavedItems[0].UUID
+	syncInput = SyncItemsInput{
 		Session: sOutput.Session,
+		Debug:   true,
 	}
-
-	var gio GetItemsOutput
-
-	gio, err = GetItems(getItemsInput)
+	syncOutput, err = SyncItems(syncInput)
 	if err != nil {
 		return
 	}
-
+	assert.Len(t, syncOutput.Items, 1, "expected 1")
 	var di DecryptedItems
 
-	di, err = gio.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	di, err = syncOutput.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	if err != nil {
 		return
 	}
+	assert.Len(t, di, 1)
+
+	assert.Equal(t, uuidOfNewItem, di[0].UUID)
 
 	var items Items
 	items, err = di.Parse()
+	assert.Equal(t, uuidOfNewItem, syncOutput.Items[0].UUID)
 	assert.NoError(t, err, "failed to get items")
 
 	var foundCreatedItem bool
