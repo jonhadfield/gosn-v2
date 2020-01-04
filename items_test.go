@@ -564,31 +564,29 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	dItems := Items{&newNote}
 	assert.NoError(t, dItems.Validate())
 	eItems, _ := dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	putItemsInput := PutItemsInput{
+	si := SyncInput{
 		Items:   eItems,
 		Session: sOutput.Session,
 	}
 
-	var putItemsOutput PutItemsOutput
+	var so SyncOutput
 
-	putItemsOutput, err = PutItems(putItemsInput)
-	assert.NoError(t, err, "PutItems Failed", err)
-	assert.Len(t, putItemsOutput.ResponseBody.SavedItems, 1, "expected 1")
-	uuidOfNewItem := putItemsOutput.ResponseBody.SavedItems[0].UUID
-	getItemsInput := GetItemsInput{
+	so, err = Sync(si)
+	assert.NoError(t, err, "Sync Failed", err)
+	assert.Len(t, so.SavedItems, 1, "expected 1")
+	uuidOfNewItem := so.SavedItems[0].UUID
+	si = SyncInput{
 		Session: sOutput.Session,
 	}
 
-	var gio GetItemsOutput
-
-	gio, err = GetItems(getItemsInput)
+	so, err = Sync(si)
 	if err != nil {
 		return
 	}
 
 	var di DecryptedItems
 
-	di, err = gio.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	di, err = so.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	if err != nil {
 		return
 	}
@@ -638,12 +636,12 @@ func TestNoteTagging(t *testing.T) {
 	assert.NoError(t, newNotes.Validate())
 	eItems, _ := newNotes.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 
-	pii := PutItemsInput{
+	si := SyncInput{
 		Session: sOutput.Session,
 		Items:   eItems,
 	}
 
-	_, err = PutItems(pii)
+	_, err = Sync(si)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -715,12 +713,12 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
 	assert.NoError(t, allItems.Validate())
 	eItems, _ = allItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	pii = PutItemsInput{
+	si = SyncInput{
 		Items:   eItems,
 		Session: sOutput.Session,
 	}
 
-	_, err = PutItems(pii)
+	_, err = Sync(si)
 	if err != nil {
 		t.Errorf("failed to put items: %+v", err)
 	}
@@ -734,13 +732,13 @@ func TestNoteTagging(t *testing.T) {
 	getAnimalNotesFilters := ItemFilters{
 		Filters: []Filter{getAnimalNotesFilter},
 	}
-	getAnimalNotesInput := GetItemsInput{
+	getAnimalNotesInput := SyncInput{
 		Session: sOutput.Session,
 	}
 
-	var getAnimalNotesOutput GetItemsOutput
+	var so SyncOutput
 
-	getAnimalNotesOutput, err = GetItems(getAnimalNotesInput)
+	so, err = Sync(getAnimalNotesInput)
 	if err != nil {
 		t.Error("failed to retrieve animal notes by tag")
 		return
@@ -748,7 +746,7 @@ func TestNoteTagging(t *testing.T) {
 
 	var animalNotes Items
 
-	animalNotes, err = getAnimalNotesOutput.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	animalNotes, err = so.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	if err != nil {
 		return
 	}
@@ -783,17 +781,16 @@ func TestNoteTagging(t *testing.T) {
 		Filters: []Filter{regexFilter},
 	}
 
-	getNotesInput := GetItemsInput{
+	getNotesInput := SyncInput{
 		Session: sOutput.Session,
 	}
 
-	var getNotesOutput GetItemsOutput
 
-	getNotesOutput, err = GetItems(getNotesInput)
+	so, err = Sync(getNotesInput)
 	assert.NoError(t, err, "failed to retrieve notes using regex")
 
 	var notes Items
-	notes, err = getNotesOutput.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	notes, err = so.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	assert.NoError(t, err)
 
 	notes.Filter(regexFilters)
