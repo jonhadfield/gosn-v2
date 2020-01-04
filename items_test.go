@@ -206,15 +206,8 @@ func _getItems(session Session, itemFilters ItemFilters) (items Items, err error
 		err = fmt.Errorf("sync failed: %v", err)
 		return
 	}
-
-	var di DecryptedItems
-
-	di, err = so.Items.Decrypt(session.Mk, session.Ak, true)
-	if err != nil {
-		return
-	}
-
-	items, err = di.Parse()
+	
+	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
 	if err != nil {
 		return
 	}
@@ -1178,16 +1171,9 @@ func TestCreateAndGet301Notes(t *testing.T) {
 
 		gio.Items.DeDupe()
 
-		var di DecryptedItems
-
-		di, err = gio.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-		if err != nil {
-			t.Error(err)
-		}
-
 		var items Items
 
-		items, err = di.Parse()
+		items, err = gio.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
 		if err != nil {
 			t.Error(err)
 		}
