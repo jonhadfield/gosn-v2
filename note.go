@@ -10,6 +10,15 @@ type Note struct {
 	Content NoteContent
 }
 
+func (i Items) Notes() (n Notes) {
+	for _, x := range i {
+		if x.GetContentType() == "Note" {
+			note := x.(*Note)
+			n = append(n, *note)
+		}
+	}
+	return n
+}
 
 // NewNote returns an Item of type Note without content
 func NewNote() Note {

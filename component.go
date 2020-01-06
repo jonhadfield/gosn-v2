@@ -10,6 +10,16 @@ type Component struct {
 	Content ComponentContent
 }
 
+func (i Items) Components() (c Components) {
+	for _, x := range i {
+		if x.GetContentType() == "Component" {
+			component := x.(*Component)
+			c = append(c, *component)
+		}
+	}
+	return c
+}
+
 // NewComponent returns an Item of type Component without content
 func NewComponent() Component {
 	now := time.Now().UTC().Format(timeLayout)
