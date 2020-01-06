@@ -16,6 +16,7 @@ type SyncInput struct {
 	SyncToken   string
 	CursorToken string
 	Items       EncryptedItems
+	NextItem    int // the next item to put
 	OutType     string
 	BatchSize   int // number of items to retrieve
 	PageSize    int // override default number of items to request with each sync call
@@ -33,7 +34,7 @@ type SyncOutput struct {
 	Cursor     string
 }
 
-// GetItems retrieves items from the API using optional filters
+// Sync retrieves items from the API using optional filters
 func Sync(input SyncInput) (output SyncOutput, err error) {
 	giStart := time.Now()
 
@@ -59,10 +60,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		sResp, rErr = syncItemsViaAPI(input)
 		if rErr != nil && strings.Contains(strings.ToLower(rErr.Error()), "too large") {
 			debugPrint(input.Debug, fmt.Sprintf("Sync | %s", rErr.Error()))
-			initialSize := input.PageSize
+			input.NextItem = sResp.LastItemPut
 			resizeForRetry2(&input)
 			debugPrint(input.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-				"at a time so reducing to %d", initialSize, input.PageSize))
+				"at a time so reducing to %d", sResp.PutLimitUsed, input.PageSize))
 		}
 		return attempt < 3, rErr
 	})
@@ -92,8 +93,21 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	return output, err
 }
 
+func lesserOf(first, second int) int {
+	if first < second {
+		if first < 0 {
+			return 0
+		}
+		return first
+	}
+	if second < 0 {
+		return 0
+	}
+	return second
+}
+
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | items: %+v", input.Items))
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
 
 	// determine how many items to retrieve with each call
 	var limit int
@@ -107,26 +121,35 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize))
 		limit = input.PageSize
 	default:
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | default - limit: %d", PageSize))
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", PageSize))
 		limit = PageSize
 	}
 
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | using limit: %d", limit))
+	out.PutLimitUsed = limit
 
 	var encItemJSON []byte
 	itemsToPut := input.Items
-	encItemJSON, err = json.Marshal(itemsToPut)
-	if err != nil {
-		panic(err)
+	var finalItem int
+	if len(input.Items) > 0 {
+		finalItem = lesserOf(len(input.Items)-1, input.NextItem+limit-1)
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem, finalItem))
+		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem:finalItem+1])
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	var requestBody []byte
 	// generate request body
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
+
 	switch {
 	case input.CursorToken == "":
+		debugPrint(input.Debug, "syncItemsViaAPI | cursor is empty")
+
 		if len(input.Items) == 0 {
 			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
 		} else {
-			// TODO: This may be too large!!!
 			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 				`,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
 		}
@@ -136,6 +159,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
 			`,"items":[],"sync_token":"` + input.SyncToken + `\n","cursor_token":null}`)
 	case input.CursorToken != "":
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | got cursor %s", stripLineBreak(input.CursorToken)))
 		rawST := input.SyncToken
 		input.SyncToken = stripLineBreak(rawST)
 		newST := stripLineBreak(input.SyncToken)
@@ -165,20 +189,34 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Unsaved %d items", len(out.Unsaved)))
 	out.Unsaved = bodyContent.Unsaved
 	out.SyncToken = bodyContent.SyncToken
 	out.CursorToken = bodyContent.CursorToken
+	out.LastItemPut = finalItem
 
 	if input.BatchSize > 0 {
 		return
 	}
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
 
-	if bodyContent.CursorToken != "" && bodyContent.CursorToken != "null" {
+	//
+	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse
-
 		input.SyncToken = out.SyncToken
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
+
 		input.CursorToken = out.CursorToken
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
+
 		input.PageSize = limit
+		// sync was successful so set new item
+		if finalItem > 0 {
+			debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | sync successful so setting new item to finalItem+1: %d", finalItem+1))
+			input.NextItem = finalItem + 1
+		}
 
 		newOutput, err = syncItemsViaAPI(input)
 
@@ -189,6 +227,8 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		out.Items = append(out.Items, newOutput.Items...)
 		out.SavedItems = append(out.Items, newOutput.SavedItems...)
 		out.Unsaved = append(out.Items, newOutput.Unsaved...)
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
+		out.LastItemPut = finalItem
 	} else {
 		return out, err
 	}
