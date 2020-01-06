@@ -10,6 +10,24 @@ type Component struct {
 	Content ComponentContent
 }
 
+func (i *Items) Append(x []interface{}) {
+	var all Items
+	for _, y := range x {
+		switch y.(type) {
+		case Note:
+			it := y.(Note)
+			all = append(all, &it)
+		case Tag:
+			it := y.(Tag)
+			all = append(all, &it)
+		case Component:
+			it := y.(Component)
+			all = append(all, &it)
+		}
+	}
+	*i = all
+}
+
 func (i Items) Components() (c Components) {
 	for _, x := range i {
 		if x.GetContentType() == "Component" {
@@ -18,6 +36,22 @@ func (i Items) Components() (c Components) {
 		}
 	}
 	return c
+}
+
+func (c *Components) DeDupe() {
+	var encountered []string
+
+	var deDuped Components
+
+	for _, i := range *c {
+		if !stringInSlice(i.UUID, encountered, true) {
+			deDuped = append(deDuped, i)
+		}
+
+		encountered = append(encountered, i.UUID)
+	}
+
+	*c = deDuped
 }
 
 // NewComponent returns an Item of type Component without content
@@ -224,7 +258,6 @@ func (cc *ComponentContent) SetAppData(data AppDataContent) {
 func (cc ComponentContent) References() ItemReferences {
 	return cc.ItemReferences
 }
-
 
 func (cc *ComponentContent) UpsertReferences(input ItemReferences) {
 	panic("implement me")

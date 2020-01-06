@@ -20,6 +20,22 @@ func (i Items) Notes() (n Notes) {
 	return n
 }
 
+func (n *Notes) DeDupe() {
+	var encountered []string
+
+	var deDuped Notes
+
+	for _, i := range *n {
+		if !stringInSlice(i.UUID, encountered, true) {
+			deDuped = append(deDuped, i)
+		}
+
+		encountered = append(encountered, i.UUID)
+	}
+
+	*n = deDuped
+}
+
 // NewNote returns an Item of type Note without content
 func NewNote() Note {
 	now := time.Now().UTC().Format(timeLayout)
