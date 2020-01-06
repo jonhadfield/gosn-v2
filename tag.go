@@ -10,6 +10,16 @@ type Tag struct {
 	Content TagContent
 }
 
+func (i Items) Tags() (t Tags) {
+	for _, x := range i {
+		if x.GetContentType() == "Tag" {
+			tag := x.(*Tag)
+			t = append(t, *tag)
+		}
+	}
+	return t
+}
+
 // NewTag returns an Item of type Tag without content
 func NewTag() Tag {
 	now := time.Now().UTC().Format(timeLayout)
