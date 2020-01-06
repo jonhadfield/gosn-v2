@@ -20,6 +20,22 @@ func (i Items) Tags() (t Tags) {
 	return t
 }
 
+func (t *Tags) DeDupe() {
+	var encountered []string
+
+	var deDuped Tags
+
+	for _, i := range *t {
+		if !stringInSlice(i.UUID, encountered, true) {
+			deDuped = append(deDuped, i)
+		}
+
+		encountered = append(encountered, i.UUID)
+	}
+
+	*t = deDuped
+}
+
 // NewTag returns an Item of type Tag without content
 func NewTag() Tag {
 	now := time.Now().UTC().Format(timeLayout)
