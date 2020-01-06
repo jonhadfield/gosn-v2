@@ -6,18 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
-	"strconv"
 	"time"
 )
 
 type syncResponse struct {
-	Items       EncryptedItems `json:"retrieved_items"`
-	SavedItems  EncryptedItems `json:"saved_items"`
-	Unsaved     EncryptedItems `json:"unsaved"`
-	SyncToken   string         `json:"sync_token"`
-	CursorToken string         `json:"cursor_token"`
+	Items        EncryptedItems `json:"retrieved_items"`
+	SavedItems   EncryptedItems `json:"saved_items"`
+	Unsaved      EncryptedItems `json:"unsaved"`
+	SyncToken    string         `json:"sync_token"`
+	CursorToken  string         `json:"cursor_token"`
+	LastItemPut  int            // the last item successfully put
+	PutLimitUsed int            // the put limit used
 }
 
 // AppTagConfig defines expected configuration structure for making Tag related operations
@@ -31,39 +31,8 @@ type AppTagConfig struct {
 }
 
 // GetItemsInput defines the input for retrieving items
-type GetItemsInput struct {
-	Session     Session
-	SyncToken   string
-	CursorToken string
-	OutType     string
-	BatchSize   int // number of items to retrieve
-	PageSize    int // override default number of items to request with each sync call
-	Debug       bool
-}
-
-// GetItemsOutput defines the output from retrieving items
-// It contains slices of items based on their state
-// see: https://standardfile.org/ for state details
-type GetItemsOutput struct {
-	Items      EncryptedItems // items new or modified since last sync
-	SavedItems EncryptedItems // dirty items needing resolution
-	Unsaved    EncryptedItems // items not saved during sync
-	SyncToken  string
-	Cursor     string
-}
 
 const retryScaleFactor = 0.25
-
-func resizeForRetry(in *GetItemsInput) {
-	switch {
-	case in.BatchSize != 0:
-		in.BatchSize = int(math.Ceil(float64(in.BatchSize) * retryScaleFactor))
-	case in.PageSize != 0:
-		in.PageSize = int(math.Ceil(float64(in.PageSize) * retryScaleFactor))
-	default:
-		in.PageSize = int(math.Ceil(float64(PageSize) * retryScaleFactor))
-	}
-}
 
 type EncryptedItems []EncryptedItem
 
@@ -266,98 +235,6 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response size %d bytes", len(responseBody)))
 
 	return responseBody, err
-}
-
-func getItemsViaAPI(input GetItemsInput) (out syncResponse, err error) {
-	// determine how many items to retrieve with each call
-	var limit int
-
-	switch {
-	case input.BatchSize > 0:
-		debugPrint(input.Debug, fmt.Sprintf("getItemsViaAPI |input.BatchSize: %d", input.BatchSize))
-		// batch size must be lower than or equal to page size
-		limit = input.BatchSize
-	case input.PageSize > 0:
-		debugPrint(input.Debug, fmt.Sprintf("getItemsViaAPI | input.PageSize: %d", input.PageSize))
-		limit = input.PageSize
-	default:
-		debugPrint(input.Debug, fmt.Sprintf("getItemsViaAPI | default - limit: %d", PageSize))
-		limit = PageSize
-	}
-
-	debugPrint(input.Debug, fmt.Sprintf("getItemsViaAPI | using limit: %d", limit))
-
-	var requestBody []byte
-	// generate request body
-	switch {
-	case input.CursorToken == "":
-		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
-	case input.CursorToken == "null":
-		debugPrint(input.Debug, "getItemsViaAPI | cursor is null")
-
-		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"sync_token":"` + input.SyncToken + `\n","cursor_token":null}`)
-	case input.CursorToken != "":
-		rawST := input.SyncToken
-		input.SyncToken = stripLineBreak(rawST)
-		newST := stripLineBreak(input.SyncToken)
-		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"sync_token":"` + newST + `\n","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
-	}
-
-	// make the request
-	debugPrint(input.Debug, fmt.Sprintf("getItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
-
-	msrStart := time.Now()
-	responseBody, err := makeSyncRequest(input.Session, requestBody, input.Debug)
-	msrEnd := time.Since(msrStart)
-	debugPrint(input.Debug, fmt.Sprintf("getItemsViaAPI | makeSyncRequest took: %v", msrEnd))
-
-	if err != nil {
-		return
-	}
-
-	// get encrypted items from API response
-	var bodyContent syncResponse
-
-	bodyContent, err = getBodyContent(responseBody)
-	if err != nil {
-		return
-	}
-
-	out.Items = bodyContent.Items
-	out.SavedItems = bodyContent.SavedItems
-	out.Unsaved = bodyContent.Unsaved
-	out.SyncToken = bodyContent.SyncToken
-	out.CursorToken = bodyContent.CursorToken
-
-	if input.BatchSize > 0 {
-		return
-	}
-
-	if bodyContent.CursorToken != "" && bodyContent.CursorToken != "null" {
-		var newOutput syncResponse
-
-		input.SyncToken = out.SyncToken
-		input.CursorToken = out.CursorToken
-		input.PageSize = limit
-
-		newOutput, err = getItemsViaAPI(input)
-
-		if err != nil {
-			return
-		}
-
-		out.Items = append(out.Items, newOutput.Items...)
-		out.SavedItems = append(out.Items, newOutput.SavedItems...)
-		out.Unsaved = append(out.Items, newOutput.Unsaved...)
-	} else {
-		return out, err
-	}
-
-	out.CursorToken = ""
-
-	return out, err
 }
 
 // ItemReference defines a reference from one item to another

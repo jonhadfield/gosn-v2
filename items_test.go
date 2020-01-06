@@ -144,6 +144,7 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	}
 	si := SyncInput{
 		Session: *session,
+		Debug:   true,
 	}
 
 	var so SyncOutput
@@ -1139,6 +1140,7 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	si := SyncInput{
 		Session: sOutput.Session,
 		Items:   eItems,
+		Debug:   true,
 	}
 
 	_, err = Sync(si)
@@ -1158,9 +1160,12 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	}
 
 	for {
+		fmt.Println("\n--- NOW RETRIEVE THEM ALL---")
+
 		si = SyncInput{
 			Session:     sOutput.Session,
 			CursorToken: cursorToken,
+			Debug:       true,
 		}
 
 		var so SyncOutput
@@ -1197,7 +1202,6 @@ func TestCreateAndGet301Notes(t *testing.T) {
 
 	for i, r := range retrievedNotes {
 		fi := r.(*Note)
-
 		if !strings.HasPrefix(fi.Content.Title, fmt.Sprintf("-%d-", i+1)) {
 			t.Errorf("incorrect note returned")
 		}
