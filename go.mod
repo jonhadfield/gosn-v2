@@ -7,7 +7,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.5.0
 	github.com/stretchr/objx v0.2.0 // indirect
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.0
 	github.com/zalando/go-keyring v0.0.0-20190913082157-62750a1ff80d
 	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
 	gopkg.in/matryer/try.v1 v1.0.0-20150601225556-312d2599e12e
