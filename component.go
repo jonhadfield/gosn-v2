@@ -12,6 +12,7 @@ type Component struct {
 
 func (i *Items) Append(x []interface{}) {
 	var all Items
+
 	for _, y := range x {
 		switch y.(type) {
 		case Note:
@@ -25,6 +26,7 @@ func (i *Items) Append(x []interface{}) {
 			all = append(all, &it)
 		}
 	}
+
 	*i = all
 }
 
@@ -35,6 +37,7 @@ func (i Items) Components() (c Components) {
 			c = append(c, *component)
 		}
 	}
+
 	return c
 }
 
@@ -57,11 +60,14 @@ func (c *Components) DeDupe() {
 // NewComponent returns an Item of type Component without content
 func NewComponent() Component {
 	now := time.Now().UTC().Format(timeLayout)
+
 	var c Component
+
 	c.ContentType = "SN|Component"
 	c.CreatedAt = now
 	c.UpdatedAt = now
 	c.UUID = GenUUID()
+
 	return c
 }
 
@@ -75,11 +81,12 @@ func NewComponentContent() *ComponentContent {
 
 type Components []Component
 
-func (i Components) Validate() error {
+func (c Components) Validate() error {
 	var updatedTime time.Time
 
 	var err error
-	for _, item := range i {
+
+	for _, item := range c {
 		// validate content if being added
 		if !item.Deleted {
 			updatedTime, err = item.Content.GetUpdateTime()
@@ -168,6 +175,7 @@ func (cc *ComponentContent) AssociateItems(newItems []string) {
 	// add to associated item ids
 	for _, newRef := range newItems {
 		var existingFound bool
+
 		var existingDFound bool
 
 		for _, existingRef := range cc.AssociatedItemIds {

@@ -17,6 +17,7 @@ func (i Items) Notes() (n Notes) {
 			n = append(n, *note)
 		}
 	}
+
 	return n
 }
 
@@ -39,6 +40,7 @@ func (n *Notes) DeDupe() {
 // NewNote returns an Item of type Note without content
 func NewNote() Note {
 	now := time.Now().UTC().Format(timeLayout)
+
 	var note Note
 	note.ContentType = "Note"
 	note.CreatedAt = now
@@ -58,11 +60,12 @@ func NewNoteContent() *NoteContent {
 
 type Notes []Note
 
-func (i Notes) Validate() error {
+func (n Notes) Validate() error {
 	var updatedTime time.Time
 
 	var err error
-	for _, item := range i {
+
+	for _, item := range n {
 		// validate content if being added
 		if !item.Deleted {
 			updatedTime, err = item.Content.GetUpdateTime()
@@ -162,11 +165,9 @@ func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
 	return time.Parse(timeLayout, noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt)
 }
 
-
 func (noteContent *NoteContent) SetUpdateTime(uTime time.Time) {
 	noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt = uTime.Format(timeLayout)
 }
-
 
 func (noteContent NoteContent) GetTitle() string {
 	return noteContent.Title
@@ -188,7 +189,6 @@ func (noteContent *NoteContent) SetText(text string) {
 	noteContent.Text = text
 }
 
-
 func (noteContent *NoteContent) GetAppData() AppDataContent {
 	return noteContent.AppData
 }
@@ -200,7 +200,6 @@ func (noteContent *NoteContent) SetAppData(data AppDataContent) {
 func (noteContent NoteContent) References() ItemReferences {
 	return noteContent.ItemReferences
 }
-
 
 func (noteContent *NoteContent) GetActive() bool {
 	// not implemented
@@ -214,7 +213,6 @@ func (noteContent *NoteContent) GetName() string {
 func (noteContent *NoteContent) AddItemAssociations() string {
 	return "not implemented"
 }
-
 
 func (noteContent *NoteContent) GetItemAssociations() []string {
 	panic("not implemented")
@@ -239,7 +237,6 @@ func (noteContent *NoteContent) DisassociateItems(newItems []string) {
 func (tagContent *TagContent) DisassociateItems(newItems []string) {
 
 }
-
 
 func (n Note) Equals(e Note) bool {
 	if n.UUID != e.UUID {
@@ -287,7 +284,6 @@ func (n Note) Copy() Note {
 
 	return c
 }
-
 
 func (noteContent *NoteContent) UpsertReferences(newRefs ItemReferences) {
 	for _, newRef := range newRefs {

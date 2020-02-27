@@ -175,6 +175,7 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		case "SN|Component":
 			md.SetContent(*NewComponentContent())
 		}
+
 		md.SetDeleted(true)
 		toDel = append(toDel, md)
 	}
@@ -303,23 +304,27 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 		Session: sOutput.Session,
 		Debug:   true,
 	}
+
 	syncOutput, err = Sync(syncInput)
 	if err != nil {
 		return
 	}
-	assert.Len(t, syncOutput.Items, 1, "expected 1")
-	var di DecryptedItems
 
+	assert.Len(t, syncOutput.Items, 1, "expected 1")
+
+	var di DecryptedItems
 	di, err = syncOutput.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+
 	if err != nil {
 		return
 	}
-	assert.Len(t, di, 1)
 
+	assert.Len(t, di, 1)
 	assert.Equal(t, uuidOfNewItem, di[0].UUID)
 
 	var items Items
 	items, err = di.Parse()
+
 	assert.Equal(t, uuidOfNewItem, syncOutput.Items[0].UUID)
 	assert.NoError(t, err, "failed to get items")
 
@@ -332,18 +337,10 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 			assert.Equal(t, "SN|Component", items[i].GetContentType())
 			assert.Equal(t, false, items[i].IsDeleted())
 			assert.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
-			//assert.Contains(t, items[i].GetContent().GetItemAssociations(),
-			//	"d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-			//assert.NotContains(t, items[i].Content.GetItemAssociations(),
-			//	"lemon")
-			//assert.Contains(t, items[i].Content.GetItemDisassociations(),
-			//	"e9d4daf5-52e6-4d67-975e-a1620bf5217c")
-			//assert.True(t, items[i].Content.GetActive())
 		}
 	}
 
 	assert.True(t, foundCreatedItem, "failed to get created Item by UUID")
-
 }
 
 func TestItemsRemoveDeleted(t *testing.T) {
@@ -1160,8 +1157,6 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	}
 
 	for {
-		fmt.Println("\n--- NOW RETRIEVE THEM ALL---")
-
 		si = SyncInput{
 			Session:     sOutput.Session,
 			CursorToken: cursorToken,

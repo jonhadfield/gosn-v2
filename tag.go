@@ -17,6 +17,7 @@ func (i Items) Tags() (t Tags) {
 			t = append(t, *tag)
 		}
 	}
+
 	return t
 }
 
@@ -39,11 +40,13 @@ func (t *Tags) DeDupe() {
 // NewTag returns an Item of type Tag without content
 func NewTag() Tag {
 	now := time.Now().UTC().Format(timeLayout)
+
 	var tag Tag
 	tag.ContentType = "Tag"
 	tag.CreatedAt = now
 	tag.UpdatedAt = now
 	tag.UUID = GenUUID()
+
 	return tag
 }
 
@@ -77,11 +80,12 @@ func (t Tag) Equals(e Tag) bool {
 	return true
 }
 
-func (i Tags) Validate() error {
+func (t Tags) Validate() error {
 	var updatedTime time.Time
 
 	var err error
-	for _, item := range i {
+
+	for _, item := range t {
 		// validate content if being added
 		if !item.Deleted {
 			updatedTime, err = item.Content.GetUpdateTime()

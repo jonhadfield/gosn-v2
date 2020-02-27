@@ -17,7 +17,7 @@ fmt:
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do gofmt -w -s "$$file"; goimports -w "$$file"; done
 
 lint:
-	golangci-lint run --enable-all --disable lll --disable misspell --disable gochecknoglobals --disable goconst
+	golangci-lint run --enable-all --disable lll --disable misspell --disable gochecknoglobals --disable goconst --disable dupl
 
 ci: lint test
 

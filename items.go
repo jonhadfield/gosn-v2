@@ -36,7 +36,7 @@ const retryScaleFactor = 0.25
 
 type EncryptedItems []EncryptedItem
 
-func (ei EncryptedItems) Decrypt(Mk, Ak string, debug bool) (o DecryptedItems, err error) {
+func (ei EncryptedItems) Decrypt(mk, ak string, debug bool) (o DecryptedItems, err error) {
 	debugPrint(debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
 
 	for _, eItem := range ei {
@@ -45,7 +45,7 @@ func (ei EncryptedItems) Decrypt(Mk, Ak string, debug bool) (o DecryptedItems, e
 		if eItem.EncItemKey != "" {
 			var decryptedEncItemKey string
 
-			decryptedEncItemKey, err = decryptString(eItem.EncItemKey, Mk, Ak, eItem.UUID)
+			decryptedEncItemKey, err = decryptString(eItem.EncItemKey, mk, ak, eItem.UUID)
 			if err != nil {
 				return
 			}
@@ -75,12 +75,12 @@ func (ei EncryptedItems) Decrypt(Mk, Ak string, debug bool) (o DecryptedItems, e
 	return o, err
 }
 
-func (ei EncryptedItems) DecryptAndParse(Mk, Ak string, debug bool) (o Items, err error) {
+func (ei EncryptedItems) DecryptAndParse(mk, ak string, debug bool) (o Items, err error) {
 	debugPrint(debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
 
 	var di DecryptedItems
 
-	di, err = ei.Decrypt(Mk, Ak, debug)
+	di, err = ei.Decrypt(mk, ak, debug)
 	if err != nil {
 		return
 	}
@@ -90,33 +90,8 @@ func (ei EncryptedItems) DecryptAndParse(Mk, Ak string, debug bool) (o Items, er
 	return
 }
 
-func (i *Items) Encrypt(Mk, Ak string, debug bool) (e EncryptedItems, err error) {
-	e, err = encryptItems(i, Mk, Ak, debug)
-	return
-}
-
-func putChunk(session Session, encItemJSON []byte, debug bool) (savedItems []EncryptedItem, syncToken string, err error) {
-	reqBody := []byte(`{"items":` + string(encItemJSON) +
-		`,"sync_token":"` + stripLineBreak(syncToken) + `"}`)
-
-	var syncRespBodyBytes []byte
-
-	syncRespBodyBytes, err = makeSyncRequest(session, reqBody, debug)
-	if err != nil {
-		return
-	}
-
-	// get item results from API response
-	var bodyContent syncResponse
-
-	bodyContent, err = getBodyContent(syncRespBodyBytes)
-	if err != nil {
-		return
-	}
-	// Get new items
-	syncToken = stripLineBreak(bodyContent.SyncToken)
-	savedItems = bodyContent.SavedItems
-
+func (i *Items) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error) {
+	e, err = encryptItems(i, mk, ak, debug)
 	return
 }
 
@@ -152,6 +127,7 @@ type UpdateItemRefsOutput struct {
 
 func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 	var updated Items // updated tags
+
 	for _, item := range i.Items {
 		var refs ItemReferences
 
@@ -173,6 +149,7 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 			ic.UpsertReferences(refs)
 			item.SetContent(*ic)
 		}
+
 		updated = append(updated, item)
 	}
 
@@ -188,6 +165,7 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	if err != nil {
 		return
 	}
+
 	request.Header.Set("content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+session.Token)
 
@@ -207,8 +185,10 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 		if err := response.Body.Close(); err != nil {
 			debugPrint(debug, fmt.Sprintf("makeSyncRequest | failed to close body closed"))
 		}
+
 		debugPrint(debug, fmt.Sprintf("makeSyncRequest | response body closed"))
 	}()
+
 	switch response.StatusCode {
 	case 413:
 		err = errors.New("payload too large")
@@ -225,7 +205,9 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	}
 
 	readStart := time.Now()
+
 	responseBody, err = ioutil.ReadAll(response.Body)
+
 	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
 
 	if err != nil {
@@ -283,6 +265,7 @@ func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 			outSl = append(outSl, si)
 		}
 	}
+
 	return
 }
 
@@ -297,13 +280,18 @@ func parseNote(i DecryptedItem) Item {
 	n.Deleted = i.Deleted
 	n.UpdatedAt = i.UpdatedAt
 	n.CreatedAt = i.CreatedAt
+
 	var err error
-	if ! n.Deleted {
+
+	if !n.Deleted {
 		var content Content
+
 		content, err = processContentModel(i.ContentType, i.Content)
+
 		if err != nil {
 			panic(err)
 		}
+
 		n.Content = content.(NoteContent)
 	}
 
@@ -333,13 +321,17 @@ func parseTag(i DecryptedItem) Item {
 	t.Deleted = i.Deleted
 	t.UpdatedAt = i.UpdatedAt
 	t.CreatedAt = i.CreatedAt
+
 	var err error
-	if ! t.Deleted {
+
+	if !t.Deleted {
 		var content Content
 		content, err = processContentModel(i.ContentType, i.Content)
+
 		if err != nil {
 			panic(err)
 		}
+
 		t.Content = content.(TagContent)
 	}
 
@@ -369,13 +361,17 @@ func parseComponent(i DecryptedItem) Item {
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt
 	c.CreatedAt = i.CreatedAt
+
 	var err error
-	if ! c.Deleted {
+
+	if !c.Deleted {
 		var content Content
+
 		content, err = processContentModel(i.ContentType, i.Content)
 		if err != nil {
 			panic(err)
 		}
+
 		c.Content = content.(ComponentContent)
 	}
 
@@ -400,8 +396,8 @@ func parseComponent(i DecryptedItem) Item {
 
 func (di *DecryptedItems) Parse() (p Items, err error) {
 	for _, i := range *di {
-
 		var pi Item
+
 		switch i.ContentType {
 		case "Note":
 			pi = parseNote(i)
@@ -420,11 +416,11 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 func processContentModel(contentType, input string) (output Content, err error) {
 	// identify content model
 	// try and unmarshall Item
-
 	switch contentType {
 	case "Note":
 		var nc NoteContent
 		err = json.Unmarshal([]byte(input), &nc)
+
 		return nc, err
 	case "Tag":
 		var tc TagContent
@@ -434,6 +430,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	case "SN|Component":
 		var cc ComponentContent
 		err = json.Unmarshal([]byte(input), &cc)
+
 		return cc, err
 	}
 

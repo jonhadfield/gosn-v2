@@ -376,7 +376,7 @@ func getSessionContent(key, rawSession string) (session string, err error) {
 		session = rawSession
 	}
 
-	return
+	return session, err
 }
 
 func SessionStatus(sKey string, k keyring.Keyring) (msg string, err error) {
@@ -411,7 +411,5 @@ func SessionStatus(sKey string, k keyring.Keyring) (msg string, err error) {
 		return
 	}
 
-	msg = fmt.Sprint("session found: ", email)
-
-	return
+	return fmt.Sprint("session found: ", email), err
 }

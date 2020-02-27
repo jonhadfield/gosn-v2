@@ -51,6 +51,7 @@ func (i *Items) Filter(f ItemFilters) {
 			}
 		}
 	}
+
 	*i = filtered
 }
 
@@ -585,9 +586,5 @@ func applyComponentFilters(item Component, itemFilters ItemFilters) bool {
 		}
 	}
 
-	if matchedAll {
-		return true
-	}
-
-	return false
+	return matchedAll
 }
