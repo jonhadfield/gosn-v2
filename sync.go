@@ -3,11 +3,12 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/matryer/try"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/matryer/try"
 )
 
 // GetItemsInput defines the input for retrieving items
@@ -98,11 +99,14 @@ func lesserOf(first, second int) int {
 		if first < 0 {
 			return 0
 		}
+
 		return first
 	}
+
 	if second < 0 {
 		return 0
 	}
+
 	return second
 }
 
@@ -128,12 +132,16 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.PutLimitUsed = limit
 
 	var encItemJSON []byte
+
 	itemsToPut := input.Items
+
 	var finalItem int
+
 	if len(input.Items) > 0 {
 		finalItem = lesserOf(len(input.Items)-1, input.NextItem+limit-1)
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem, finalItem))
-		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem:finalItem+1])
+
+		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem : finalItem+1])
 		if err != nil {
 			panic(err)
 		}
@@ -171,6 +179,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
 
 	msrStart := time.Now()
+
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(input.Session, requestBody, input.Debug)
 	msrEnd := time.Since(msrStart)
@@ -187,6 +196,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	if err != nil {
 		return
 	}
+
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
@@ -200,11 +210,13 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	if input.BatchSize > 0 {
 		return
 	}
+
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
 
 	//
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse
+
 		input.SyncToken = out.SyncToken
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
 
@@ -227,6 +239,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		out.Items = append(out.Items, newOutput.Items...)
 		out.SavedItems = append(out.Items, newOutput.SavedItems...)
 		out.Unsaved = append(out.Items, newOutput.Unsaved...)
+
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
 		out.LastItemPut = finalItem
 	} else {

@@ -165,8 +165,12 @@ func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw,
 	}
 
 	saltSource := input.Identifier + ":" + "SF" + ":" + input.Version + ":" + strconv.Itoa(int(input.PasswordCost)) + ":" + input.PasswordNonce
+
 	h := sha256.New()
-	h.Write([]byte(saltSource))
+	if _, err = h.Write([]byte(saltSource)); err != nil {
+		return
+	}
+
 	preSalt := sha256.Sum256([]byte(saltSource))
 	salt := make([]byte, hex.EncodedLen(len(preSalt)))
 	hex.Encode(salt, preSalt[:])

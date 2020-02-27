@@ -32,9 +32,9 @@ type ItemCommon struct {
 	ContentSize int
 }
 
-
 func (i Items) Validate() error {
 	var err error
+
 	for _, item := range i {
 		switch item.(type) {
 		case *Tag:
@@ -47,9 +47,11 @@ func (i Items) Validate() error {
 			c := item.(*Component)
 			err = Components{*c}.Validate()
 		}
+
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }

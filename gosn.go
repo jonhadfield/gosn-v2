@@ -27,7 +27,7 @@ const (
 	// HTTP
 	maxIdleConnections = 100 // HTTP transport limit
 	requestTimeout     = 60  // HTTP transport limit
-	connectionTimeout  = 10   // HTTP transport dialer limit
+	connectionTimeout  = 10  // HTTP transport dialer limit
 	keepAliveTimeout   = 10  // HTTP transport dialer limit
 )
 

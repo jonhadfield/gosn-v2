@@ -396,6 +396,7 @@ func TestFilterNoteTextByRegex(t *testing.T) {
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
 	assert.True(t, res, "failed to match note by text regex")
 }
+
 //
 //func TestFilterNoteTitleByRegex(t *testing.T) {
 //	gnuNote := createNote("GNU", "Is not Unix", "")
