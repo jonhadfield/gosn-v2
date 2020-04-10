@@ -5,7 +5,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 	github.com/satori/go.uuid v1.2.0
-	github.com/spf13/viper v1.5.0
+	github.com/spf13/viper v1.6.3
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/zalando/go-keyring v0.0.0-20190913082157-62750a1ff80d
