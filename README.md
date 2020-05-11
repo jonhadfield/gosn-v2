@@ -8,7 +8,7 @@ gosn is a library to help develop your own application to manage notes on the of
 
 # installation
 
-Using go get: ``` go get github.com/jonhadfield/gosn```
+Using go get: ``` go get github.com/jonhadfield/gosn-v2```
 
 # documentation
 
