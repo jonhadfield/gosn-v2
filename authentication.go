@@ -2,10 +2,13 @@ package gosn
 
 import (
 	"bytes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	mathrand "math/rand"
+	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,8 +16,20 @@ import (
 	"time"
 )
 
-func init() {
-	mathrand.Seed(time.Now().UnixNano())
+type cryptoSource struct{}
+
+func (s cryptoSource) Seed(seed int64) {}
+
+func (s cryptoSource) Int63() int64 {
+	return int64(s.Uint64() & ^uint64(1<<63))
+}
+
+func (s cryptoSource) Uint64() (v uint64) {
+	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return v
 }
 
 type doAuthRequestOutput struct {
@@ -468,11 +483,14 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 	genInput.Identifier = email
 	genInput.PasswordCost = defaultPasswordCost
 
+	var src cryptoSource
+	rnd := rand.New(src)
+
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	b := make([]rune, 65)
 	for i := range b {
-		b[i] = letterRunes[mathrand.Intn(len(letterRunes))]
+		b[i] = letterRunes[rnd.Intn(len(letterRunes))]
 	}
 
 	genInput.PasswordNonce = string(b)
