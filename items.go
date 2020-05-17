@@ -508,6 +508,8 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseTheme(i)
 		case "SN|Privileges":
 			pi = parsePrivileges(i)
+		default:
+			return nil, fmt.Errorf("unhandled type '%s'", i.ContentType)
 		}
 
 		p = append(p, pi)
