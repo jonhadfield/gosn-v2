@@ -259,6 +259,24 @@ type ComponentContent struct {
 	AppData            AppDataContent `json:"appData"`
 }
 
+type ThemeContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
+type PrivilegesContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
 func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 	for _, si := range inSl {
 		if inSt != si {
@@ -394,6 +412,87 @@ func parseComponent(i DecryptedItem) Item {
 	return &c
 }
 
+func parseTheme(i DecryptedItem) Item {
+	c := Theme{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(ThemeContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+
+func parsePrivileges(i DecryptedItem) Item {
+	c := Privileges{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(PrivilegesContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
 func (di *DecryptedItems) Parse() (p Items, err error) {
 	for _, i := range *di {
 		var pi Item
@@ -405,6 +504,10 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseTag(i)
 		case "SN|Component":
 			pi = parseComponent(i)
+		case "SN|Theme":
+			pi = parseTheme(i)
+		case "SN|Privileges":
+			pi = parsePrivileges(i)
 		}
 
 		p = append(p, pi)
@@ -432,6 +535,16 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		err = json.Unmarshal([]byte(input), &cc)
 
 		return cc, err
+	case "SN|Theme":
+		var tc ThemeContent
+		err = json.Unmarshal([]byte(input), &tc)
+
+		return tc, err
+	case "SN|Privileges":
+		var pc PrivilegesContent
+		err = json.Unmarshal([]byte(input), &pc)
+
+		return pc, err
 	}
 
 	return
