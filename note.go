@@ -37,6 +37,17 @@ func (n *Notes) DeDupe() {
 	*n = deDuped
 }
 
+func (n *Notes) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error) {
+	var ite Items
+	na := *n
+	for x := range na {
+		g := na[x]
+		ite = append(ite, &g)
+	}
+	e, err = encryptItems(&ite, mk, ak, debug)
+	return
+}
+
 // NewNote returns an Item of type Note without content
 func NewNote() Note {
 	now := time.Now().UTC().Format(timeLayout)
