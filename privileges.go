@@ -10,7 +10,7 @@ type Privileges struct {
 	Content PrivilegesContent
 }
 
-func (i Items) Privileges() (c Privilegess) {
+func (i Items) Privileges() (c PrivilegesN) {
 	for _, x := range i {
 		if x.GetContentType() == "Privileges" {
 			component := x.(*Privileges)
@@ -21,10 +21,10 @@ func (i Items) Privileges() (c Privilegess) {
 	return c
 }
 
-func (c *Privilegess) DeDupe() {
+func (c *PrivilegesN) DeDupe() {
 	var encountered []string
 
-	var deDuped Privilegess
+	var deDuped PrivilegesN
 
 	for _, i := range *c {
 		if !stringInSlice(i.UUID, encountered, true) {
@@ -59,9 +59,9 @@ func NewPrivilegesContent() *PrivilegesContent {
 	return c
 }
 
-type Privilegess []Privileges
+type PrivilegesN []Privileges
 
-func (c Privilegess) Validate() error {
+func (c PrivilegesN) Validate() error {
 	var updatedTime time.Time
 
 	var err error
