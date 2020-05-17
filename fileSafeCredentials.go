@@ -5,9 +5,17 @@ import (
 	"time"
 )
 
+type FileSafeCredentialsContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
 
-func parseTheme(i DecryptedItem) Item {
-	c := Theme{}
+func parseFileSafeCredentials(i DecryptedItem) Item {
+	c := FileSafeCredentials{}
 	c.UUID = i.UUID
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
@@ -25,7 +33,7 @@ func parseTheme(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(ThemeContent)
+		c.Content = content.(FileSafeCredentialsContent)
 	}
 
 	var cAt, uAt time.Time
@@ -46,25 +54,15 @@ func parseTheme(i DecryptedItem) Item {
 
 	return &c
 }
-
-type ThemeContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type Theme struct {
+type FileSafeCredentials struct {
 	ItemCommon
-	Content ThemeContent
+	Content FileSafeCredentialsContent
 }
 
-func (i Items) Themes() (c Themes) {
+func (i Items) FileSafeCredentials() (c FileSafeCredentialss) {
 	for _, x := range i {
-		if x.GetContentType() == "Theme" {
-			component := x.(*Theme)
+		if x.GetContentType() == "FileSafeCredentials" {
+			component := x.(*FileSafeCredentials)
 			c = append(c, *component)
 		}
 	}
@@ -72,10 +70,10 @@ func (i Items) Themes() (c Themes) {
 	return c
 }
 
-func (c *Themes) DeDupe() {
+func (c *FileSafeCredentialss) DeDupe() {
 	var encountered []string
 
-	var deDuped Themes
+	var deDuped FileSafeCredentialss
 
 	for _, i := range *c {
 		if !stringInSlice(i.UUID, encountered, true) {
@@ -88,13 +86,13 @@ func (c *Themes) DeDupe() {
 	*c = deDuped
 }
 
-// NewTheme returns an Item of type Theme without content
-func NewTheme() Theme {
+// NewFileSafeCredentials returns an Item of type FileSafeCredentials without content
+func NewFileSafeCredentials() FileSafeCredentials {
 	now := time.Now().UTC().Format(timeLayout)
 
-	var c Theme
+	var c FileSafeCredentials
 
-	c.ContentType = "SN|Theme"
+	c.ContentType = "FileSafeCredentials"
 	c.CreatedAt = now
 	c.UpdatedAt = now
 	c.UUID = GenUUID()
@@ -103,16 +101,16 @@ func NewTheme() Theme {
 }
 
 // NewTagContent returns an empty Tag content instance
-func NewThemeContent() *ThemeContent {
-	c := &ThemeContent{}
+func NewFileSafeCredentialsContent() *FileSafeCredentialsContent {
+	c := &FileSafeCredentialsContent{}
 	c.SetUpdateTime(time.Now().UTC())
 
 	return c
 }
 
-type Themes []Theme
+type FileSafeCredentialss []FileSafeCredentials
 
-func (c Themes) Validate() error {
+func (c FileSafeCredentialss) Validate() error {
 	var updatedTime time.Time
 
 	var err error
@@ -146,63 +144,63 @@ func (c Themes) Validate() error {
 	return err
 }
 
-func (c Theme) IsDeleted() bool {
+func (c FileSafeCredentials) IsDeleted() bool {
 	return c.Deleted
 }
 
-func (c *Theme) SetDeleted(d bool) {
+func (c *FileSafeCredentials) SetDeleted(d bool) {
 	c.Deleted = d
 }
 
-func (c Theme) GetContent() Content {
+func (c FileSafeCredentials) GetContent() Content {
 	return &c.Content
 }
 
-func (c *Theme) SetContent(cc Content) {
-	c.Content = cc.(ThemeContent)
+func (c *FileSafeCredentials) SetContent(cc Content) {
+	c.Content = cc.(FileSafeCredentialsContent)
 }
 
-func (c Theme) GetUUID() string {
+func (c FileSafeCredentials) GetUUID() string {
 	return c.UUID
 }
 
-func (c *Theme) SetUUID(u string) {
+func (c *FileSafeCredentials) SetUUID(u string) {
 	c.UUID = u
 }
 
-func (c Theme) GetContentType() string {
+func (c FileSafeCredentials) GetContentType() string {
 	return c.ContentType
 }
 
-func (c Theme) GetCreatedAt() string {
+func (c FileSafeCredentials) GetCreatedAt() string {
 	return c.CreatedAt
 }
 
-func (c *Theme) SetCreatedAt(ca string) {
+func (c *FileSafeCredentials) SetCreatedAt(ca string) {
 	c.CreatedAt = ca
 }
 
-func (c Theme) GetUpdatedAt() string {
+func (c FileSafeCredentials) GetUpdatedAt() string {
 	return c.UpdatedAt
 }
 
-func (c *Theme) SetUpdatedAt(ca string) {
+func (c *FileSafeCredentials) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
 }
 
-func (c *Theme) SetContentType(ct string) {
+func (c *FileSafeCredentials) SetContentType(ct string) {
 	c.ContentType = ct
 }
 
-func (c Theme) GetContentSize() int {
+func (c FileSafeCredentials) GetContentSize() int {
 	return c.ContentSize
 }
 
-func (c *Theme) SetContentSize(s int) {
+func (c *FileSafeCredentials) SetContentSize(s int) {
 	c.ContentSize = s
 }
 
-func (cc *ThemeContent) AssociateItems(newItems []string) {
+func (cc *FileSafeCredentialsContent) AssociateItems(newItems []string) {
 	// add to associated item ids
 	for _, newRef := range newItems {
 		var existingFound bool
@@ -233,15 +231,15 @@ func (cc *ThemeContent) AssociateItems(newItems []string) {
 	}
 }
 
-func (cc *ThemeContent) GetItemAssociations() []string {
+func (cc *FileSafeCredentialsContent) GetItemAssociations() []string {
 	return cc.AssociatedItemIds
 }
 
-func (cc *ThemeContent) GetItemDisassociations() []string {
+func (cc *FileSafeCredentialsContent) GetItemDisassociations() []string {
 	return cc.DissociatedItemIds
 }
 
-func (cc *ThemeContent) DisassociateItems(itemsToRemove []string) {
+func (cc *FileSafeCredentialsContent) DisassociateItems(itemsToRemove []string) {
 	// remove from associated item ids
 	for _, delRef := range itemsToRemove {
 		var existingFound bool
@@ -259,7 +257,7 @@ func (cc *ThemeContent) DisassociateItems(itemsToRemove []string) {
 	}
 }
 
-func (cc *ThemeContent) GetUpdateTime() (time.Time, error) {
+func (cc *FileSafeCredentialsContent) GetUpdateTime() (time.Time, error) {
 	if cc.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
 		return time.Time{}, fmt.Errorf("notset")
 	}
@@ -267,41 +265,41 @@ func (cc *ThemeContent) GetUpdateTime() (time.Time, error) {
 	return time.Parse(timeLayout, cc.AppData.OrgStandardNotesSN.ClientUpdatedAt)
 }
 
-func (cc *ThemeContent) SetUpdateTime(uTime time.Time) {
+func (cc *FileSafeCredentialsContent) SetUpdateTime(uTime time.Time) {
 	cc.AppData.OrgStandardNotesSN.ClientUpdatedAt = uTime.Format(timeLayout)
 }
 
-func (cc ThemeContent) GetTitle() string {
+func (cc FileSafeCredentialsContent) GetTitle() string {
 	return ""
 }
 
-func (cc *ThemeContent) GetName() string {
+func (cc *FileSafeCredentialsContent) GetName() string {
 	return cc.Name
 }
 
-func (cc *ThemeContent) GetActive() bool {
+func (cc *FileSafeCredentialsContent) GetActive() bool {
 	return cc.Active.(bool)
 }
 
-func (cc *ThemeContent) SetTitle(title string) {
+func (cc *FileSafeCredentialsContent) SetTitle(title string) {
 }
 
-func (cc *ThemeContent) GetAppData() AppDataContent {
+func (cc *FileSafeCredentialsContent) GetAppData() AppDataContent {
 	return cc.AppData
 }
 
-func (cc *ThemeContent) SetAppData(data AppDataContent) {
+func (cc *FileSafeCredentialsContent) SetAppData(data AppDataContent) {
 	cc.AppData = data
 }
 
-func (cc ThemeContent) References() ItemReferences {
+func (cc FileSafeCredentialsContent) References() ItemReferences {
 	return cc.ItemReferences
 }
 
-func (cc *ThemeContent) UpsertReferences(input ItemReferences) {
+func (cc *FileSafeCredentialsContent) UpsertReferences(input ItemReferences) {
 	panic("implement me")
 }
 
-func (cc *ThemeContent) SetReferences(input ItemReferences) {
+func (cc *FileSafeCredentialsContent) SetReferences(input ItemReferences) {
 	panic("implement me")
 }

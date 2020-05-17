@@ -10,6 +10,48 @@ type Tag struct {
 	Content TagContent
 }
 
+
+func parseTag(i DecryptedItem) Item {
+	t := Tag{}
+	t.UUID = i.UUID
+	t.ContentType = i.ContentType
+	t.Deleted = i.Deleted
+	t.UpdatedAt = i.UpdatedAt
+	t.CreatedAt = i.CreatedAt
+	t.ContentSize = len(i.Content)
+
+	var err error
+
+	if !t.Deleted {
+		var content Content
+		content, err = processContentModel(i.ContentType, i.Content)
+
+		if err != nil {
+			panic(err)
+		}
+
+		t.Content = content.(TagContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	t.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	t.UpdatedAt = uAt.Format(timeLayout)
+
+	return &t
+}
+
 func (i Items) Tags() (t Tags) {
 	for _, x := range i {
 		if x.GetContentType() == "Tag" {

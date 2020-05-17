@@ -5,6 +5,58 @@ import (
 	"time"
 )
 
+func parseSFMFA(i DecryptedItem) Item {
+	c := SFMFA{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+	c.ContentSize = len(i.Content)
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		if content != nil {
+			c.Content = content.(SFMFAContent)
+		}
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+type SFMFAContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
 type SFMFA struct {
 	ItemCommon
 	Content SFMFAContent

@@ -5,15 +5,13 @@ import (
 	"time"
 )
 
-
-func parseTheme(i DecryptedItem) Item {
-	c := Theme{}
+func parseUserPreferences(i DecryptedItem) Item {
+	c := UserPreferences{}
 	c.UUID = i.UUID
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt
 	c.CreatedAt = i.CreatedAt
-	c.ContentSize = len(i.Content)
 
 	var err error
 
@@ -25,7 +23,7 @@ func parseTheme(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(ThemeContent)
+		c.Content = content.(UserPreferencesContent)
 	}
 
 	var cAt, uAt time.Time
@@ -47,7 +45,8 @@ func parseTheme(i DecryptedItem) Item {
 	return &c
 }
 
-type ThemeContent struct {
+
+type UserPreferencesContent struct {
 	ItemReferences     ItemReferences `json:"references"`
 	AppData            AppDataContent `json:"appData"`
 	Name               string         `json:"name"`
@@ -56,15 +55,15 @@ type ThemeContent struct {
 	Active             interface{}    `json:"active"`
 }
 
-type Theme struct {
+type UserPreferences struct {
 	ItemCommon
-	Content ThemeContent
+	Content UserPreferencesContent
 }
 
-func (i Items) Themes() (c Themes) {
+func (i Items) UserPreferences() (c UserPreferencess) {
 	for _, x := range i {
-		if x.GetContentType() == "Theme" {
-			component := x.(*Theme)
+		if x.GetContentType() == "UserPreferences" {
+			component := x.(*UserPreferences)
 			c = append(c, *component)
 		}
 	}
@@ -72,10 +71,10 @@ func (i Items) Themes() (c Themes) {
 	return c
 }
 
-func (c *Themes) DeDupe() {
+func (c *UserPreferencess) DeDupe() {
 	var encountered []string
 
-	var deDuped Themes
+	var deDuped UserPreferencess
 
 	for _, i := range *c {
 		if !stringInSlice(i.UUID, encountered, true) {
@@ -88,13 +87,13 @@ func (c *Themes) DeDupe() {
 	*c = deDuped
 }
 
-// NewTheme returns an Item of type Theme without content
-func NewTheme() Theme {
+// NewUserPreferences returns an Item of type UserPreferences without content
+func NewUserPreferences() UserPreferences {
 	now := time.Now().UTC().Format(timeLayout)
 
-	var c Theme
+	var c UserPreferences
 
-	c.ContentType = "SN|Theme"
+	c.ContentType = "UserPreferences"
 	c.CreatedAt = now
 	c.UpdatedAt = now
 	c.UUID = GenUUID()
@@ -103,16 +102,16 @@ func NewTheme() Theme {
 }
 
 // NewTagContent returns an empty Tag content instance
-func NewThemeContent() *ThemeContent {
-	c := &ThemeContent{}
+func NewUserPreferencesContent() *UserPreferencesContent {
+	c := &UserPreferencesContent{}
 	c.SetUpdateTime(time.Now().UTC())
 
 	return c
 }
 
-type Themes []Theme
+type UserPreferencess []UserPreferences
 
-func (c Themes) Validate() error {
+func (c UserPreferencess) Validate() error {
 	var updatedTime time.Time
 
 	var err error
@@ -146,63 +145,63 @@ func (c Themes) Validate() error {
 	return err
 }
 
-func (c Theme) IsDeleted() bool {
+func (c UserPreferences) IsDeleted() bool {
 	return c.Deleted
 }
 
-func (c *Theme) SetDeleted(d bool) {
+func (c *UserPreferences) SetDeleted(d bool) {
 	c.Deleted = d
 }
 
-func (c Theme) GetContent() Content {
+func (c UserPreferences) GetContent() Content {
 	return &c.Content
 }
 
-func (c *Theme) SetContent(cc Content) {
-	c.Content = cc.(ThemeContent)
+func (c *UserPreferences) SetContent(cc Content) {
+	c.Content = cc.(UserPreferencesContent)
 }
 
-func (c Theme) GetUUID() string {
+func (c UserPreferences) GetUUID() string {
 	return c.UUID
 }
 
-func (c *Theme) SetUUID(u string) {
+func (c *UserPreferences) SetUUID(u string) {
 	c.UUID = u
 }
 
-func (c Theme) GetContentType() string {
+func (c UserPreferences) GetContentType() string {
 	return c.ContentType
 }
 
-func (c Theme) GetCreatedAt() string {
+func (c UserPreferences) GetCreatedAt() string {
 	return c.CreatedAt
 }
 
-func (c *Theme) SetCreatedAt(ca string) {
+func (c *UserPreferences) SetCreatedAt(ca string) {
 	c.CreatedAt = ca
 }
 
-func (c Theme) GetUpdatedAt() string {
+func (c UserPreferences) GetUpdatedAt() string {
 	return c.UpdatedAt
 }
 
-func (c *Theme) SetUpdatedAt(ca string) {
+func (c *UserPreferences) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
 }
 
-func (c *Theme) SetContentType(ct string) {
+func (c *UserPreferences) SetContentType(ct string) {
 	c.ContentType = ct
 }
 
-func (c Theme) GetContentSize() int {
+func (c UserPreferences) GetContentSize() int {
 	return c.ContentSize
 }
 
-func (c *Theme) SetContentSize(s int) {
+func (c *UserPreferences) SetContentSize(s int) {
 	c.ContentSize = s
 }
 
-func (cc *ThemeContent) AssociateItems(newItems []string) {
+func (cc *UserPreferencesContent) AssociateItems(newItems []string) {
 	// add to associated item ids
 	for _, newRef := range newItems {
 		var existingFound bool
@@ -233,15 +232,15 @@ func (cc *ThemeContent) AssociateItems(newItems []string) {
 	}
 }
 
-func (cc *ThemeContent) GetItemAssociations() []string {
+func (cc *UserPreferencesContent) GetItemAssociations() []string {
 	return cc.AssociatedItemIds
 }
 
-func (cc *ThemeContent) GetItemDisassociations() []string {
+func (cc *UserPreferencesContent) GetItemDisassociations() []string {
 	return cc.DissociatedItemIds
 }
 
-func (cc *ThemeContent) DisassociateItems(itemsToRemove []string) {
+func (cc *UserPreferencesContent) DisassociateItems(itemsToRemove []string) {
 	// remove from associated item ids
 	for _, delRef := range itemsToRemove {
 		var existingFound bool
@@ -259,7 +258,7 @@ func (cc *ThemeContent) DisassociateItems(itemsToRemove []string) {
 	}
 }
 
-func (cc *ThemeContent) GetUpdateTime() (time.Time, error) {
+func (cc *UserPreferencesContent) GetUpdateTime() (time.Time, error) {
 	if cc.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
 		return time.Time{}, fmt.Errorf("notset")
 	}
@@ -267,41 +266,41 @@ func (cc *ThemeContent) GetUpdateTime() (time.Time, error) {
 	return time.Parse(timeLayout, cc.AppData.OrgStandardNotesSN.ClientUpdatedAt)
 }
 
-func (cc *ThemeContent) SetUpdateTime(uTime time.Time) {
+func (cc *UserPreferencesContent) SetUpdateTime(uTime time.Time) {
 	cc.AppData.OrgStandardNotesSN.ClientUpdatedAt = uTime.Format(timeLayout)
 }
 
-func (cc ThemeContent) GetTitle() string {
+func (cc UserPreferencesContent) GetTitle() string {
 	return ""
 }
 
-func (cc *ThemeContent) GetName() string {
+func (cc *UserPreferencesContent) GetName() string {
 	return cc.Name
 }
 
-func (cc *ThemeContent) GetActive() bool {
+func (cc *UserPreferencesContent) GetActive() bool {
 	return cc.Active.(bool)
 }
 
-func (cc *ThemeContent) SetTitle(title string) {
+func (cc *UserPreferencesContent) SetTitle(title string) {
 }
 
-func (cc *ThemeContent) GetAppData() AppDataContent {
+func (cc *UserPreferencesContent) GetAppData() AppDataContent {
 	return cc.AppData
 }
 
-func (cc *ThemeContent) SetAppData(data AppDataContent) {
+func (cc *UserPreferencesContent) SetAppData(data AppDataContent) {
 	cc.AppData = data
 }
 
-func (cc ThemeContent) References() ItemReferences {
+func (cc UserPreferencesContent) References() ItemReferences {
 	return cc.ItemReferences
 }
 
-func (cc *ThemeContent) UpsertReferences(input ItemReferences) {
+func (cc *UserPreferencesContent) UpsertReferences(input ItemReferences) {
 	panic("implement me")
 }
 
-func (cc *ThemeContent) SetReferences(input ItemReferences) {
+func (cc *UserPreferencesContent) SetReferences(input ItemReferences) {
 	panic("implement me")
 }

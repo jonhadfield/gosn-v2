@@ -240,88 +240,6 @@ type TagContent struct {
 	AppData        AppDataContent `json:"appData"`
 }
 
-type ComponentContent struct {
-	LegacyURL          string         `json:"legacy_url"`
-	HostedURL          string         `json:"hosted_url"`
-	LocalURL           string         `json:"local_url"`
-	ValidUntil         string         `json:"valid_until"`
-	OfflineOnly        string         `json:"offlineOnly"`
-	Name               string         `json:"name"`
-	Area               string         `json:"area"`
-	PackageInfo        interface{}    `json:"package_info"`
-	Permissions        interface{}    `json:"permissions"`
-	Active             interface{}    `json:"active"`
-	AutoUpdateDisabled string         `json:"autoupdateDisabled"`
-	ComponentData      interface{}    `json:"componentData"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-}
-
-type ThemeContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type PrivilegesContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type ExtensionContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type SFExtensionContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type SFMFAContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type SmartTagContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
-type FileSafeFileMetaDataContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
-}
-
 func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 	for _, si := range inSl {
 		if inSt != si {
@@ -335,411 +253,6 @@ func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 type ItemReferences []ItemReference
 
 type Items []Item
-
-func parseNote(i DecryptedItem) Item {
-	n := Note{}
-	n.UUID = i.UUID
-	n.ContentType = i.ContentType
-	n.Deleted = i.Deleted
-	n.UpdatedAt = i.UpdatedAt
-	n.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !n.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-
-		if err != nil {
-			panic(err)
-		}
-
-		n.Content = content.(NoteContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	n.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	n.UpdatedAt = uAt.Format(timeLayout)
-
-	return &n
-}
-
-func parseTag(i DecryptedItem) Item {
-	t := Tag{}
-	t.UUID = i.UUID
-	t.ContentType = i.ContentType
-	t.Deleted = i.Deleted
-	t.UpdatedAt = i.UpdatedAt
-	t.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !t.Deleted {
-		var content Content
-		content, err = processContentModel(i.ContentType, i.Content)
-
-		if err != nil {
-			panic(err)
-		}
-
-		t.Content = content.(TagContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	t.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	t.UpdatedAt = uAt.Format(timeLayout)
-
-	return &t
-}
-
-func parseComponent(i DecryptedItem) Item {
-	c := Component{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		c.Content = content.(ComponentContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parseTheme(i DecryptedItem) Item {
-	c := Theme{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		c.Content = content.(ThemeContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parsePrivileges(i DecryptedItem) Item {
-	c := Privileges{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		c.Content = content.(PrivilegesContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parseExtension(i DecryptedItem) Item {
-	c := Extension{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		c.Content = content.(ExtensionContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parseSFExtension(i DecryptedItem) Item {
-	c := SFExtension{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		if content != nil {
-			c.Content = content.(SFExtensionContent)
-		}
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parseSFMFA(i DecryptedItem) Item {
-	c := SFMFA{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		if content != nil {
-			c.Content = content.(SFMFAContent)
-		}
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parseSmartTag(i DecryptedItem) Item {
-	c := SmartTag{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		c.Content = content.(SmartTagContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
-
-func parseFileSafeFileMetadata(i DecryptedItem) Item {
-	c := FileSafeFileMetaData{}
-	c.UUID = i.UUID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-
-	var err error
-
-	if !c.Deleted {
-		var content Content
-
-		content, err = processContentModel(i.ContentType, i.Content)
-		if err != nil {
-			panic(err)
-		}
-
-		c.Content = content.(FileSafeFileMetaDataContent)
-	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(timeLayout)
-
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(timeLayout)
-
-	return &c
-}
 
 func (di *DecryptedItems) Parse() (p Items, err error) {
 	for _, i := range *di {
@@ -766,6 +279,14 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseSmartTag(i)
 		case "SN|FileSafe|FileMetadata":
 			pi = parseFileSafeFileMetadata(i)
+		case "SN|FileSafe|Integration":
+			pi = parseFileSafeIntegration(i)
+		case "SN|UserPreferences":
+			pi = parseUserPreferences(i)
+		case "SN|ExtensionRepo":
+			pi = parseExtensionRepo(i)
+		case "SN|FileSafe|Credentials":
+			pi = parseFileSafeCredentials(i)
 		default:
 			return nil, fmt.Errorf("unhandled type '%s'", i.ContentType)
 		}
@@ -837,8 +358,37 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &fsfm)
 		}
-
 		return fsfm, err
+
+	case "SN|FileSafe|Integration":
+		var fsi FileSafeIntegrationContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &fsi)
+		}
+
+		return fsi, err
+	case "SN|UserPreferences":
+		var upc UserPreferencesContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &upc)
+		}
+
+		return upc, err
+	case "SN|ExtensionRepo":
+		var erc ExtensionRepoContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &erc)
+		}
+
+		return erc, err
+	case "SN|FileSafe|Credentials":
+		var fsc FileSafeCredentialsContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &fsc)
+		}
+
+		return fsc, err
+
 	default:
 		return nil, fmt.Errorf("unexpected type '%s'", contentType)
 	}

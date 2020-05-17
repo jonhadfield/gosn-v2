@@ -5,6 +5,56 @@ import (
 	"time"
 )
 
+func parseSmartTag(i DecryptedItem) Item {
+	c := SmartTag{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+	c.ContentSize = len(i.Content)
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(SmartTagContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+type SmartTagContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
 type SmartTag struct {
 	ItemCommon
 	Content SmartTagContent
