@@ -5,6 +5,68 @@ import (
 	"time"
 )
 
+
+
+func parseComponent(i DecryptedItem) Item {
+	c := Component{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+	c.ContentSize = len(i.Content)
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(ComponentContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+type ComponentContent struct {
+	LegacyURL          string         `json:"legacy_url"`
+	HostedURL          string         `json:"hosted_url"`
+	LocalURL           string         `json:"local_url"`
+	ValidUntil         string         `json:"valid_until"`
+	OfflineOnly        string         `json:"offlineOnly"`
+	Name               string         `json:"name"`
+	Area               string         `json:"area"`
+	PackageInfo        interface{}    `json:"package_info"`
+	Permissions        interface{}    `json:"permissions"`
+	Active             interface{}    `json:"active"`
+	AutoUpdateDisabled string         `json:"autoupdateDisabled"`
+	ComponentData      interface{}    `json:"componentData"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+}
+
 type Component struct {
 	ItemCommon
 	Content ComponentContent

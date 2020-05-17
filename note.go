@@ -10,6 +10,49 @@ type Note struct {
 	Content NoteContent
 }
 
+func parseNote(i DecryptedItem) Item {
+	n := Note{}
+	n.UUID = i.UUID
+	n.ContentType = i.ContentType
+	n.Deleted = i.Deleted
+	n.UpdatedAt = i.UpdatedAt
+	n.CreatedAt = i.CreatedAt
+	n.ContentSize = len(i.Content)
+
+	var err error
+
+	if !n.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+
+		if err != nil {
+			panic(err)
+		}
+
+		n.Content = content.(NoteContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	n.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	n.UpdatedAt = uAt.Format(timeLayout)
+
+	return &n
+}
+
+
 func (i Items) Notes() (n Notes) {
 	for _, x := range i {
 		if x.GetContentType() == "Note" {
