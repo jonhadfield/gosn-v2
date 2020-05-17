@@ -277,6 +277,51 @@ type PrivilegesContent struct {
 	Active             interface{}    `json:"active"`
 }
 
+type ExtensionContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
+type SFExtensionContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
+type SFMFAContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
+type SmartTagContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
+type FileSafeFileMetaDataContent struct {
+	ItemReferences     ItemReferences `json:"references"`
+	AppData            AppDataContent `json:"appData"`
+	Name               string         `json:"name"`
+	DissociatedItemIds []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	Active             interface{}    `json:"active"`
+}
+
 func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 	for _, si := range inSl {
 		if inSt != si {
@@ -452,7 +497,6 @@ func parseTheme(i DecryptedItem) Item {
 	return &c
 }
 
-
 func parsePrivileges(i DecryptedItem) Item {
 	c := Privileges{}
 	c.UUID = i.UUID
@@ -493,6 +537,210 @@ func parsePrivileges(i DecryptedItem) Item {
 	return &c
 }
 
+func parseExtension(i DecryptedItem) Item {
+	c := Extension{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(ExtensionContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+func parseSFExtension(i DecryptedItem) Item {
+	c := SFExtension{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		if content != nil {
+			c.Content = content.(SFExtensionContent)
+		}
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+func parseSFMFA(i DecryptedItem) Item {
+	c := SFMFA{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		if content != nil {
+			c.Content = content.(SFMFAContent)
+		}
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+func parseSmartTag(i DecryptedItem) Item {
+	c := SmartTag{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(SmartTagContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
+func parseFileSafeFileMetadata(i DecryptedItem) Item {
+	c := FileSafeFileMetaData{}
+	c.UUID = i.UUID
+	c.ContentType = i.ContentType
+	c.Deleted = i.Deleted
+	c.UpdatedAt = i.UpdatedAt
+	c.CreatedAt = i.CreatedAt
+
+	var err error
+
+	if !c.Deleted {
+		var content Content
+
+		content, err = processContentModel(i.ContentType, i.Content)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Content = content.(FileSafeFileMetaDataContent)
+	}
+
+	var cAt, uAt time.Time
+
+	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.CreatedAt = cAt.Format(timeLayout)
+
+	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	c.UpdatedAt = uAt.Format(timeLayout)
+
+	return &c
+}
+
 func (di *DecryptedItems) Parse() (p Items, err error) {
 	for _, i := range *di {
 		var pi Item
@@ -508,6 +756,16 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseTheme(i)
 		case "SN|Privileges":
 			pi = parsePrivileges(i)
+		case "Extension":
+			pi = parseExtension(i)
+		case "SF|Extension":
+			pi = parseSFExtension(i)
+		case "SF|MFA":
+			pi = parseSFMFA(i)
+		case "SN|SmartTag":
+			pi = parseSmartTag(i)
+		case "SN|FileSafe|FileMetadata":
+			pi = parseFileSafeFileMetadata(i)
 		default:
 			return nil, fmt.Errorf("unhandled type '%s'", i.ContentType)
 		}
@@ -547,9 +805,43 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		err = json.Unmarshal([]byte(input), &pc)
 
 		return pc, err
-	}
+	case "Extension":
+		var ec ExtensionContent
+		err = json.Unmarshal([]byte(input), &ec)
 
-	return
+		return ec, err
+	case "SF|Extension":
+		var sfe SFExtensionContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &sfe)
+		}
+
+		return sfe, err
+	case "SF|MFA":
+		var sfm SFMFAContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &sfm)
+		}
+
+		return sfm, err
+	case "SN|SmartTag":
+		var st SmartTagContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &st)
+		}
+
+		return st, err
+
+	case "SN|FileSafe|FileMetadata":
+		var fsfm FileSafeFileMetaDataContent
+		if len(input) > 0 {
+			err = json.Unmarshal([]byte(input), &fsfm)
+		}
+
+		return fsfm, err
+	default:
+		return nil, fmt.Errorf("unexpected type '%s'", contentType)
+	}
 }
 
 func (ei *EncryptedItems) DeDupe() {
