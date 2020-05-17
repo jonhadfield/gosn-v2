@@ -37,6 +37,17 @@ func (t *Tags) DeDupe() {
 	*t = deDuped
 }
 
+func (t *Tags) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error) {
+	var ite Items
+	ta := *t
+	for x := range ta {
+		g := ta[x]
+		ite = append(ite, &g)
+	}
+	e, err = encryptItems(&ite, mk, ak, debug)
+	return
+}
+
 // NewTag returns an Item of type Tag without content
 func NewTag() Tag {
 	now := time.Now().UTC().Format(timeLayout)
