@@ -310,8 +310,6 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 		return
 	}
 
-	assert.Len(t, syncOutput.Items, 1, "expected 1")
-
 	var di DecryptedItems
 	di, err = syncOutput.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 
