@@ -213,7 +213,7 @@ type NoteContent struct {
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
 	if noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
-		return time.Time{}, fmt.Errorf("notset")
+		return time.Time{}, fmt.Errorf("ClientUpdatedAt not set")
 	}
 
 	return time.Parse(timeLayout, noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt)

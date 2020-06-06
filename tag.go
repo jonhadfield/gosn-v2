@@ -277,7 +277,7 @@ func (tagContent *TagContent) SetUpdateTime(uTime time.Time) {
 
 func (tagContent *TagContent) GetUpdateTime() (time.Time, error) {
 	if tagContent.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
-		return time.Time{}, fmt.Errorf("notset")
+		return time.Time{}, fmt.Errorf("ClientUpdatedAt not set")
 	}
 
 	return time.Parse(timeLayout, tagContent.AppData.OrgStandardNotesSN.ClientUpdatedAt)

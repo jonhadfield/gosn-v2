@@ -262,7 +262,7 @@ func (cc *SFMFAContent) DisassociateItems(itemsToRemove []string) {
 
 func (cc *SFMFAContent) GetUpdateTime() (time.Time, error) {
 	if cc.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
-		return time.Time{}, fmt.Errorf("notset")
+		return time.Time{}, fmt.Errorf("ClientUpdatedAt not set")
 	}
 
 	return time.Parse(timeLayout, cc.AppData.OrgStandardNotesSN.ClientUpdatedAt)
