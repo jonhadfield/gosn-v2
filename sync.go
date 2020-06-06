@@ -150,25 +150,22 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	var requestBody []byte
 	// generate request body
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
-
 	switch {
 	case input.CursorToken == "":
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is empty")
 
 		if len(input.Items) == 0 {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `"}`)
+				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
 			} else {
 				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
 			}
 		} else {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `"}`)
+				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
 			} else {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
-					`,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
+				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
 			}
-
 		}
 	case input.CursorToken == "null":
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is null")
