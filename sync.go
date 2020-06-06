@@ -156,7 +156,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is empty")
 
 		if len(input.Items) == 0 {
-			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
+			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
 		} else {
 			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 				`,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
