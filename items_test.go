@@ -154,8 +154,24 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	if err != nil {
 		return
 	}
+	var uuids []string
 	fmt.Println("Going to delete items:", len(so.Items))
-
+	var notes, components, tags int
+	for _, x := range so.Items {
+		uuids = append(uuids, x.UUID)
+		switch x.ContentType {
+		case "Note":
+			notes++
+		case "Tag":
+			tags++
+		case "SN|Component":
+			components++
+		}
+	}
+	fmt.Println("Notes:", notes)
+	fmt.Println("Tags:", tags)
+	fmt.Println("Components:", components)
+	//unique(uuids)
 	var items Items
 
 	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
@@ -197,6 +213,16 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 
 	return err
 }
+
+//func unique(uuidSlice []string) {
+//	keys := make(map[string]bool)
+//	for _, entry := range uuidSlice {
+//		if _, value := keys[entry]; value {
+//			fmt.Println("Got duplicate:", entry)
+//		}
+//	}
+//	fmt.Println()
+//}
 
 func _getItems(session Session, itemFilters ItemFilters) (items Items, err error) {
 	si := SyncInput{
@@ -1140,7 +1166,7 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	//defer cleanup(&sOutput.Session)
 
 	newNotes := genNotes(numNotes, 10)
 	assert.NoError(t, newNotes.Validate())
@@ -1212,6 +1238,10 @@ func TestCreateAndGet301Notes(t *testing.T) {
 			t.Errorf("incorrect note returned")
 		}
 	}
+
+	// delete all notes and ensure all have been deleted
+
+
 }
 
 func genRandomText(paragraphs int) string {
