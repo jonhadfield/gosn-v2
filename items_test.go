@@ -156,8 +156,19 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	}
 	var uuids []string
 	fmt.Println("Going to delete items:", len(so.Items))
+
+	seenItems := make(map[string]bool)
+
 	var notes, components, tags int
 	for _, x := range so.Items {
+		if seenItems[x.UUID] {
+			panic("got duplicate!!!!!")
+		} else {
+			seenItems[x.UUID] = true
+		}
+		if x.Deleted {
+			panic("unexpected deleted item")
+		}
 		uuids = append(uuids, x.UUID)
 		switch x.ContentType {
 		case "Note":
@@ -166,6 +177,8 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 			tags++
 		case "SN|Component":
 			components++
+		default:
+			fmt.Println(x.ContentType)
 		}
 	}
 	fmt.Println("Notes:", notes)
@@ -1165,8 +1178,8 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	numNotes := 301
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
-
-	//defer cleanup(&sOutput.Session)
+	cleanup(&sOutput.Session)
+	defer cleanup(&sOutput.Session)
 
 	newNotes := genNotes(numNotes, 10)
 	assert.NoError(t, newNotes.Validate())
