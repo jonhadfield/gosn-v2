@@ -162,8 +162,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 			} else {
 				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
 			}
-
-			fmt.Println(string(requestBody))
 		} else {
 			if input.SyncToken == "" {
 				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
@@ -197,7 +195,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	msrStart := time.Now()
 
 	var responseBody []byte
-	//fmt.Println(string(requestBody))
 	responseBody, err = makeSyncRequest(input.Session, requestBody, input.Debug)
 	msrEnd := time.Since(msrStart)
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
@@ -215,37 +212,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	out.Items = bodyContent.Items
-	fmt.Println("ITEMS:", len(out.Items))
-
-	var deleted int
-	for _, x := range out.Items {
-		if x.Deleted {
-			fmt.Println(x.UUID, x.ContentType)
-			deleted++
-		}
-	}
-
-	fmt.Println("DELETED ITEMS:", deleted)
-
 	out.SavedItems = bodyContent.SavedItems
-
-	var deletedSaved int
-	for _, x := range out.SavedItems {
-		if x.Deleted {
-			deletedSaved++
-		}
-	}
-
-	fmt.Println("DELETED SAVED ITEMS:", deletedSaved)
-
-	var deletedUnSaved int
-	for _, x := range out.Unsaved {
-		if x.Deleted {
-			deletedUnSaved++
-		}
-	}
-
-	fmt.Println("DELETED UNSAVED ITEMS:", deletedUnSaved)
 
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
@@ -261,7 +228,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
 
-	//
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse
 
