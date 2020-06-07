@@ -112,7 +112,6 @@ func lesserOf(first, second int) int {
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
-
 	// determine how many items to retrieve with each call
 	var limit int
 
@@ -150,35 +149,46 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	var requestBody []byte
 	// generate request body
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
+	newST := stripLineBreak(input.SyncToken) + `\n`
+
 	switch {
 	case input.CursorToken == "":
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is empty")
 
 		if len(input.Items) == 0 {
+
 			if input.SyncToken == "" {
 				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
 			} else {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
+				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
 			}
+
+			fmt.Println(string(requestBody))
 		} else {
 			if input.SyncToken == "" {
 				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
 			} else {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `,"sync_token":"` + stripLineBreak(input.SyncToken) + `"}`)
+				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
+					`,"sync_token":"` + newST + `"}`)
 			}
 		}
+
 	case input.CursorToken == "null":
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is null")
+		if input.SyncToken == "" {
+			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
+				`,"items":[],"cursor_token":null}`)
+		} else {
+			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
+				`,"items":[],"sync_token":"` + newST + `","cursor_token":null}`)
+		}
 
-		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"sync_token":"` + input.SyncToken + `\n","cursor_token":null}`)
 	case input.CursorToken != "":
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | got cursor %s", stripLineBreak(input.CursorToken)))
 		rawST := input.SyncToken
 		input.SyncToken = stripLineBreak(rawST)
-		newST := stripLineBreak(input.SyncToken)
 		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"sync_token":"` + newST + `\n","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
+			`,"items":[],"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}
 
 	// make the request
@@ -187,6 +197,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	msrStart := time.Now()
 
 	var responseBody []byte
+	//fmt.Println(string(requestBody))
 	responseBody, err = makeSyncRequest(input.Session, requestBody, input.Debug)
 	msrEnd := time.Since(msrStart)
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
@@ -204,7 +215,38 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	out.Items = bodyContent.Items
+	fmt.Println("ITEMS:", len(out.Items))
+
+	var deleted int
+	for _, x := range out.Items {
+		if x.Deleted {
+			fmt.Println(x.UUID, x.ContentType)
+			deleted++
+		}
+	}
+
+	fmt.Println("DELETED ITEMS:", deleted)
+
 	out.SavedItems = bodyContent.SavedItems
+
+	var deletedSaved int
+	for _, x := range out.SavedItems {
+		if x.Deleted {
+			deletedSaved++
+		}
+	}
+
+	fmt.Println("DELETED SAVED ITEMS:", deletedSaved)
+
+	var deletedUnSaved int
+	for _, x := range out.Unsaved {
+		if x.Deleted {
+			deletedUnSaved++
+		}
+	}
+
+	fmt.Println("DELETED UNSAVED ITEMS:", deletedUnSaved)
+
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Unsaved %d items", len(out.Unsaved)))
