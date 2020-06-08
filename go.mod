@@ -1,6 +1,7 @@
 module github.com/jonhadfield/gosn-v2
 
 require (
+	github.com/asdine/storm/v3 v3.2.0
 	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/danieljoos/wincred v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
