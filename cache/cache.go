@@ -6,11 +6,19 @@ import (
 	"fmt"
 	"github.com/asdine/storm/v3"
 	"github.com/jonhadfield/gosn-v2"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
+
+const (
+	// LOGGING
+	libName       = "gosn-v2 cache" // name of library used in logging
+	maxDebugChars = 120    // number of characters to display when logging API response body
+)
+
 
 type Item struct {
 	UUID        string `storm:"id,unique"`
@@ -32,6 +40,7 @@ type SyncInput struct {
 	Session gosn.Session
 	DB      *storm.DB // pointer to an existing DB
 	DBPath  string    // path to create new DB
+	Debug   bool
 }
 
 type SyncOutput struct {
@@ -139,6 +148,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// open existing DB if no path provided
 	if si.DBPath != "" {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | using db in '%s'", si.DBPath))
 		si.DB, err = storm.Open(si.DBPath)
 		if err != nil {
 			return
@@ -304,4 +314,14 @@ func GenCacheDBPath(session gosn.Session, dir, appName string) (string, error) {
 	}
 
 	return filepath.Join(dir, appName+"-"+hexedDigest+".db"), err
+}
+
+func debugPrint(show bool, msg string) {
+	if show {
+		if len(msg) > maxDebugChars {
+			msg = msg[:maxDebugChars] + "..."
+		}
+
+		log.Println(libName, "|", msg)
+	}
 }
