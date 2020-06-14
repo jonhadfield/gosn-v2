@@ -104,10 +104,13 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 func SaveItems(db *storm.DB, mk, ak string, items gosn.Items, close, debug bool) error {
 	//var eItems gosn.EncryptedItems
 	eItems, err := items.Encrypt(mk, ak, debug)
+
 	if err != nil {
 		return err
 	}
+
 	cItems := ToCacheItems(eItems, false)
+
 	return SaveCacheItems(db, cItems, close)
 }
 
@@ -240,6 +243,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	var gSO gosn.SyncOutput
+
 	gSO, err = gosn.Sync(gSI)
 	if err != nil {
 		return
@@ -358,13 +362,21 @@ func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 		return "", fmt.Errorf("appName is a required")
 	}
 
+	// if cache directory not defined then create dot path in home directory
 	if dir == "" {
-		dir, err = homedir.Dir()
+		var homeDir string
+
+		homeDir, err = homedir.Dir()
 		if err != nil {
 			return "", err
 		}
-	} else if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return "", fmt.Errorf("directory does not exist: '%s'", dir)
+
+		dir = filepath.Join(homeDir, "."+appName)
+	}
+
+	err = os.MkdirAll(dir, 0700)
+	if err != nil {
+		return "", fmt.Errorf("failed to make cache directory: %s", dir)
 	}
 
 	h := sha256.New()
@@ -373,7 +385,7 @@ func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 	bs := h.Sum(nil)
 	hexedDigest := hex.EncodeToString(bs)[:8]
 
-	return filepath.Join(dir, "."+appName+"-"+hexedDigest+".db"), err
+	return filepath.Join(dir, appName+"-"+hexedDigest+".db"), err
 }
 
 func debugPrint(show bool, msg string) {
