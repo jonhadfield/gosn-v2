@@ -71,10 +71,6 @@ func (pi Items) ToItems(Mk, Ak string) (items gosn.Items, err error) {
 		})
 	}
 
-	if eItems != nil {
-		items, err = eItems.DecryptAndParse(Mk, Ak, true)
-	}
-
 	return
 }
 
