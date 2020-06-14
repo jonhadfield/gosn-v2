@@ -12,6 +12,7 @@ import (
 
 	"github.com/asdine/storm/v3"
 	"github.com/jonhadfield/gosn-v2"
+	"github.com/mitchellh/go-homedir"
 )
 
 const (
@@ -358,7 +359,10 @@ func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 	}
 
 	if dir == "" {
-		dir = os.TempDir()
+		dir, err = homedir.Dir()
+		if err != nil {
+			return "", err
+		}
 	} else if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return "", fmt.Errorf("directory does not exist: '%s'", dir)
 	}
@@ -369,11 +373,7 @@ func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 	bs := h.Sum(nil)
 	hexedDigest := hex.EncodeToString(bs)[:8]
 
-	if dir == "" {
-		dir = os.TempDir()
-	}
-
-	return filepath.Join(dir, appName+"-"+hexedDigest+".db"), err
+	return filepath.Join(dir, "."+appName+"-"+hexedDigest+".db"), err
 }
 
 func debugPrint(show bool, msg string) {
