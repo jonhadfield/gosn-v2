@@ -72,9 +72,9 @@ func (pi Items) ToItems(Mk, Ak string) (items gosn.Items, err error) {
 	}
 
 	if eItems != nil {
-		items, err = eItems.DecryptAndParse(Mk, Ak, true)
+		items, err = eItems.DecryptAndParse(Mk, Ak, false)
 	}
-	
+
 	return
 }
 
@@ -100,23 +100,46 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 	return
 }
 
+func SaveItems(db *storm.DB, mk, ak string, items gosn.Items, close, debug bool) error {
+	//var eItems gosn.EncryptedItems
+	eItems, err := items.Encrypt(mk, ak, debug)
+	if err != nil {
+		return err
+	}
+	cItems := ToCacheItems(eItems, false)
+	return SaveCacheItems(db, cItems, close)
+}
+
+func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) error {
+	cItems := ToCacheItems(items, false)
+	return SaveCacheItems(db, cItems, close)
+}
+
 // SaveCacheItems saves Cache Items to the provided database
-func SaveCacheItems(db *storm.DB, items Items) error {
+func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	for _, i := range items {
 		if err := db.Save(&i); err != nil {
 			return err
 		}
 	}
 
+	if close {
+		return db.Close()
+	}
+
 	return nil
 }
 
 // UpdateCacheItems updates Cache Items in the provided database
-func UpdateCacheItems(db *storm.DB, items Items) error {
+func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
 	for _, i := range items {
 		if err := db.Update(&i); err != nil {
 			return err
 		}
+	}
+
+	if close {
+		return db.Close()
 	}
 
 	return nil
