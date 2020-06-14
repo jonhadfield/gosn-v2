@@ -37,8 +37,6 @@ const retryScaleFactor = 0.25
 type EncryptedItems []EncryptedItem
 
 func (ei EncryptedItems) Decrypt(mk, ak string, debug bool) (o DecryptedItems, err error) {
-	debugPrint(debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
-
 	for _, eItem := range ei {
 		var item DecryptedItem
 
