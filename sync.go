@@ -173,6 +173,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	case input.CursorToken == "null":
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is null")
+
 		if input.SyncToken == "" {
 			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
 				`,"items":[],"cursor_token":null}`)
@@ -183,8 +184,11 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	case input.CursorToken != "":
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | got cursor %s", stripLineBreak(input.CursorToken)))
+
 		rawST := input.SyncToken
+
 		input.SyncToken = stripLineBreak(rawST)
+
 		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
 			`,"items":[],"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}

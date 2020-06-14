@@ -204,6 +204,7 @@ func padToAESBlockSize(b []byte) []byte {
 
 func encryptItems(decItems *Items, mk, ak string, debug bool) (encryptedItems EncryptedItems, err error) {
 	debugPrint(debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
+
 	d := *decItems
 	for _, decItem := range d {
 		var e EncryptedItem

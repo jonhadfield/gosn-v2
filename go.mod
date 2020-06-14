@@ -17,6 +17,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
+	go.etcd.io/bbolt v1.3.4
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9 // indirect
 	gopkg.in/ini.v1 v1.56.0 // indirect

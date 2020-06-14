@@ -29,6 +29,7 @@ func (s cryptoSource) Uint64() (v uint64) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	
 	return v
 }
 
@@ -91,9 +92,7 @@ func requestToken(client *http.Client, input signInInput) (signInSuccess signInR
 	}
 
 	defer func() {
-		if err := signInResp.Body.Close(); err != nil {
-			fmt.Println("failed to close response:", err)
-		}
+		_ = signInResp.Body.Close()
 	}()
 
 	var signInRespBody []byte
@@ -185,9 +184,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	}
 
 	defer func() {
-		if err := response.Body.Close(); err != nil {
-			fmt.Println("failed to close response:", err)
-		}
+		_ = response.Body.Close()
 	}()
 
 	var requestOutput doAuthRequestOutput
@@ -463,9 +460,7 @@ func (input RegisterInput) Register() (token string, err error) {
 	}
 
 	defer func() {
-		if err := response.Body.Close(); err != nil {
-			fmt.Println("failed to close response:", err)
-		}
+		_ = response.Body.Close()
 	}()
 
 	token, err = processDoRegisterRequestResponse(response, input.Debug)

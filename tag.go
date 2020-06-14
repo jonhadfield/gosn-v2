@@ -81,12 +81,15 @@ func (t *Tags) DeDupe() {
 
 func (t *Tags) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error) {
 	var ite Items
+
 	ta := *t
 	for x := range ta {
 		g := ta[x]
 		ite = append(ite, &g)
 	}
+
 	e, err = encryptItems(&ite, mk, ak, debug)
+
 	return
 }
 

@@ -2,49 +2,98 @@ package cache
 
 import (
 	"fmt"
-	"github.com/asdine/storm/v3"
-	"github.com/jonhadfield/gosn-v2"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/asdine/storm/v3"
+	"github.com/jonhadfield/gosn-v2"
+	"github.com/stretchr/testify/assert"
 )
+
+func gosnSessionToCacheSession(gs gosn.Session) Session {
+	var session Session
+	session.Server = gs.Server
+	session.Mk = gs.Mk
+	session.Ak = gs.Ak
+	session.Token = gs.Token
+
+	return session
+}
 
 func TestSyncWithoutDatabase(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
-	_, err = Sync(SyncInput{Session: sOutput.Session})
-	assert.EqualError(t, err, "DB pointer or DB path are required")
+
+	session := gosnSessionToCacheSession(sOutput.Session)
+	session.CacheDBPath = ""
+	_, err = Sync(SyncInput{Session: session})
+	assert.EqualError(t, err, "database path is required")
 }
 
 func TestSyncWithInvalidSession(t *testing.T) {
 	defer removeDB(tempDBPath)
-	_, err := Sync(SyncInput{DBPath: tempDBPath})
+
+	_, err := Sync(SyncInput{})
 	assert.EqualError(t, err, "invalid session")
-	_, err = Sync(SyncInput{DBPath: tempDBPath, Session: gosn.Session{
-		Token: "a",
-		Mk:    "b",
-		Ak:    "c",
-	}})
+
+	var invalidSession Session
+	invalidSession.Token = "a"
+	invalidSession.Mk = "b"
+	invalidSession.Ak = "c"
+	_, err = Sync(SyncInput{Session: invalidSession})
+
 	assert.EqualError(t, err, "invalid session")
 }
 
-func TestSyncWithPathAndDB(t *testing.T) {
-	sOutput, err := gosn.SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-	var db *storm.DB
-	db, err = storm.Open(tempDBPath)
-	assert.NoError(t, err)
-	defer db.Close()
-	defer removeDB(tempDBPath)
-	_, err = Sync(SyncInput{DBPath: tempDBPath, DB: db, Session: sOutput.Session})
-	assert.EqualError(t, err, "passing a DB pointer and DB path does not make sense")
-}
+//
+//func TestSyncWithPathAndDB(t *testing.T) {
+//	sOutput, err := gosn.SignIn(sInput)
+//	session := gosnSessionToCacheSession(sOutput.Session)
+//
+//	assert.NoError(t, err, "sign-in failed", err)
+//	var db *storm.DB
+//	db, err = storm.Open(tempDBPath)
+//	assert.NoError(t, err)
+//	defer db.Close()
+//	session.CacheDBPath = tempDBPath
+//	defer removeDB(tempDBPath)
+//	_, err = Sync(SyncInput{Session: session})
+//	assert.EqualError(t, err, "passing a DB pointer and DB path does not make sense")
+//}
+
+//func TestInitialSyncWithItemButNoDB(t *testing.T) {
+//	sOutput, err := gosn.SignIn(sInput)
+//	session := gosnSessionToCacheSession(sOutput.Session)
+//	session.CacheDBPath = tempDBPath
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	defer removeDB(tempDBPath)
+//
+//	var so SyncOutput
+//	so, err = Sync(SyncInput{
+//		Session: session,
+//	})
+//	assert.NoError(t, err)
+//
+//	var syncTokens []SyncToken
+//	err = so.DB.All(&syncTokens)
+//	assert.NoError(t, err)
+//	assert.Len(t, syncTokens, 1)
+//	assert.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
+//	assert.Empty(t, so.SavedItems)
+//	so.DB.Close()
+//}
 
 func TestSyncWithNoItems(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
+	session := gosnSessionToCacheSession(sOutput.Session)
+	session.CacheDBPath = tempDBPath
+
 	assert.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup(&sOutput.Session)
@@ -53,18 +102,40 @@ func TestSyncWithNoItems(t *testing.T) {
 
 	var so SyncOutput
 	so, err = Sync(SyncInput{
-		Session: sOutput.Session,
-		DBPath:  tempDBPath,
+		Session: session,
 	})
 	assert.NoError(t, err)
+	assert.NotNil(t, so)
+	assert.NotNil(t, so.DB)
 
 	var syncTokens []SyncToken
 	err = so.DB.All(&syncTokens)
 	assert.NoError(t, err)
 	assert.Len(t, syncTokens, 1)
 	assert.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
-	assert.Empty(t, so.SavedItems)
+	//assert.Empty(t, so.SavedItems)
 	so.DB.Close()
+}
+
+func NewCacheDB(path string) (db *storm.DB, err error) {
+	// TODO: check path syntax is file (not ending in file sep.)
+	// TODO: check file doesn't exist
+	db, err = storm.Open(path)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func GetCacheDB(path string) (db *storm.DB, err error) {
+	// TODO: check exists
+	db, err = storm.Open(tempDBPath)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 // create a note in a storm DB, mark it dirty, and then sync to SN
@@ -80,59 +151,62 @@ func TestSyncWithNewNote(t *testing.T) {
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
 	assert.NoError(t, dItems.Validate())
+
 	var eItems gosn.EncryptedItems
 	eItems, err = dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+
 	assert.NoError(t, err)
 
 	// open database
-	var db *storm.DB
-	db, err = storm.Open(tempDBPath)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	defer removeDB(tempDBPath)
+	s := gosnSessionToCacheSession(sOutput.Session)
+	s.CacheDBPath = tempDBPath
+
+	var so SyncOutput
+	so, err = Sync(SyncInput{
+		Session: s,
+	})
+	assert.NoError(t, err)
 
 	var allPersistedItems []Item
 	// items convert new items to 'persist' items and mark as dirty
-	itp := ConvertItemsToPersistItems(eItems)
+	itp := ToCacheItems(eItems, false)
 	for _, i := range itp {
-		i.Dirty = true
-		i.DirtiedDate = time.Now()
-		assert.NoError(t, db.Save(&i))
+		assert.NoError(t, so.DB.Save(&i))
 		allPersistedItems = append(allPersistedItems, i)
 	}
 
 	assert.Len(t, allPersistedItems, 1)
+	assert.NoError(t, so.DB.Close())
 
-	var so SyncOutput
 	so, err = Sync(SyncInput{
-		Session: sOutput.Session,
-		DB:      db,
+		Session: s,
 	})
 	assert.NoError(t, err)
-
-	assert.Len(t, so.SavedItems, 1)
-	assert.Equal(t, newNote.UUID, so.SavedItems[0].UUID)
-	assert.Equal(t, "Note", so.SavedItems[0].ContentType)
-
+	assert.NotNil(t, so)
+	assert.NotNil(t, so.DB)
 	assert.NoError(t, so.DB.All(&allPersistedItems))
+
 	var foundNonDirtyNote bool
+
 	for _, i := range allPersistedItems {
 		if i.UUID == newNote.UUID {
 			foundNonDirtyNote = true
+
 			assert.False(t, i.Dirty)
 			assert.Zero(t, i.DirtiedDate)
 		}
 	}
+
 	assert.True(t, foundNonDirtyNote)
 
 	// check the item exists in SN
 
 	// get sync token from previous operation
 	var syncTokens []SyncToken
+
 	assert.NoError(t, so.DB.All(&syncTokens))
 	assert.Len(t, syncTokens, 1)
+	assert.NoError(t, so.DB.Close())
 }
 
 // create a note in SN directly
@@ -143,11 +217,12 @@ func TestSyncOneExisting(t *testing.T) {
 
 	defer cleanup(&sOutput.Session)
 
+	session := gosnSessionToCacheSession(sOutput.Session)
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
-	fmt.Println("NEW NOTE UUID:", newNote.UUID)
 	dItems := gosn.Items{&newNote}
 	assert.NoError(t, dItems.Validate())
+
 	var eItems gosn.EncryptedItems
 	eItems, err = dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	assert.NoError(t, err)
@@ -158,14 +233,16 @@ func TestSyncOneExisting(t *testing.T) {
 		Session: sOutput.Session,
 		Items:   eItems,
 	})
+
 	assert.NoError(t, err)
 	assert.Len(t, gso.SavedItems, 1)
 
 	// call sync
 	var so SyncOutput
+
+	session.CacheDBPath = tempDBPath
 	so, err = Sync(SyncInput{
-		Session: sOutput.Session,
-		DBPath:  tempDBPath,
+		Session: session,
 	})
 	assert.NoError(t, err)
 
@@ -174,6 +251,7 @@ func TestSyncOneExisting(t *testing.T) {
 
 	// get all items
 	var allPersistedItems []Item
+
 	err = so.DB.All(&allPersistedItems)
 	assert.NoError(t, err)
 
@@ -184,12 +262,15 @@ func TestSyncOneExisting(t *testing.T) {
 
 	err = so.DB.All(&allPersistedItems)
 	assert.Greater(t, len(allPersistedItems), 0)
+
 	var foundNotes int
+
 	for _, pi := range allPersistedItems {
 		if pi.ContentType == "Note" && pi.UUID == newNote.UUID {
 			foundNotes++
 		}
 	}
+
 	assert.Equal(t, 1, foundNotes)
 }
 

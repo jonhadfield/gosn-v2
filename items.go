@@ -183,10 +183,10 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 
 	defer func() {
 		if err := response.Body.Close(); err != nil {
-			debugPrint(debug, fmt.Sprintf("makeSyncRequest | failed to close body closed"))
+			debugPrint(debug, "makeSyncRequest | failed to close body closed")
 		}
 
-		debugPrint(debug, fmt.Sprintf("makeSyncRequest | response body closed"))
+		debugPrint(debug, "makeSyncRequest | response body closed")
 	}()
 
 	switch response.StatusCode {
@@ -333,6 +333,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		return ec, err
 	case "SF|Extension":
 		var sfe SFExtensionContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &sfe)
 		}
@@ -340,6 +341,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		return sfe, err
 	case "SF|MFA":
 		var sfm SFMFAContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &sfm)
 		}
@@ -347,6 +349,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		return sfm, err
 	case "SN|SmartTag":
 		var st SmartTagContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &st)
 		}
@@ -355,13 +358,16 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 	case "SN|FileSafe|FileMetadata":
 		var fsfm FileSafeFileMetaDataContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &fsfm)
 		}
+
 		return fsfm, err
 
 	case "SN|FileSafe|Integration":
 		var fsi FileSafeIntegrationContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &fsi)
 		}
@@ -369,6 +375,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		return fsi, err
 	case "SN|UserPreferences":
 		var upc UserPreferencesContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &upc)
 		}
@@ -376,6 +383,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		return upc, err
 	case "SN|ExtensionRepo":
 		var erc ExtensionRepoContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &erc)
 		}
@@ -383,6 +391,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		return erc, err
 	case "SN|FileSafe|Credentials":
 		var fsc FileSafeCredentialsContent
+
 		if len(input) > 0 {
 			err = json.Unmarshal([]byte(input), &fsc)
 		}

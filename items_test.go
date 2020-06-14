@@ -155,21 +155,24 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		return
 	}
 	var uuids []string
-	fmt.Println("Going to delete items:", len(so.Items))
 
 	seenItems := make(map[string]bool)
 
 	var notes, components, tags int
+
 	for _, x := range so.Items {
 		if seenItems[x.UUID] {
 			panic("got duplicate!!!!!")
 		} else {
 			seenItems[x.UUID] = true
 		}
+
 		if x.Deleted {
 			panic("unexpected deleted item")
 		}
+
 		uuids = append(uuids, x.UUID)
+
 		switch x.ContentType {
 		case "Note":
 			notes++
@@ -178,13 +181,10 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		case "SN|Component":
 			components++
 		default:
-			fmt.Println(x.ContentType)
+			debugPrint(si.Debug, fmt.Sprintf("ignoring %s", x.ContentType))
 		}
 	}
-	fmt.Println("Notes:", notes)
-	fmt.Println("Tags:", tags)
-	fmt.Println("Components:", components)
-	//unique(uuids)
+
 	var items Items
 
 	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
@@ -358,25 +358,8 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 		return
 	}
 
-	//var found bool
-	//for _, i := range di {
-	//	if i.ContentType == "SN|Component" {
-	//		if i.UUID == uuidOfNewItem {
-	//			found = true
-	//			break
-	//		}
-	//	}
-	//}
-	//assert.True(t, found)
-	////assert.Len(t, di, 1)
-	////assert.Equal(t, uuidOfNewItem, di[0].UUID)
-
 	var items Items
 	items, err = di.Parse()
-
-	//assert.Equal(t, uuidOfNewItem, syncOutput.Items[0].UUID)
-	//assert.NoError(t, err, "failed to get items")assert.Equal(t, uuidOfNewItem, syncOutput.Items[0].UUID)
-	//assert.NoError(t, err, "failed to get items")
 
 	var foundCreatedItem bool
 
@@ -1178,6 +1161,7 @@ func TestCreateAndGet301Notes(t *testing.T) {
 	numNotes := 301
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
+
 	cleanup(&sOutput.Session)
 	defer cleanup(&sOutput.Session)
 
@@ -1251,10 +1235,6 @@ func TestCreateAndGet301Notes(t *testing.T) {
 			t.Errorf("incorrect note returned")
 		}
 	}
-
-	// delete all notes and ensure all have been deleted
-
-
 }
 
 func genRandomText(paragraphs int) string {
