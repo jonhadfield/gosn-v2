@@ -166,6 +166,7 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 
 	request.Header.Set("content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+session.Token)
+	request.Header.Set("User-Agent", "github.com/jonhadfield/gosn-v2")
 
 	var response *http.Response
 
