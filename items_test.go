@@ -227,16 +227,6 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	return err
 }
 
-//func unique(uuidSlice []string) {
-//	keys := make(map[string]bool)
-//	for _, entry := range uuidSlice {
-//		if _, value := keys[entry]; value {
-//			fmt.Println("Got duplicate:", entry)
-//		}
-//	}
-//	fmt.Println()
-//}
-
 func _getItems(session Session, itemFilters ItemFilters) (items Items, err error) {
 	si := SyncInput{
 		Session: session,
