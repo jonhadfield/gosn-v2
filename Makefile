@@ -13,9 +13,6 @@ test:
 cover: test
 	go tool cover -html=coverage.txt
 
-tparse:
-
-
 fmt:
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do gofmt -w -s "$$file"; goimports -w "$$file"; done
 
