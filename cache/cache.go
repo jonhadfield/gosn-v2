@@ -102,7 +102,6 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 }
 
 func SaveItems(db *storm.DB, mk, ak string, items gosn.Items, close, debug bool) error {
-	//var eItems gosn.EncryptedItems
 	eItems, err := items.Encrypt(mk, ak, debug)
 
 	if err != nil {
