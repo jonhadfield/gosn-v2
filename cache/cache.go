@@ -113,6 +113,31 @@ func SaveItems(db *storm.DB, mk, ak string, items gosn.Items, close, debug bool)
 	return SaveCacheItems(db, cItems, close)
 }
 
+func SaveNotes(db *storm.DB, mk, ak string, items gosn.Notes, close, debug bool) error {
+	eItems, err := items.Encrypt(mk, ak, debug)
+
+	if err != nil {
+		return err
+	}
+
+	cItems := ToCacheItems(eItems, false)
+
+	return SaveCacheItems(db, cItems, close)
+}
+
+func SaveTags(db *storm.DB, mk, ak string, items gosn.Tags, close, debug bool) error {
+	eItems, err := items.Encrypt(mk, ak, debug)
+
+	if err != nil {
+		return err
+	}
+
+	cItems := ToCacheItems(eItems, false)
+
+	return SaveCacheItems(db, cItems, close)
+}
+
+
 func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) error {
 	cItems := ToCacheItems(items, false)
 	return SaveCacheItems(db, cItems, close)
