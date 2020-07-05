@@ -24,3 +24,4 @@ script:
   - go build
   - go test -v -p 1 -parallel 1 -failfast -coverprofile=coverage.txt -covermode=atomic ./...
   - $GOPATH/bin/goveralls -service=travis-ci
+
