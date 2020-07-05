@@ -1,15 +1,17 @@
 module github.com/jonhadfield/gosn-v2
 
+go 1.14
+
 require (
 	github.com/asdine/storm/v3 v3.2.0
 	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/danieljoos/wincred v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.0 // indirect
 	github.com/pelletier/go-toml v1.7.0 // indirect
-	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -24,5 +26,3 @@ require (
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c // indirect
 )
-
-go 1.13
