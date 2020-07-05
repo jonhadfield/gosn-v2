@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 func stripLineBreak(input string) string {
@@ -17,7 +17,7 @@ func stripLineBreak(input string) string {
 
 // GenUUID generates a unique identifier required when creating a new item
 func GenUUID() string {
-	newUUID := uuid.NewV4()
+	newUUID := uuid.New()
 	return newUUID.String()
 }
 
