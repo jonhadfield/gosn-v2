@@ -8,7 +8,7 @@ gosn is a library to help develop your own application to manage notes on the of
 
 # installation
 
-Using go get: ```go get github.com/jonhadfield/gosn-v2```
+```go get github.com/jonhadfield/gosn-v2```
 
 # documentation
 
@@ -21,11 +21,12 @@ Using go get: ```go get github.com/jonhadfield/gosn-v2```
 To interact with Standard Notes you first need to sign in:
 
 ```golang
-    sIn := gosn.SignInInput{
-        Email:     "someone@example.com",
-        Password:  "mysecret,
-    }
-    sOut, _ := gosn.SignIn(sIn)
+si := gosn.SignInInput{
+    Email:     "someone@example.com",
+    Password:  "mysecret,
+}
+
+so, _ := gosn.SignIn(si)
 ```
 
 This will return a session containing the necessary secrets and information to make requests to get or put data.
@@ -33,30 +34,51 @@ This will return a session containing the necessary secrets and information to m
 ## getting items
 
 ```golang
-    input := GetItemsInput{
-        Session: sOut.Session,
-    }
-    gio, _ := GetItems(input)
+input := gosn.SyncInput{
+    Session: so.Session,
+}
+
+gio, _ := gosn.Sync(input)
+```
+
+## decrypt and parse items
+```golang
+di, _ := gio.Items.DecryptAndParse(so.Session.Mk, so.Session.Ak, false)
+```
+
+## output items
+```golang
+for _, tag := range di.Tags() {
+    fmt.Println(tag.Content.Title)
+}
+
+for _, note := range di.Notes() {
+    fmt.Println(note.Content.Title, note.Content.Text)
+}
 ```
 
 ## creating a note
 
 ```golang
-    # create note content
-    content := NoteContent{
-        Title:          "Note Title",
-        Text:           "Note Text",
-    }
-    # create note
-    note := NewNote()
-    note.Content = content
+// create note content
+content := gosn.NoteContent{
+    Title: "Note Title",
+    Text:  "Note Text",
+}
+
+// create note
+note := gosn.NewNote()
+note.Content = content
+
+// encrypt
+notes := gosn.Notes{note}
+en, _ := notes.Encrypt(so.Session.Mk, so.Session.Ak, false)
     
-    # sync note
-    pii := PutItemsInput{
-    		Session: sOut.Session,
-    		Items:   []gosn.Notes{note},
-    }
-    pio, _ := PutItems(pii)
+// sync
+gosn.Sync(gosn.SyncInput{
+	Session: so.Session,
+	Items:   en,
+})
 ```
 
 
