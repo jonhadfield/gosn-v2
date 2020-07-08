@@ -13,7 +13,7 @@ gosn is a library to help develop your own application to manage notes on the of
 # documentation
 
 - [guides](docs/index.md)
-- [go docs](https://godoc.org/github.com/jonhadfield/gosn-v2)
+- [go docs](https://pkg.go.dev/github.com/jonhadfield/gosn-v2)
 
 # basic usage
 ## authenticating
