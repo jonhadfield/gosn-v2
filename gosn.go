@@ -17,7 +17,7 @@ const (
 	// PageSize is the maximum number of items to return with each call
 	PageSize            = 300
 	timeLayout          = "2006-01-02T15:04:05.000Z"
-	defaultSNVersion    = "003"
+	defaultSNVersion    = "004"
 	defaultPasswordCost = 110000
 
 	// LOGGING
