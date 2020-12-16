@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +13,24 @@ import (
 var testEmailAddr = fmt.Sprintf("testuser-%s@example.com", time.Now().Format("20060102150405"))
 
 // ### server not required for following tests
+func TestGenerateSalt004(t *testing.T) {
+	identifier := "sn004@lessknown.co.uk"
+	nonce := "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
+	decodedHex64, _ := hex.DecodeString("7129955dbbbfb376fdcac49890ef17bc")
+	assert.Equal(t, decodedHex64, generateSalt(identifier, nonce))
+}
+
+func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
+	var testInput generateEncryptedPasswordInput
+	testInput.userPassword = "debugtest"
+	testInput.Identifier = "sn004@lessknown.co.uk"
+	testInput.PasswordNonce = "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
+	masterKey, serverPassword, err := generateMasterKeyAndServerPassword004(testInput)
+	assert.NoError(t, err)
+	assert.Equal(t, "2396d6ac0bc70fe45db1d2bcf3daa522603e9c6fcc88dc933ce1a3a31bbc08ed", masterKey)
+	assert.Equal(t, "a5eb9fbc767eafd6e54fd9d3646b19520e038ba2ccc9cceddf2340b37b788b47", serverPassword)
+}
+
 func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
 	var testInput generateEncryptedPasswordInput
 	testInput.userPassword = "oWB7c&77Zahw8XK$AUy#"
