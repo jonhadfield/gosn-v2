@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/crypto/argon2"
 	"strconv"
 	"strings"
 
@@ -158,6 +159,35 @@ func encryptString(stringToEncrypt, encryptionKey, authKey, uuid string, IVOverr
 	return result, err
 }
 
+func generateSalt(identifier, nonce string) []byte {
+	saltLength := 32
+	hashSource := fmt.Sprintf("%s:%s", identifier, nonce)
+	h := sha256.New()
+	if _, err := h.Write([]byte(hashSource)); err != nil {
+		panic(err)
+	}
+	preHash := sha256.Sum256([]byte(hashSource))
+	hash := make([]byte, hex.EncodedLen(len(preHash)))
+	hex.Encode(hash, preHash[:])
+	hashHexString := string(hash)
+	decodedHex64, _ := hex.DecodeString(hashHexString[:saltLength])
+	return decodedHex64
+}
+
+func generateMasterKeyAndServerPassword004(input generateEncryptedPasswordInput) (masterKey, serverPassword string, err error) {
+	keyLength := uint32(64)
+	iterations := uint32(5)
+	memory := uint32(64 * 1024)
+	parallel := uint8(1)
+	salt := generateSalt(input.Identifier, input.PasswordNonce)
+	derivedKey := argon2.IDKey([]byte(input.userPassword), salt, iterations, memory, parallel, keyLength)
+	derivedKeyHex := make([]byte, hex.EncodedLen(len(derivedKey)))
+	hex.Encode(derivedKeyHex, derivedKey)
+	masterKey = string(derivedKeyHex[:64])
+	serverPassword = string(derivedKeyHex[64:])
+	return
+}
+
 func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw, mk, ak string, err error) {
 	if input.Version == "003" && input.PasswordCost < 100000 {
 		err = fmt.Errorf("password cost too low")
@@ -174,7 +204,7 @@ func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw,
 	preSalt := sha256.Sum256([]byte(saltSource))
 	salt := make([]byte, hex.EncodedLen(len(preSalt)))
 	hex.Encode(salt, preSalt[:])
-	hashedPassword := pbkdf2.Key([]byte(input.userPassword), []byte(string(salt)), int(input.PasswordCost), 96, sha512.New)
+	hashedPassword := pbkdf2.Key([]byte(input.userPassword), salt, int(input.PasswordCost), 96, sha512.New)
 	hexedHashedPassword := hex.EncodeToString(hashedPassword)
 	splitLength := len(hexedHashedPassword) / 3
 	pw = hexedHashedPassword[:splitLength]
