@@ -29,7 +29,7 @@ func (s cryptoSource) Uint64() (v uint64) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	return v
 }
 
@@ -122,15 +122,25 @@ func requestToken(client *http.Client, input signInInput) (signInSuccess signInR
 func processDoAuthRequestResponse(response *http.Response, debug bool) (output doAuthRequestOutput, errResp errorResponse, err error) {
 	var body []byte
 	body, err = ioutil.ReadAll(response.Body)
-
 	switch response.StatusCode {
 	case 200:
 		err = json.Unmarshal(body, &output)
 		if err != nil {
 			return
 		}
+	case 304:
+		err = json.Unmarshal(body, &output)
+		if err != nil {
+			return
+		}
 	case 404:
 		// email address not recognised
+		err = json.Unmarshal(body, &errResp)
+		if err != nil {
+			return
+		}
+		err = fmt.Errorf(errResp.Error.Message)
+		return
 	case 401:
 		// need mfa token
 		// unmarshal error response
@@ -160,15 +170,14 @@ type errorResponse struct {
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
 	// make initial params request without mfa token
 	var reqURL string
-
+//https://syncing-server-dev.standardnotes.org/auth/params?email=gosn-v2%40lessknown.co.uk&api=20200115
 	if input.tokenName == "" {
 		// initial request
-		reqURL = input.authParamsURL + "?email=" + input.email
+		reqURL = input.authParamsURL + "?email=" + input.email + "&api=20200115"
 	} else {
 		// request with mfa
 		reqURL = input.authParamsURL + "?email=" + input.email + "&" + input.tokenName + "=" + input.tokenValue
 	}
-
 	var req *http.Request
 
 	req, err = http.NewRequest(http.MethodGet, reqURL, nil)
@@ -330,51 +339,58 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		return
 	}
 
-	// generate encrypted password
-	var encPassword string
+	switch getAuthParamsOutput.Version {
+	case "003":
+		// generate encrypted password 003
+		var encPassword string
 
-	var genEncPasswordInput generateEncryptedPasswordInput
+		var genEncPasswordInput generateEncryptedPasswordInput
 
-	genEncPasswordInput.userPassword = input.Password
-	genEncPasswordInput.Identifier = input.Email
-	genEncPasswordInput.TokenName = input.TokenName
-	genEncPasswordInput.PasswordCost = getAuthParamsOutput.PasswordCost
-	genEncPasswordInput.PasswordSalt = getAuthParamsOutput.PasswordSalt
-	genEncPasswordInput.PasswordNonce = getAuthParamsOutput.PasswordNonce
-	genEncPasswordInput.Version = getAuthParamsOutput.Version
+		genEncPasswordInput.userPassword = input.Password
+		genEncPasswordInput.Identifier = input.Email
+		genEncPasswordInput.TokenName = input.TokenName
+		genEncPasswordInput.PasswordCost = getAuthParamsOutput.PasswordCost
+		genEncPasswordInput.PasswordSalt = getAuthParamsOutput.PasswordSalt
+		genEncPasswordInput.PasswordNonce = getAuthParamsOutput.PasswordNonce
+		genEncPasswordInput.Version = getAuthParamsOutput.Version
 
-	var mk, ak string
+		var mk, ak string
 
-	encPassword, mk, ak, err = generateEncryptedPasswordAndKeys(genEncPasswordInput)
-	if err != nil {
-		return
+		encPassword, mk, ak, err = generateEncryptedPasswordAndKeys(genEncPasswordInput)
+		if err != nil {
+			return
+		}
+
+		// request token
+		var tokenResp signInResponse
+
+		var requestTokenFailure errorResponse
+		tokenResp, requestTokenFailure, err = requestToken(httpClient, signInInput{
+			email:       input.Email,
+			encPassword: encPassword,
+			tokenName:   input.TokenName,
+			tokenValue:  input.TokenVal,
+			signInURL:   input.APIServer + signInPath,
+		})
+
+		if err != nil {
+			return
+		}
+
+		if requestTokenFailure.Error.Message != "" {
+			err = fmt.Errorf(strings.ToLower(requestTokenFailure.Error.Message))
+			return
+		}
+
+		output.Session.Mk = mk
+		output.Session.Ak = ak
+		output.Session.Token = tokenResp.Token
+		output.Session.Server = input.APIServer
+	case "004":
+		fmt.Errorf("version \"004\" is not currently supported (but will be soon)")
+	default:
+		err = fmt.Errorf("version \"%s\" is not currently supported", getAuthParamsOutput.Version)
 	}
-
-	// request token
-	var tokenResp signInResponse
-
-	var requestTokenFailure errorResponse
-	tokenResp, requestTokenFailure, err = requestToken(httpClient, signInInput{
-		email:       input.Email,
-		encPassword: encPassword,
-		tokenName:   input.TokenName,
-		tokenValue:  input.TokenVal,
-		signInURL:   input.APIServer + signInPath,
-	})
-
-	if err != nil {
-		return
-	}
-
-	if requestTokenFailure.Error.Message != "" {
-		err = fmt.Errorf(strings.ToLower(requestTokenFailure.Error.Message))
-		return
-	}
-
-	output.Session.Mk = mk
-	output.Session.Ak = ak
-	output.Session.Token = tokenResp.Token
-	output.Session.Server = input.APIServer
 
 	return output, err
 }

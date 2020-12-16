@@ -106,7 +106,7 @@ func TestSignInWithInvalidEmail(t *testing.T) {
 	}
 	_, err := SignIn(sInput)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid email or password")
+	assert.Contains(t, err.Error(), "Unable to locate account for email.")
 }
 
 func TestSignInWithBadPassword(t *testing.T) {
@@ -118,7 +118,7 @@ func TestSignInWithBadPassword(t *testing.T) {
 	}
 	_, err := SignIn(sInput)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid email or password")
+	assert.Contains(t, err.Error(), "invalid email or password.")
 }
 
 func TestSignInWithUnresolvableHost(t *testing.T) {
