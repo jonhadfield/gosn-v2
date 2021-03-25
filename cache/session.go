@@ -17,10 +17,13 @@ func GetSession(loadSession bool, sessionKey, server string) (session Session, e
 		return
 	}
 
-	session.Ak = gSession.Ak
-	session.Mk = gSession.Mk
 	session.Token = gSession.Token
 	session.Server = gSession.Server
+	session.AccessExpiration = gSession.AccessExpiration
+	session.RefreshExpiration = gSession.RefreshExpiration
+	session.MasterKey = gSession.MasterKey
+	session.AccessToken = gSession.AccessToken
+	session.RefreshToken = gSession.RefreshToken
 
 	return session, email, err
 }

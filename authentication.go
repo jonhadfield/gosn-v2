@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -60,11 +59,10 @@ func requestToken(client *http.Client, input signInInput) (signInSuccess signInR
 	var reqBodyBytes []byte
 
 	var reqBody string
-
 	if input.tokenName != "" {
-		reqBody = `{"password":"` + input.encPassword + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
+		reqBody = `{"api":"20200115","password":"` + input.encPassword + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
 	} else {
-		reqBody = `{"password":"` + input.encPassword + `","email":"` + input.email + `"}`
+		reqBody = `{"api":"20200115","password":"` + input.encPassword + `","email":"` + input.email + `"}`
 	}
 
 	reqBodyBytes = []byte(reqBody)
@@ -99,7 +97,6 @@ func requestToken(client *http.Client, input signInInput) (signInSuccess signInR
 
 	readStart := time.Now()
 	signInRespBody, err = ioutil.ReadAll(signInResp.Body)
-
 	debugPrint(input.debug, fmt.Sprintf("requestToken | response read took %+v", time.Since(readStart)))
 
 	if err != nil {
@@ -170,7 +167,7 @@ type errorResponse struct {
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
 	// make initial params request without mfa token
 	var reqURL string
-//https://syncing-server-dev.standardnotes.org/auth/params?email=gosn-v2%40lessknown.co.uk&api=20200115
+	// https://syncing-server-dev.standardnotes.org/auth/params?email=gosn-v2%40lessknown.co.uk&api=20200115
 	if input.tokenName == "" {
 		// initial request
 		reqURL = input.authParamsURL + "?email=" + input.email + "&api=20200115"
@@ -224,10 +221,10 @@ func getAuthParams(input authParamsInput) (output authParamsOutput, err error) {
 	}
 
 	output.Identifier = authRequestOutput.Identifier
-	output.PasswordCost = authRequestOutput.PasswordCost
+	// output.PasswordCost = authRequestOutput.PasswordCost
 	output.PasswordNonce = authRequestOutput.PasswordNonce
 	output.Version = authRequestOutput.Version
-	output.PasswordSalt = authRequestOutput.PasswordSalt
+	// output.PasswordSalt = authRequestOutput.PasswordSalt
 	output.TokenName = authRequestOutput.mfaKEY
 
 	return
@@ -247,12 +244,36 @@ type signInInput struct {
 	debug       bool
 }
 
+// Session holds authentication and encryption parameters required
+// to communicate with the API and process transferred data
+type Session struct {
+	Server            string
+	Token             string
+	MasterKey         string
+	//ItemsKeyUUID	  string
+	AccessToken       string `json:"access_token"`
+	RefreshToken      string `json:"refresh_token"`
+	AccessExpiration  int64  `json:"access_expiration"`
+	RefreshExpiration int64  `json:"refresh_expiration"`
+}
+
+type keyParams struct {
+	Created     string `json:"created"`
+	Identifier  string `json:"identifier"`
+	Origination string `json:"origination"`
+	PwNonce     string `json:"pw_nonce"`
+	Version     string `json:"version"`
+}
+
+type user struct {
+	UUID  string `json:"uuid"`
+	Email string `json:"email"`
+}
+
 type signInResponse struct {
-	User struct {
-		UUID  string `json:"uuid"`
-		Email string `json:"email"`
-	}
-	Token string `json:"token"`
+	Session   Session   `json:"Session"`
+	KeyParams keyParams `json:"key_params"`
+	User      user      `json:"user"`
 }
 
 type registerResponse struct {
@@ -261,15 +282,6 @@ type registerResponse struct {
 		Email string `json:"email"`
 	}
 	Token string `json:"token"`
-}
-
-// Session holds authentication and encryption parameters required
-// to communicate with the API and process transferred data
-type Session struct {
-	Token  string
-	Mk     string
-	Ak     string
-	Server string
 }
 
 type SignInInput struct {
@@ -283,6 +295,8 @@ type SignInInput struct {
 
 type SignInOutput struct {
 	Session   Session
+	KeyParams keyParams
+	User      user
 	TokenName string
 }
 
@@ -333,73 +347,77 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		err = processConnectionFailure(err, getAuthParamsInput.authParamsURL)
 		return
 	}
-	// if we received a token name then we need to request token value
-	if getAuthParamsOutput.TokenName != "" {
-		output.TokenName = getAuthParamsOutput.TokenName
+
+	if getAuthParamsOutput.Version == "003" {
+		err = fmt.Errorf("version 003 of Standard Notes is no longer supported")
 		return
 	}
 
-	switch getAuthParamsOutput.Version {
-	case "003":
-		// generate encrypted password 003
-		var encPassword string
-
-		var genEncPasswordInput generateEncryptedPasswordInput
-
-		genEncPasswordInput.userPassword = input.Password
-		genEncPasswordInput.Identifier = input.Email
-		genEncPasswordInput.TokenName = input.TokenName
-		genEncPasswordInput.PasswordCost = getAuthParamsOutput.PasswordCost
-		genEncPasswordInput.PasswordSalt = getAuthParamsOutput.PasswordSalt
-		genEncPasswordInput.PasswordNonce = getAuthParamsOutput.PasswordNonce
-		genEncPasswordInput.Version = getAuthParamsOutput.Version
-
-		var mk, ak string
-
-		encPassword, mk, ak, err = generateEncryptedPasswordAndKeys(genEncPasswordInput)
-		if err != nil {
-			return
-		}
-
-		// request token
-		var tokenResp signInResponse
-
-		var requestTokenFailure errorResponse
-		tokenResp, requestTokenFailure, err = requestToken(httpClient, signInInput{
-			email:       input.Email,
-			encPassword: encPassword,
-			tokenName:   input.TokenName,
-			tokenValue:  input.TokenVal,
-			signInURL:   input.APIServer + signInPath,
-		})
-
-		if err != nil {
-			return
-		}
-
-		if requestTokenFailure.Error.Message != "" {
-			err = fmt.Errorf(strings.ToLower(requestTokenFailure.Error.Message))
-			return
-		}
-
-		output.Session.Mk = mk
-		output.Session.Ak = ak
-		output.Session.Token = tokenResp.Token
-		output.Session.Server = input.APIServer
-	case "004":
-		fmt.Errorf("version \"004\" is not currently supported (but will be soon)")
-	default:
-		err = fmt.Errorf("version \"%s\" is not currently supported", getAuthParamsOutput.Version)
+	// if we received a token name then we need to request token value
+	if getAuthParamsOutput.TokenName != "" {
+		// output.TokenName = getAuthParamsOutput.TokenName
+		return
 	}
 
+	// generate encrypted password 004
+	// var encPassword string
+
+	var genEncPasswordInput generateEncryptedPasswordInput
+
+	genEncPasswordInput.userPassword = input.Password
+	genEncPasswordInput.Identifier = input.Email
+	genEncPasswordInput.TokenName = input.TokenName
+	genEncPasswordInput.PasswordNonce = getAuthParamsOutput.PasswordNonce
+	genEncPasswordInput.Version = getAuthParamsOutput.Version
+
+	var _, sp string
+	var mk string
+	mk, sp, err = generateMasterKeyAndServerPassword004(genEncPasswordInput)
+	if err != nil {
+		return
+	}
+
+	// request token
+	var tokenResp signInResponse
+
+	var requestTokenFailure errorResponse
+	tokenResp, requestTokenFailure, err = requestToken(httpClient, signInInput{
+		email:       input.Email,
+		encPassword: sp,
+		tokenName:   input.TokenName,
+		tokenValue:  input.TokenVal,
+		signInURL:   input.APIServer + signInPath,
+	})
+
+	if err != nil {
+		return
+	}
+
+	if requestTokenFailure.Error.Message != "" {
+		err = fmt.Errorf(strings.ToLower(requestTokenFailure.Error.Message))
+		return
+	}
+
+	output.Session = tokenResp.Session
+	output.KeyParams = tokenResp.KeyParams
+	output.User = tokenResp.User
+	output.Session.MasterKey = mk
+	// output.Session.Token = tokenResp.Token
+	output.Session.Server = input.APIServer
 	return output, err
 }
 
 type RegisterInput struct {
-	Email     string
-	Password  string
-	APIServer string
-	Debug     bool
+	Password    string
+	Email       string
+	Identifier  string
+	PWNonce     string
+	Version     string
+	Origination string
+	Created     int64
+	API         string
+	APIServer   string
+	Debug       bool
 }
 
 func processDoRegisterRequestResponse(response *http.Response, debug bool) (token string, err error) {
@@ -450,14 +468,14 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 // Register creates a new user token
 // Params: email, password, pw_cost, pw_nonce, version
 func (input RegisterInput) Register() (token string, err error) {
-	var pw, pwNonce string
-	pw, pwNonce, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
-
+	var pwNonce, serverPassword string
+	_, pwNonce, _, serverPassword, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
+	// fmt.Println("pw:", pw, "\npwNonce:", pwNonce, "\nMasterKey:", masterKey, "\nServerPassword:", serverPassword)
 	var req *http.Request
 
-	reqBody := `{"email":"` + input.Email + `","identifier":"` + input.Email + `","password":"` + pw + `","pw_cost":"` + strconv.Itoa(defaultPasswordCost) + `","pw_nonce":"` + pwNonce + `","version":"` + defaultSNVersion + `"}`
-	reqBodyBytes := []byte(reqBody)
+	reqBody := `{"email":"` + input.Email + `","identifier":"` + input.Email + `","password":"` + serverPassword + `","pw_nonce":"` + pwNonce + `","version":"` + defaultSNVersion + `","origination":"registration","created":"1608473387799","api":"20200115"}`
 
+	reqBodyBytes := []byte(reqBody)
 	req, err = http.NewRequest(http.MethodPost, input.APIServer+authRegisterPath, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return
@@ -487,17 +505,18 @@ func (input RegisterInput) Register() (token string, err error) {
 	return token, err
 }
 
-func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonce string, err error) {
+func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonce, masterKey, serverPassword string, err error) {
 	var genInput generateEncryptedPasswordInput
 	genInput.userPassword = password
 	genInput.Version = defaultSNVersion
 	genInput.Identifier = email
 	genInput.PasswordCost = defaultPasswordCost
 
+	// generate salt seed (password nonce)
 	var src cryptoSource
 	rnd := rand.New(src)
 
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	b := make([]rune, 65)
 	for i := range b {
@@ -505,8 +524,19 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 	}
 
 	genInput.PasswordNonce = string(b)
-	pwNonce = string(b)
-	pw, _, _, err = generateEncryptedPasswordAndKeys(genInput)
+	pwNonce = string(b)[:32]
+	// pw, _, _, err = generateEncryptedPasswordAndKeys(genInput)
+	masterKey, serverPassword, err = generateMasterKeyAndServerPassword004(generateEncryptedPasswordInput{
+		userPassword: password,
+		authParamsOutput: authParamsOutput{
+			Identifier: email,
+			// PasswordSalt: pwNonce,
+			// PasswordCost:  0,
+			PasswordNonce: pwNonce,
+			Version:       "",
+			TokenName:     "",
+		},
+	})
 
 	return
 }
@@ -527,9 +557,9 @@ func CliSignIn(email, password, apiServer string) (session Session, err error) {
 	if err != nil {
 		return
 	}
-	// return session if auth and master key returned
-	if sioNoMFA.Session.Ak != "" && sioNoMFA.Session.Mk != "" {
-		return sioNoMFA.Session, err
+	// return Session if auth and master key returned
+	if sioNoMFA.Session.AccessToken != "" && sioNoMFA.Session.RefreshExpiration != 0 {
+		return session, err
 	}
 
 	if sioNoMFA.TokenName != "" {
@@ -560,14 +590,16 @@ func CliSignIn(email, password, apiServer string) (session Session, err error) {
 
 func (s *Session) Valid() bool {
 	switch {
-	case s.Ak == "":
+	case s.RefreshToken == "":
 		return false
-	case s.Mk == "":
+	case s.AccessToken == "":
 		return false
-	case s.Token == "":
+	case s.MasterKey == "":
 		return false
-	case s.Server == "":
-		return false
+	//case s.AccessExpiration == 0:
+	//	return false
+	//case s.RefreshExpiration == 0:
+	//	return false
 	}
 
 	return true

@@ -1,33 +1,85 @@
 package gosn
 
 import (
-	"fmt"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEncryptString003(t *testing.T) {
-	stringToEncrypt := `{"title":"tagOne","references":[{"uuid":"a5bd62b0-609c-4152-88f9-9d55f5f490f7","content_type":"Note"},{"uuid":"d19be4ac-3cf4-47b9-986f-26d67e9e2b83","content_type":"Note"},{"uuid":"44cc3bc4-c0e9-11e8-86d5-acde48001122","content_type":"Note"}]}`
-	encryptionKey := "8b82accf2bae6b1f1183d5398dc46bbb8bc71f019c43e105fef21846ffe7b6be"
-	authKey := "aca431d6fc360e46e853e19d70afec26e4825e2609c2e6df9f4431cbd344e1bc"
-	uuid := "fa9d5b81-7b2d-4d9b-988d-db09cee3f9ec"
-	IV := []byte{181, 126, 90, 99, 56, 249, 177, 105, 14, 215, 154, 75, 62, 86, 66, 227}
-	expectedCipher := "003:6d6c7ee899ba8aafa909bf7a13493cf0acad54eaba3963f82ffb4ff15cdd321e:fa9d5b81-7b2d-4d9b-988d-db09cee3f9ec:b57e5a6338f9b1690ed79a4b3e5642e3:5+mzQl3fkiMvJnuu/7nV4mCnJ6bHOn2LJEUHt+TO4vK4s4X3GNly+OAsiycJQ1B72Z+rkWB+TK6YRyiXMoVpDh9R1i+78ZH2wCCzIVZDcihIvY4kzFdr8UuAe7y0nl2GKVAfJv0y+2khZf7/3cwic2HYlwPXEnMdRQWC4vvGh8a0MkBI08uShLF7cmYdhjsBG8DIduh3GSGy8PtY2+iMj+Y6zMbCcHXTZcARuMi+ReNDDY6mnfw6PV0i+FQGj6VE1jQRkhBhKZE4NgL1H79xtKFAwkrWU9Cv2EcFJE0JGHyJV4xvMbFwzFXhcC6xE8aBD7tZ7NhDE+Il1kBIli5QdQ=="
+func TestDecryptString(t *testing.T) {
+	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4"
+	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="
+	nonce := "d211fc5dee400fe54ca04ac43ecac512c9d0dabb6c4ee0f3"
+	authData := "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
+	plainText, err := decryptString(cipherText, rawKey, nonce, authData)
 
-	result, err := encryptString(stringToEncrypt, encryptionKey, authKey, uuid, IV)
-	assert.Nil(t, err, err)
-	assert.Equal(t, result, expectedCipher, fmt.Sprintf("expected: %s res: %s", expectedCipher, result))
+	assert.NoError(t, err)
+	assert.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(plainText))
 }
 
-func TestDecryptString003(t *testing.T) {
-	stringToDecrypt := "003:46b10a5ea73cad1b1252dcbc6abbd616d8ba7ddce359930098506a8e71aea2db:277613b2-f1df-4e95-985f-d23a08172e52:255fa21e7c781e7d904f95764f8c60a9:niiUni0ckcVTsFN+mt7UxwL62nWI9ctn8CtyFisAOG3cF28OVQlQv1QWf9d2wjMFEIiUAEgWzbujbOES0g8Am86/FbSJyvFM6Wp+ox04mhS0cFhCVbjV7wt7yfdf6bc+e2Dx9lvBoP19IOFrBgohCe2yKw3VCSuDsk6IsNWR725oSo6BHHmJSSs+RMEOB+5lpoRIziU0SXWemK3s//NCjNCNA/lkWM3Ry9Vr13kpYXIYmehHfb+cPgKbAB3LiNBxJCQ8MWJbUlBmn3PY1ExIhVzQCnPqwwZ0+pX0+YJXd/lgB5DsYbEWjLAChZWPFid1c9z8e7sad4mXuyiAyKcYsA=="
-	encryptionKey := "32bf6c2eceb0a875a17390f34feba0386c641c74d35fb29112a7be4a21cbf974"
-	authKey := "530fb9cae9586177d4a00c32332dc151f87a97c9d04cdda6c28e70c2ef747a3f"
-	uuid := "277613b2-f1df-4e95-985f-d23a08172e52"
-	expectedText := `{"title":"tagOne","references":[{"uuid":"a5bd62b0-609c-4152-88f9-9d55f5f490f7","content_type":"Note"},{"uuid":"d19be4ac-3cf4-47b9-986f-26d67e9e2b83","content_type":"Note"},{"uuid":"44cc3bc4-c0e9-11e8-86d5-acde48001122","content_type":"Note"}]}`
+func TestDecryptItemsKey(t *testing.T) {
+	// decrypt encrypted item key
+	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4"
+	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="
+	nonce := "d211fc5dee400fe54ca04ac43ecac512c9d0dabb6c4ee0f3"
+	authData := "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
+	contentItemKeyHexBytes, err := decryptString(cipherText, rawKey, nonce, authData)
+	assert.NoError(t, err)
+	assert.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(contentItemKeyHexBytes))
 
-	result, err := decryptString(stringToDecrypt, encryptionKey, authKey, uuid)
-	assert.Nil(t, err, err)
-	assert.Equal(t, result, expectedText, fmt.Sprintf("expected: %s res: %s", expectedText, result))
+	// decrypt item key content with item key
+	rawKey = string(contentItemKeyHexBytes)
+	nonce = "b0a6519e605db5ecf02cdc225567b61d41f56b41387bc95e"
+	cipherText = "GHWwyAayZuu5BKLbHScaJ2e8turXbbcnkNGrmTr9alLQen9UyNRjOtKNH1WcfNb3/kkqabw8XwNxKwrrQwBZmC1wVkIvJpEQc0oI7Nc9F3zHVJyiHqFc8mWRs2jWY+/3IdWm6TTTiJro+QTzFjO5XO9J8KwAx1LizaScjKdTE20p+ryRrrfpp5x8YbbuIWLxpOZRJfF0zUe7wAo/SCI/VuIvSrTK9958VgvPzTagse644pjSo/yvcaSv5XUJhfvaBeqK0JLwiNvNmYZHXt1itfHRE1BFi6/T0fkA30VQb8JmHyHU"
+	authData = "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
+	dIKeyContent, err := decryptString(cipherText, rawKey, nonce, authData)
+	assert.NoError(t, err)
+	var ik ItemsKey
+	err = json.Unmarshal(dIKeyContent, &ik)
+	assert.NoError(t, err)
+	assert.Equal(t, "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73", ik.ItemsKey)
+}
+
+func TestDecryptNoteText(t *testing.T) {
+	// decrypt encrypted items key
+	decryptedItemsKey := "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73"
+	cipherText := "sJhGyLDN4x/wXBcE6TWCsZMaAPfK04ojpsYzjI/zEGvkBsRPGPyihTyQGHvAqcHMWOIZZYZDC2+8YlxVdreF2LblOM8hXz3hwtFDE3DcN5g="
+	nonce := "b55df872abe8c97f82bb875a14a9b344584825edef1d0ed7"
+	authData := "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
+	contentItemKeyHexBytes, err := decryptString(cipherText, decryptedItemsKey, nonce, authData)
+	assert.NoError(t, err)
+	assert.Equal(t, "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003", string(contentItemKeyHexBytes))
+
+	rawKey := string(contentItemKeyHexBytes)
+	nonce = "6045eaf9774a877203b68bb12159f9c5c0c3d19df4949e40"
+	cipherText = "B+8vUwmSTGZCba6mU2gMSMl55fpt38Wv/yWxAF4pEveX0sjqSYgjT5PA8/yy7LKotF+kjmuiHNvYtH7hB7BaqJrG8Q4G5Sj15tIu8PtlWECJWHnPxHkeiJW1MiS1ypR0t3y+Uc7cRpGPwnQIqJDr/Yl1vp2tZXlaSy0zYtGYlw5GwUnLxXtQBQC1Ml3rzZDpaIT9zIr9Qluv7Q7JXOJ7rAbj95MtsV2CJDS33+kXBTUKMqYRbGDWmn0="
+	authData = "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
+	dIKeyContent, err := decryptString(cipherText, rawKey, nonce, authData)
+	assert.NoError(t, err)
+	sDiKeyContent := string(dIKeyContent)
+	ikc := NoteContent{}
+	err = json.Unmarshal([]byte(sDiKeyContent), &ikc)
+	assert.NoError(t, err)
+	assert.Equal(t, "Note Title", ikc.Title)
+	assert.Equal(t, "Note Text", ikc.Text)
+}
+
+func TestEncryptDecryptString(t *testing.T) {
+	rawKey := "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003"
+	tempExpectedCipherText := "B+8vUwmSTGZCba6mU2gMSMl55fpt38Wv/yWxAF4pEveX0sjqSYgjT5PA8/yy7LKotF+kjmuiHNvYtH7hB7BaqJrG8Q4G5Sj15tIu8PtlWECJWHnPxHkeiJW1MiS1ypR0t3y+Uc7cRpGPwnQIqJDr/Yl1vp2tZXlaSy0zYtGYlw5GwUnLxXtQBQC1Ml3rzZDpaIT9zIr9Qluv7Q7JXOJ7rAbj95MtsV2CJD4RwjhhJ11fpI3N8+uXqp4="
+
+	nonce := "6045eaf9774a877203b68bb12159f9c5c0c3d19df4949e40"
+	authData := "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
+	plainText := "{\"text\":\"Note Text\",\"title\":\"Note Title\",\"references\":[],\"appData\":{\"org.standardnotes.sn\":{\"client_updated_at\":\"2021-03-20T12:59:46.734Z\"}},\"preview_plain\":\"Note Text\"}"
+	uuid := "7eacf350-f4ce-44dd-8525-2457b19047dd"
+	authData = "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
+	newCipherText, err := encryptString(plainText, rawKey, nonce, authData)
+	assert.NotEmpty(t, newCipherText)
+	assert.Equal(t, tempExpectedCipherText, newCipherText)
+
+	var ptb []byte
+	ptb, err = decryptString(newCipherText, rawKey, nonce, authData)
+	assert.NoError(t, err)
+	assert.Equal(t, plainText, string(ptb))
 }

@@ -24,12 +24,14 @@ type Content interface {
 
 // ItemCommon contains the fields common to all SN Items
 type ItemCommon struct {
-	UUID        string
-	ContentType string
-	Deleted     bool
-	CreatedAt   string
-	UpdatedAt   string
-	ContentSize int
+	UUID             string
+	ItemsKeyID       string
+	EncryptedItemKey string
+	ContentType      string
+	Deleted          bool
+	CreatedAt        string
+	UpdatedAt        string
+	ContentSize      int
 }
 
 func (i Items) Validate() error {

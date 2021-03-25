@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -62,5 +63,14 @@ func debugPrint(show bool, msg string) {
 		}
 
 		log.Println(libName, "|", msg)
+	}
+}
+
+func show(msg string, item interface{}) {
+	fmt.Printf("%s: %+v\n", msg, item)
+}
+func showlist(msg string, items []interface{}) {
+	for x, item := range items {
+		fmt.Printf("%s %d: %+v\n", msg, x, item)
 	}
 }

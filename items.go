@@ -36,49 +36,71 @@ const retryScaleFactor = 0.25
 
 type EncryptedItems []EncryptedItem
 
-func (ei EncryptedItems) Decrypt(mk, ak string, debug bool) (o DecryptedItems, err error) {
-	for _, eItem := range ei {
-		var item DecryptedItem
+func (ei EncryptedItems) Decrypt(itemsKey ItemsKey, mk string, debug bool) (o DecryptedItems, err error) {
+	// if no itemsKeys are passed, then items must be items keys to decrypt with mk
+	//if len(itemsKey) == 0 {
+	//	fmt.Println("going to decrypt items with mk")
+	//}
+	//fmt.Println("decrypt")
+	//var iks []ItemsKey
+	//iks, err = decryptAndParseItemKeys(mk, itemsKeys)
+	//if err != nil {
+	//	panic(err)
+	//}
 
-		if eItem.EncItemKey != "" {
-			var decryptedEncItemKey string
-
-			decryptedEncItemKey, err = decryptString(eItem.EncItemKey, mk, ak, eItem.UUID)
-			if err != nil {
-				return
-			}
-
-			itemEncryptionKey := decryptedEncItemKey[:len(decryptedEncItemKey)/2]
-			itemAuthKey := decryptedEncItemKey[len(decryptedEncItemKey)/2:]
-
-			var decryptedContent string
-
-			decryptedContent, err = decryptString(eItem.Content, itemEncryptionKey, itemAuthKey, eItem.UUID)
-			if err != nil {
-				return
-			}
-
-			item.Content = decryptedContent
-		}
-
-		item.UUID = eItem.UUID
-		item.Deleted = eItem.Deleted
-		item.ContentType = eItem.ContentType
-		item.UpdatedAt = eItem.UpdatedAt
-		item.CreatedAt = eItem.CreatedAt
-
-		o = append(o, item)
-	}
+	o, err = decryptItems(mk, ei, itemsKey)
 
 	return o, err
 }
 
-func (ei EncryptedItems) DecryptAndParse(mk, ak string, debug bool) (o Items, err error) {
+func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []ItemsKey, err error) {
+	debugPrint(debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
+
+	var eiks EncryptedItems
+	for _, e := range ei {
+		if e.ContentType == "SN|ItemsKey" {
+			eiks = append(eiks, e)
+		}
+	}
+
+	if len(eiks) == 0 {
+		err = errors.New("no encrypted items keys passed")
+	}
+
+	o, err = decryptAndParseItemKeys(mk, eiks)
+	//var di DecryptedItems
+	////
+	//di, err = ei.Decrypt(itemsKeys, mk, debug)
+	//if err != nil {
+	//	return
+	//}
+	//
+	//o, err = di.Parse()
+
+	return
+}
+
+func (ei *EncryptedItems) Validate() error {
+	var err error
+	for _, i := range *ei {
+		switch {
+		case i.ContentType != "SN|ItemsKey" && i.ItemsKeyID == "":
+			err = fmt.Errorf("failed to create \"%s\" due to missing ItemsKeyID: \"%s\"",
+				i.ContentType, i.UUID)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (ei EncryptedItems) DecryptAndParse(mk string, itemsKey ItemsKey, ak string, debug bool) (o Items, err error) {
 	debugPrint(debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
-
+	fmt.Sprintf("DecryptAndParse | items: %d\n", len(ei))
+	// if no itemsKeys are passed, then items must be items keys to decrypt with mk
 	var di DecryptedItems
-
-	di, err = ei.Decrypt(mk, ak, debug)
+	di, err = ei.Decrypt(itemsKey, mk, debug)
 	if err != nil {
 		return
 	}
@@ -88,13 +110,14 @@ func (ei EncryptedItems) DecryptAndParse(mk, ak string, debug bool) (o Items, er
 	return
 }
 
-func (i *Items) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error) {
-	e, err = encryptItems(i, mk, ak, debug)
+func (i *Items) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, err error) {
+	e, err = encryptItems(i, mk, ik, debug)
 	return
 }
 
 type EncryptedItem struct {
 	UUID        string `json:"uuid"`
+	ItemsKeyID  string `json:"items_key_id"`
 	Content     string `json:"content"`
 	ContentType string `json:"content_type"`
 	EncItemKey  string `json:"enc_item_key"`
@@ -165,7 +188,7 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	}
 
 	request.Header.Set("content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer "+session.Token)
+	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
 	request.Header.Set("User-Agent", "github.com/jonhadfield/gosn-v2")
 
 	var response *http.Response
@@ -206,7 +229,6 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	readStart := time.Now()
 
 	responseBody, err = ioutil.ReadAll(response.Body)
-
 	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
 
 	if err != nil {
@@ -229,8 +251,10 @@ type ItemReference struct {
 type OrgStandardNotesSNDetail struct {
 	ClientUpdatedAt string `json:"client_updated_at"`
 }
+
 type AppDataContent struct {
 	OrgStandardNotesSN OrgStandardNotesSNDetail `json:"org.standardnotes.sn"`
+	IsDefault          bool                     `json:"isDefault"`
 }
 
 type TagContent struct {

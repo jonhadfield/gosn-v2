@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -67,66 +66,69 @@ var (
 		"Pellentesque posuere ullamcorper velit eu interdum. Vivamus posuere aliquam velit a rhoncus. Fusce viverra fermentum justo id rhoncus. Quisque at dui dapibus, bibendum eros fermentum, laoreet ligula. Curabitur porta, diam at fringilla congue, dui enim bibendum elit, non scelerisque lorem risus eget lacus. Proin risus nibh, scelerisque nec feugiat vel, finibus interdum lorem. Morbi elit purus, fringilla at odio at, cursus condimentum erat. In tristique nisi eu ex tristique, sed bibendum est eleifend. Mauris interdum quis velit sit amet sodales. Integer semper tempus magna, vel vehicula eros pharetra sed. Sed tincidunt porttitor tellus. Suspendisse potenti. Nulla et scelerisque nisi. Aenean pellentesque fermentum ipsum vel pretium. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.",
 		"Curabitur tempus lectus nisl, ut tempus nunc efficitur et. Maecenas vel nulla et ipsum sollicitudin consectetur ac a dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vulputate a tellus sit amet pellentesque. Cras sapien nunc, efficitur eu mi nec, tincidunt finibus dolor. Nullam volutpat accumsan elit et efficitur. Nullam felis enim, consequat quis semper nec, gravida id dui. Mauris et lorem ac odio eleifend tempor id vitae dolor. Quisque ante leo, vestibulum id leo sed, bibendum venenatis mauris. Fusce bibendum placerat nibh, in posuere magna placerat ac. Duis imperdiet mauris at risus aliquam, in congue lectus hendrerit. Phasellus porttitor metus eu purus rhoncus, ut iaculis dolor condimentum.",
 		"Sed eu ante lorem. Donec diam odio, suscipit eu euismod eget, sagittis non dui. Mauris consectetur volutpat viverra. Curabitur lacinia, dui vel aliquam lacinia, felis turpis bibendum odio, non ultricies augue augue nec diam. Etiam posuere risus sodales nisi gravida, eu venenatis turpis fermentum. Nulla vestibulum nec purus ut imperdiet. Vivamus vestibulum elementum nisi non molestie. Integer sit amet dignissim erat, sed lacinia massa. Sed ac nulla leo. Nulla ex purus, consequat at lectus vel, mollis tempor justo.",
-		"Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Vivamus convallis nulla facilisis odio viverra, quis malesuada leo viverra. Etiam neque purus, interdum eu dui et, facilisis congue felis. Nunc tempor risus ut sapien porta, non tincidunt magna ornare. Vivamus consectetur, ligula in facilisis consequat, turpis quam fermentum ipsum, eget elementum odio velit vel risus. Etiam maximus eleifend lacus et cursus. Sed feugiat dolor et velit suscipit, vel mattis orci auctor. Nam tempor nunc vitae turpis interdum mollis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Vestibulum sit amet mauris a nulla consequat blandit. Aenean fringilla orci fringilla lectus pulvinar, eu pellentesque erat egestas. Vivamus venenatis, tortor at tincidunt fermentum, metus ligula blandit massa, id congue metus eros sit amet nisi. Etiam ac vehicula ex, sit amet mollis mauris. Suspendisse potenti. Praesent ut eleifend ante."}
+		"Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Vivamus convallis nulla facilisis odio viverra, quis malesuada leo viverra. Etiam neque purus, interdum eu dui et, facilisis congue felis. Nunc tempor risus ut sapien porta, non tincidunt magna ornare. Vivamus consectetur, ligula in facilisis consequat, turpis quam fermentum ipsum, eget elementum odio velit vel risus. Etiam maximus eleifend lacus et cursus. Sed feugiat dolor et velit suscipit, vel mattis orci auctor. Nam tempor nunc vitae turpis interdum mollis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Vestibulum sit amet mauris a nulla consequat blandit. Aenean fringilla orci fringilla lectus pulvinar, eu pellentesque erat egestas. Vivamus venenatis, tortor at tincidunt fermentum, metus ligula blandit massa, id congue metus eros sit amet nisi. Etiam ac vehicula ex, sit amet mollis mauris. Suspendisse potenti. Praesent ut eleifend ante.",
+	}
 )
 
 func randInt(min int, max int) int {
 	rand.Seed(time.Now().UTC().UnixNano())
 	return min + rand.Intn(max-min)
 }
-func _createNotes(session Session, input map[string]string) (so SyncOutput, err error) {
-	var newNotes Items
 
-	for k, v := range input {
-		newNote := NewNote()
-		newNoteContent := NewNoteContent()
-		newNoteContent.Title = k
-		newNoteContent.Text = v
-		newNote.Content = *newNoteContent
-		newNotes = append(newNotes, &newNote)
-	}
-
-	if len(newNotes) > 0 {
-		eNotes, _ := newNotes.Encrypt(session.Mk, session.Ak, true)
-		si := SyncInput{
-			Session: session,
-			Items:   eNotes,
-		}
-
-		so, err = Sync(si)
-		if err != nil {
-			err = fmt.Errorf("PutItems Failed: %v", err)
-		}
-	}
-
-	return
-}
-
-func _createTags(session Session, input []string) (output SyncOutput, err error) {
-	for _, tt := range input {
-		newTag := NewTag()
-		newTagContent := TagContent{
-			Title: tt,
-		}
-		newTagContent.SetUpdateTime(time.Now())
-		newTag.Content = newTagContent
-
-		dItems := Items{&newTag}
-		eItems, _ := dItems.Encrypt(session.Mk, session.Ak, true)
-		si := SyncInput{
-			Session: session,
-			Items:   eItems,
-		}
-		output, err = Sync(si)
-
-		if err != nil {
-			err = fmt.Errorf("PutItems Failed: %v", err)
-			return
-		}
-	}
-
-	return
-}
+//
+//func _createNotes(session Session, input map[string]string) (so SyncOutput, err error) {
+//	var newNotes Items
+//
+//	for k, v := range input {
+//		newNote := NewNote()
+//		newNoteContent := NewNoteContent()
+//		newNoteContent.Title = k
+//		newNoteContent.Text = v
+//		newNote.Content = *newNoteContent
+//		newNotes = append(newNotes, &newNote)
+//	}
+//
+//	if len(newNotes) > 0 {
+//		eNotes, _ := newNotes.Encrypt("", "", true)
+//		si := SyncInput{
+//			Session: session,
+//			Items:   eNotes,
+//		}
+//
+//		so, err = Sync(si)
+//		if err != nil {
+//			err = fmt.Errorf("PutItems Failed: %v", err)
+//		}
+//	}
+//
+//	return
+//}
+//
+//func _createTags(session Session, input []string) (output SyncOutput, err error) {
+//	for _, tt := range input {
+//		newTag := NewTag()
+//		newTagContent := TagContent{
+//			Title: tt,
+//		}
+//		newTagContent.SetUpdateTime(time.Now())
+//		newTag.Content = newTagContent
+//
+//		dItems := Items{&newTag}
+//		eItems, _ := dItems.Encrypt("", "", true)
+//		si := SyncInput{
+//			Session: session,
+//			Items:   eItems,
+//		}
+//		output, err = Sync(si)
+//
+//		if err != nil {
+//			err = fmt.Errorf("PutItems Failed: %v", err)
+//			return
+//		}
+//	}
+//
+//	return
+//}
 
 func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	gnf := Filter{
@@ -154,6 +156,9 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	if err != nil {
 		return
 	}
+
+	var iks []ItemsKey
+	iks, err = so.Items.DecryptAndParseItemsKeys(session.MasterKey, true)
 	var uuids []string
 
 	seenItems := make(map[string]bool)
@@ -168,7 +173,7 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		}
 
 		if x.Deleted {
-			panic("unexpected deleted item")
+			continue
 		}
 
 		uuids = append(uuids, x.UUID)
@@ -186,12 +191,10 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	}
 
 	var items Items
-
-	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
+	items, err = so.Items.DecryptAndParse(session.MasterKey, iks[0], session.AccessToken, true)
 	if err != nil {
 		return
 	}
-
 	items.Filter(f)
 
 	var toDel Items
@@ -212,7 +215,7 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	}
 
 	if len(toDel) > 0 {
-		eToDel, _ := toDel.Encrypt(session.Mk, session.Ak, true)
+		eToDel, _ := toDel.Encrypt(session.MasterKey, iks[0], true)
 		si := SyncInput{
 			Session: *session,
 			Items:   eToDel,
@@ -227,55 +230,55 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	return err
 }
 
-func _getItems(session Session, itemFilters ItemFilters) (items Items, err error) {
-	si := SyncInput{
-		Session: session,
-	}
-
-	var so SyncOutput
-
-	so, err = Sync(si)
-	if err != nil {
-		err = fmt.Errorf("sync failed: %v", err)
-		return
-	}
-
-	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
-	if err != nil {
-		return
-	}
-
-	items.Filter(itemFilters)
-
-	return
-}
-
-func createNote(title, text, uuid string) *Note {
-	note := NewNote()
-	if uuid != "" {
-		note.UUID = uuid
-	}
-
-	content := NewNoteContent()
-	content.Title = title
-	content.Text = text
-	note.Content = *content
-
-	return &note
-}
-
-func createTag(title, uuid string) *Tag {
-	tag := NewTag()
-	if uuid != "" {
-		tag.UUID = uuid
-	}
-
-	content := NewTagContent()
-	content.Title = title
-	tag.Content = *content
-
-	return &tag
-}
+//func _getItems(session Session, itemFilters ItemFilters) (items Items, err error) {
+//	si := SyncInput{
+//		Session: session,
+//	}
+//
+//	var so SyncOutput
+//
+//	so, err = Sync(si)
+//	if err != nil {
+//		err = fmt.Errorf("sync failed: %v", err)
+//		return
+//	}
+//
+//	items, err = so.Items.DecryptAndParse(session.MasterKey, session.AccessToken, true)
+//	if err != nil {
+//		return
+//	}
+//
+//	items.Filter(itemFilters)
+//
+//	return
+//}
+//
+//func createNote(title, text, uuid string) *Note {
+//	note := NewNote()
+//	if uuid != "" {
+//		note.UUID = uuid
+//	}
+//
+//	content := NewNoteContent()
+//	content.Title = title
+//	content.Text = text
+//	note.Content = *content
+//
+//	return &note
+//}
+//
+//func createTag(title, uuid string) *Tag {
+//	tag := NewTag()
+//	if uuid != "" {
+//		tag.UUID = uuid
+//	}
+//
+//	content := NewTagContent()
+//	content.Title = title
+//	tag.Content = *content
+//
+//	return &tag
+//}
 
 func cleanup(session *Session) {
 	if err := _deleteAllTagsNotesComponents(session); err != nil {
@@ -283,43 +286,15 @@ func cleanup(session *Session) {
 	}
 }
 
-func TestPutItemsAddSingleComponent(t *testing.T) {
+func TestDecryptItemsKeys(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	defer func() {
+		cleanup(&sOutput.Session)
+	}()
 
-	newComponentContent := ComponentContent{
-		Name:               "Minimal Markdown Editor",
-		Area:               "editor-editor",
-		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
-		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
-		OfflineOnly:        "",
-		ValidUntil:         "2023-08-29T12:15:17.000Z",
-		AutoUpdateDisabled: "",
-		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
-		AssociatedItemIds:  []string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"},
-		ItemReferences:     nil,
-		Active:             true,
-		AppData:            AppDataContent{},
-	}
-
-	newComponentContent.SetUpdateTime(time.Now())
-
-	newComponent := NewComponent()
-	newComponent.Content = newComponentContent
-
-	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-	assert.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-
-	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-	assert.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-
-	dItems := Items{&newComponent}
-	assert.NoError(t, dItems.Validate())
-	eItems, _ := dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
 	syncInput := SyncInput{
-		Items:   eItems,
 		Session: sOutput.Session,
 		Debug:   true,
 	}
@@ -327,235 +302,34 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	var syncOutput SyncOutput
 
 	syncOutput, err = Sync(syncInput)
-	assert.NoError(t, err, "PutItems Failed", err)
-	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
-	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
-	uuidOfNewItem := syncOutput.SavedItems[0].UUID
-	syncInput = SyncInput{
-		Session: sOutput.Session,
-		Debug:   true,
-	}
+	assert.NoError(t, err, "Sync Failed", err)
 
-	syncOutput, err = Sync(syncInput)
-	if err != nil {
-		return
-	}
-
-	var di DecryptedItems
-	di, err = syncOutput.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-
-	if err != nil {
-		return
-	}
-
-	var items Items
-	items, err = di.Parse()
-
-	var foundCreatedItem bool
-
-	for i := range items {
-		if items[i].GetUUID() == uuidOfNewItem {
-			foundCreatedItem = true
-
-			assert.Equal(t, "SN|Component", items[i].GetContentType())
-			assert.Equal(t, false, items[i].IsDeleted())
-			assert.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
-		}
-	}
-
-	assert.True(t, foundCreatedItem, "failed to get created Item by UUID")
-}
-
-func TestItemsRemoveDeleted(t *testing.T) {
-	noteTitle := "Title"
-	noteText := "Title"
-	noteContent := NewNoteContent()
-	noteContent.Title = noteTitle
-	noteContent.Text = noteText
-
-	noteOne := NewNote()
-	noteOne.Content = *noteContent
-	noteTwo := noteOne.Copy()
-	noteTwo.UUID += "a"
-	noteThree := noteOne.Copy()
-	noteThree.UUID += "b"
-
-	assert.False(t, noteOne.Deleted)
-
-	assert.False(t, noteTwo.Deleted)
-
-	assert.False(t, noteThree.Deleted)
-
-	noteTwo.Deleted = true
-	notes := Notes{noteOne, noteTwo, noteThree}
-	assert.Len(t, notes, 3)
-	notes.RemoveDeleted()
-	assert.Len(t, notes, 2)
-
-	for _, n := range notes {
-		assert.NotEqual(t, n.UUID, noteTwo.UUID)
-	}
-}
-
-func TestDecryptedItemsRemoveDeleted(t *testing.T) {
-	diOne := DecryptedItem{
-		UUID:        "1234",
-		Content:     "abcd",
-		ContentType: "Note",
-		Deleted:     false,
-	}
-	diTwo := DecryptedItem{
-		UUID:        "2345",
-		Content:     "abcd",
-		ContentType: "Note",
-		Deleted:     true,
-	}
-	diThree := DecryptedItem{
-		UUID:        "3456",
-		Content:     "abcd",
-		ContentType: "Note",
-		Deleted:     false,
-	}
-	dis := DecryptedItems{diOne, diTwo, diThree}
-	assert.Len(t, dis, 3)
-	dis.RemoveDeleted()
-	assert.Len(t, dis, 2)
-
-	for _, n := range dis {
-		assert.NotEqual(t, n.UUID, diTwo.UUID)
-	}
-}
-
-func TestEncryptedItemsRemoveDeleted(t *testing.T) {
-	noteTitle := "Title"
-	noteText := "Title"
-	noteContent := NewNoteContent()
-	noteContent.Title = noteTitle
-	noteContent.Text = noteText
-
-	noteOne := NewNote()
-	noteOne.SetContent(*noteContent)
-	noteTwo := noteOne.Copy()
-	noteTwo.UUID += "a"
-	noteThree := noteOne.Copy()
-	noteThree.UUID += "b"
-
-	assert.False(t, noteOne.Deleted)
-	assert.False(t, noteTwo.Deleted)
-	assert.False(t, noteThree.Deleted)
-
-	noteTwo.Deleted = true
-	notes := Items{&noteOne, &noteTwo, &noteThree}
-
-	var testInput generateEncryptedPasswordInput
-	testInput.userPassword = "oWB7c&77Zahw8XK$AUy#"
-	testInput.Identifier = "soba@lessknown.co.uk"
-	testInput.PasswordNonce = "9e88fc67fb8b1efe92deeb98b5b6a801c78bdfae08eecb315f843f6badf60aef"
-	testInput.PasswordCost = 110000
-	testInput.Version = "003"
-	testInput.PasswordSalt = ""
-	_, mk, ak, err := generateEncryptedPasswordAndKeys(testInput)
+	iks, err := syncOutput.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, iks)
 
-	var eNotes EncryptedItems
-	eNotes, err = notes.Encrypt(mk, ak, true)
-	assert.NoError(t, err)
-	assert.Len(t, eNotes, 3)
-	eNotes.RemoveDeleted()
-	assert.Len(t, eNotes, 2)
-
-	for _, n := range eNotes {
-		assert.NotEqual(t, n.UUID, noteTwo.UUID)
-	}
 }
 
-func TestNoteContentCopy(t *testing.T) {
-	initialNoteTitle := "Title"
-	initialNoteText := "Title"
-	initialNoteContent := NewNoteContent()
-	initialNoteContent.Title = initialNoteTitle
-	initialNoteContent.Text = initialNoteText
-	dupeNoteContent := initialNoteContent.Copy()
-	// update initial to ensure copy
-	initialNoteContent.Title = "Updated Title"
-	initialNoteContent.Text = "Updated Text"
-	// now check duplicate is correct
-	assert.NotNil(t, dupeNoteContent)
-	assert.Equal(t, initialNoteTitle, dupeNoteContent.Title)
-	assert.Equal(t, initialNoteText, dupeNoteContent.GetText())
-}
-
-func TestTagContentCopy(t *testing.T) {
-	initialTagTitle := "Title"
-	initialTagContent := NewNoteContent()
-	initialTagContent.Title = initialTagTitle
-	dupeNoteContent := initialTagContent.Copy()
-	// update initial to ensure copy
-	initialTagContent.Title = "Updated Title"
-	// now check duplicate is correct
-	assert.NotNil(t, dupeNoteContent)
-	assert.Equal(t, initialTagTitle, dupeNoteContent.Title)
-}
-
-func TestNoteCopy(t *testing.T) {
-	initialNoteTitle := "Title"
-	initialNote := NewNote()
-	initialNoteContent := NewNoteContent()
-	initialNoteContent.Title = initialNoteTitle
-	initialNoteContent.Text = "Text"
-	initialNote.SetContent(*initialNoteContent)
-	dupeNote := initialNote.Copy()
-	assert.Equal(t, initialNote.Content.GetTitle(), initialNoteTitle)
-	assert.NotNil(t, dupeNote.Content)
-	assert.Equal(t, initialNote.UUID, dupeNote.UUID)
-	assert.Equal(t, initialNote.ContentType, dupeNote.ContentType)
-	assert.Equal(t, initialNote.Content.GetText(), dupeNote.Content.GetText())
-	assert.Equal(t, initialNote.Content.GetTitle(), dupeNote.Content.GetTitle())
-	assert.Equal(t, initialNote.ContentSize, dupeNote.ContentSize)
-	assert.Equal(t, initialNote.CreatedAt, dupeNote.CreatedAt)
-	assert.Equal(t, initialNote.UpdatedAt, dupeNote.UpdatedAt)
-}
-
-func TestTagCopy(t *testing.T) {
-	initialTag := NewTag()
-	initialTagContent := NewTagContent()
-	initialTagContent.Title = "Title"
-	initialTag.SetContent(*initialTagContent)
-	dupeTag := initialTag.Copy()
-	assert.NotNil(t, dupeTag.Content)
-	assert.Equal(t, dupeTag.UUID, initialTag.UUID)
-	assert.Equal(t, dupeTag.ContentType, initialTag.ContentType)
-	assert.Equal(t, dupeTag.Content.GetTitle(), initialTag.Content.GetTitle())
-	assert.Equal(t, dupeTag.ContentSize, initialTag.ContentSize)
-	assert.Equal(t, dupeTag.CreatedAt, initialTag.CreatedAt)
-	assert.Equal(t, dupeTag.UpdatedAt, initialTag.UpdatedAt)
-}
-
-func TestTagComparison(t *testing.T) {
-	xUUID := GenUUID()
-	one := NewTag()
-	one.UUID = xUUID
-	one.Content = *NewTagContent()
-	two := NewTag()
-	two.Content = *NewTagContent()
-	two.UUID = xUUID
-	assert.True(t, one.Equals(two))
-
-	one.Content.SetTitle("one")
-	two.Content.SetTitle("one")
-	assert.True(t, one.Equals(two))
-
-	one.Content.SetTitle("one")
-	two.Content.SetTitle("two")
-	assert.False(t, one.Equals(two))
-}
-
-func TestPutItemsAddSingleNote(t *testing.T) {
-	//SetDebugLogger(log.Println)
+func TestEncryptDecryptItem(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	// sync to get items keys
+	si := SyncInput{
+		Session: sOutput.Session,
+	}
+
+	var so SyncOutput
+
+	so, err = Sync(si)
+	assert.NoError(t, err)
+
+	// get items key
+	var iks []ItemsKey
+	iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, iks)
+	assert.Len(t, iks, 1)
 
 	randPara := testParas[randInt(0, len(testParas))]
 
@@ -571,13 +345,140 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	newNote.Content = newNoteContent
 	dItems := Items{&newNote}
 	assert.NoError(t, dItems.Validate())
-	eItems, _ := dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+
+	var eItems EncryptedItems
+	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, eItems)
+
+	// Now Decrypt Item
+	var items Items
+	items, err = eItems.DecryptAndParse(sOutput.Session.MasterKey, iks[0], "", true)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, items)
+
+}
+
+//func TestDecryptItems(t *testing.T) {
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer func() {
+//		cleanup(&sOutput.Session)
+//	}()
+//
+//	syncInput := SyncInput{
+//		Session: sOutput.Session,
+//		Debug:   true,
+//	}
+//
+//	var syncOutput SyncOutput
+//
+//	syncOutput, err = Sync(syncInput)
+//	assert.NoError(t, err, "Sync Failed", err)
+//
+//	items, err := decryptItems(sOutput.Session.MasterKey, syncOutput.Items, nil)
+//	assert.NoError(t, err)
+//	assert.NotEmpty(t, items)
+//}
+//
+//func getItemsKey(masterKey, uuid string, keys *[]itemsKey, items EncryptedItems) (ik ItemsKey, err error) {
+//	// instanciate key slice if nil pointer passed
+//	if keys == nil {
+//		keys = &[]itemsKey{}
+//	}
+//
+//	// return previously obtained items key
+//	for _, k := range *keys {
+//		if uuid == k.uuid {
+//			return k, nil
+//		}
+//	}
+//
+//	// search items for items key
+//	for _, k := range items {
+//		if k.UUID == uuid {
+//			var ks []itemsKey
+//			ks, err = decryptItemKeys(masterKey, EncryptedItems{k})
+//			if err != nil {
+//				return itemsKey{}, err
+//			}
+//			*keys = append(*keys, ks[0])
+//			return ks[0], err
+//		}
+//	}
+//
+//	err = fmt.Errorf("items key with uuid: %s could not be found", uuid)
+//
+//	return itemsKey{}, err
+//}
+
+func (ei *EncryptedItems) GetItemsKeys(mk string) (iks []ItemsKey, err error) {
+	var encItemKeys EncryptedItems
+
+	for _, i := range *ei {
+		if i.ContentType == "SN|ItemsKey" && strings.HasPrefix(i.Content, "004") {
+			encItemKeys = append(encItemKeys, i)
+		}
+	}
+
+	if encItemKeys == nil {
+		return nil, fmt.Errorf("no ItemsKeys found")
+	}
+
+	iks, err = encItemKeys.DecryptAndParseItemsKeys(mk, true)
+
+	return iks, err
+}
+
+//
+func TestPutItemsAddSingleNote(t *testing.T) {
+	// SetDebugLogger(log.Println)
+	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	//defer cleanup(&sOutput.Session)
+
+	// sync to get items keys
 	si := SyncInput{
-		Items:   eItems,
 		Session: sOutput.Session,
 	}
 
 	var so SyncOutput
+
+	so, err = Sync(si)
+	assert.NoError(t, err)
+
+	var iks []ItemsKey
+	iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	assert.NoError(t, err)
+	if len(iks) > 1 {
+		err = fmt.Errorf("too many items keys returned")
+	}
+
+	randPara := "TestText"
+
+	newNoteContent := NoteContent{
+		Title:          "TestTitle",
+		Text:           randPara,
+		ItemReferences: nil,
+	}
+
+	newNoteContent.SetUpdateTime(time.Now())
+
+	newNote := NewNote()
+	newNote.Content = newNoteContent
+	dItems := Items{&newNote}
+	assert.NoError(t, dItems.Validate())
+	var eItems EncryptedItems
+	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, eItems)
+
+	si = SyncInput{
+		Items:   eItems,
+		Session: sOutput.Session,
+	}
 
 	so, err = Sync(si)
 	assert.NoError(t, err, "Sync Failed", err)
@@ -594,7 +495,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 
 	var di DecryptedItems
 
-	di, err = so.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	di, err = so.Items.Decrypt(iks[0], sOutput.Session.MasterKey, true)
 	if err != nil {
 		return
 	}
@@ -632,600 +533,986 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	}
 }
 
-func TestNoteTagging(t *testing.T) {
-	sOutput, err := SignIn(sInput)
-
-	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
-
-	// create base notes
-	newNotes := genNotes(100, 2)
-	assert.NoError(t, newNotes.Validate())
-	eItems, _ := newNotes.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-
-	si := SyncInput{
-		Session: sOutput.Session,
-		Items:   eItems,
-	}
-
-	_, err = Sync(si)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	dogNote := createNote("Dogs", "Can't look up", "")
-	cheeseNote := createNote("Cheese", "Is not a vegetable", "")
-	baconNote := createNote("Bacon", "Goes with everything", "")
-	gnuNote := createNote("GNU", "Is not Unix", "")
-	spiderNote := createNote("Spiders", "Are not welcome", "")
-
-	animalTag := createTag("Animal Facts", "")
-	foodTag := createTag("Food Facts", "")
-
-	// tag dog and gnu note with animal tag
-	updatedAnimalTagsInput := UpdateItemRefsInput{
-		Items: Items{animalTag},
-		ToRef: Items{dogNote, gnuNote, spiderNote},
-	}
-	updatedAnimalTagsOutput := UpdateItemRefs(updatedAnimalTagsInput)
-
-	// confirm new tags both reference dog and gnu notes
-	animalNoteUUIDs := []string{
-		dogNote.UUID,
-		gnuNote.UUID,
-		spiderNote.UUID,
-	}
-
-	foodNoteUUIDs := []string{
-		cheeseNote.UUID,
-		baconNote.UUID,
-	}
-
-	// tag cheese note with food tag
-	updatedFoodTagsInput := UpdateItemRefsInput{
-		Items: Items{foodTag},
-		ToRef: Items{cheeseNote, baconNote},
-	}
-	updatedFoodTagsOutput := UpdateItemRefs(updatedFoodTagsInput)
-
-	for _, at := range updatedAnimalTagsOutput.Items {
-		at = at.(*Tag)
-		for _, ref := range at.GetContent().References() {
-			if !stringInSlice(ref.UUID, animalNoteUUIDs, true) {
-				t.Error("failed to find an animal note reference")
-			}
-
-			if stringInSlice(ref.UUID, foodNoteUUIDs, true) {
-				t.Error("found a food note reference")
-			}
-		}
-	}
-
-	for _, ft := range updatedFoodTagsOutput.Items {
-		for _, ref := range ft.GetContent().References() {
-			if !stringInSlice(ref.UUID, foodNoteUUIDs, true) {
-				t.Error("failed to find an food note reference")
-			}
-
-			if stringInSlice(ref.UUID, animalNoteUUIDs, true) {
-				t.Error("found an animal note reference")
-			}
-		}
-	}
-
-	// Put Notes and Tags
-	var allItems Items
-	allItems = append(allItems, dogNote, cheeseNote, gnuNote)
-	allItems = append(allItems, updatedAnimalTagsOutput.Items...)
-	allItems = append(allItems, updatedFoodTagsOutput.Items...)
-	assert.NoError(t, allItems.Validate())
-	eItems, _ = allItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	si = SyncInput{
-		Items:   eItems,
-		Session: sOutput.Session,
-	}
-
-	_, err = Sync(si)
-	if err != nil {
-		t.Errorf("failed to put items: %+v", err)
-	}
-
-	getAnimalNotesFilter := Filter{
-		Type:       "Note",
-		Key:        "TagTitle",
-		Comparison: "~",
-		Value:      "Animal Facts",
-	}
-	getAnimalNotesFilters := ItemFilters{
-		Filters: []Filter{getAnimalNotesFilter},
-	}
-	getAnimalNotesInput := SyncInput{
-		Session: sOutput.Session,
-	}
-
-	var so SyncOutput
-
-	so, err = Sync(getAnimalNotesInput)
-	if err != nil {
-		t.Error("failed to retrieve animal notes by tag")
-		return
-	}
-
-	var animalNotes Items
-
-	animalNotes, err = so.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	if err != nil {
-		return
-	}
-
-	animalNotes.Filter(getAnimalNotesFilters)
-	// check two notes are animal tagged ones
-	animalNoteTitles := []string{
-		dogNote.Content.GetTitle(),
-		gnuNote.Content.GetTitle(),
-	}
-
-	if len(animalNotes) != 2 {
-		t.Errorf("expected two notes, got: %d", len(animalNotes))
-	}
-
-	for _, fn := range animalNotes {
-		an := fn.(*Note)
-		if !stringInSlice(an.Content.Title, animalNoteTitles, true) {
-			t.Error("got non animal note based on animal tag")
-		}
-	}
-
-	// get using regex
-	regexFilter := Filter{
-		Type:       "Note",
-		Comparison: "~",
-		Key:        "Text",
-		Value:      `not\s(Unix|a vegetable)`,
-	}
-
-	regexFilters := ItemFilters{
-		Filters: []Filter{regexFilter},
-	}
-
-	getNotesInput := SyncInput{
-		Session: sOutput.Session,
-	}
-
-	so, err = Sync(getNotesInput)
-	assert.NoError(t, err, "failed to retrieve notes using regex")
-
-	var notes Items
-	notes, err = so.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	assert.NoError(t, err)
-
-	notes.Filter(regexFilters)
-	// check two notes are animal tagged ones
-	expectedNoteTitles := []string{"Cheese", "GNU"}
-	if len(notes) != len(expectedNoteTitles) {
-		t.Errorf("expected two notes, got: %d", len(notes))
-	}
-
-	for _, fn := range notes {
-		an := fn.(*Note)
-		if !stringInSlice(an.Content.Title, expectedNoteTitles, true) {
-			t.Errorf("got unexpected result: %s", an.Content.Title)
-		}
-	}
-}
-
-func TestSearchNotesByUUID(t *testing.T) {
-	//SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
-
-	// create two notes
-	noteInput := map[string]string{
-		"Cheese Fact": "Cheese is not a vegetable",
-		"Dog Fact":    "Dogs can't look up",
-		"GNU":         "Is Not Unix",
-	}
-
-	var cnO SyncOutput
-	cnO, err = _createNotes(sOutput.Session, noteInput)
-	assert.NoError(t, err, "failed to create notes")
-
-	var dogFactUUID string
-
-	var di DecryptedItems
-
-	di, err = cnO.SavedItems.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	assert.NoError(t, err)
-
-	var dis Items
-	dis, err = di.Parse()
-	assert.NoError(t, err)
-
-	for _, di := range dis {
-		dn := di.(*Note)
-		if dn.Content.Title == "Dog Fact" {
-			dogFactUUID = dn.UUID
-		}
-	}
-
-	var foundItems Items
-
-	filterOne := Filter{
-		Type:  "Note",
-		Key:   "UUID",
-		Value: dogFactUUID,
-	}
-
-	var itemFilters ItemFilters
-	itemFilters.Filters = []Filter{filterOne}
-
-	foundItems, err = _getItems(sOutput.Session, itemFilters)
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// check correct items returned
-	switch len(foundItems) {
-	case 0:
-		t.Errorf("no notes returned")
-	case 1:
-		fi := foundItems[0].(*Note)
-		if fi.Content.Title != "Dog Fact" {
-			t.Errorf("incorrect note returned (title mismatch)")
-		}
-
-		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
-			t.Errorf("incorrect note returned (text mismatch)")
-		}
-	default:
-		t.Errorf("expected one note but got: %d", len(foundItems))
-	}
-}
-
-func TestSearchNotesByText(t *testing.T) {
-	//SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
-
-	// create two notes
-	noteInput := map[string]string{
-		"Dog Fact":    "Dogs can't look up",
-		"Cheese Fact": "Cheese is not a vegetable",
-	}
-
-	if _, err = _createNotes(sOutput.Session, noteInput); err != nil {
-		t.Errorf("failed to create notes")
-	}
-	// find one note by text
-	var foundItems Items
-
-	filterOne := Filter{
-		Type:       "Note",
-		Key:        "Text",
-		Comparison: "contains",
-		Value:      "Cheese",
-	}
-
-	var itemFilters ItemFilters
-	itemFilters.Filters = []Filter{filterOne}
-
-	foundItems, err = _getItems(sOutput.Session, itemFilters)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	// check correct items returned
-	switch len(foundItems) {
-	case 0:
-		t.Errorf("no notes returned")
-	case 1:
-		fi := foundItems[0].(*Note)
-		if fi.Content.Title != "Cheese Fact" {
-			t.Errorf("incorrect note returned (title mismatch)")
-		}
-
-		if !strings.Contains(fi.Content.Text, "Cheese is not a vegetable") {
-			t.Errorf("incorrect note returned (text mismatch)")
-		}
-	default:
-		t.Errorf("expected one note but got: %d", len(foundItems))
-	}
-}
-
-func TestSearchNotesByRegexTitleFilter(t *testing.T) {
-	//SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
-
-	// create two notes
-	noteInput := map[string]string{
-		"Dog Fact":    "Dogs can't look up",
-		"Cheese Fact": "Cheese is not a vegetable",
-	}
-	if _, err = _createNotes(sOutput.Session, noteInput); err != nil {
-		t.Errorf("failed to create notes")
-	}
-	// find one note by text
-	var foundItems Items
-
-	filterOne := Filter{
-		Type:       "Note",
-		Key:        "Title",
-		Comparison: "~",
-		Value:      "^Do.*",
-	}
-
-	var itemFilters ItemFilters
-
-	itemFilters.Filters = []Filter{filterOne}
-
-	foundItems, err = _getItems(sOutput.Session, itemFilters)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	// check correct items returned
-	switch len(foundItems) {
-	case 0:
-		t.Errorf("no notes returned")
-	case 1:
-		fi := foundItems[0].(*Note)
-
-		if fi.Content.Title != "Dog Fact" {
-			t.Errorf("incorrect note returned (title mismatch)")
-		}
-
-		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
-			t.Errorf("incorrect note returned (text mismatch)")
-		}
-	default:
-		t.Errorf("expected one note but got: %d", len(foundItems))
-	}
-}
-
-func TestSearchTagsByText(t *testing.T) {
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err)
-	cleanup(&sOutput.Session)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
-
-	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
-	if _, err = _createTags(sOutput.Session, tagInput); err != nil {
-		t.Errorf("failed to create tags")
-	}
-	// find one note by text
-	var foundItems Items
-
-	filterOne := Filter{
-		Type:       "Tag",
-		Key:        "Title",
-		Comparison: "contains",
-		Value:      "Bungle",
-	}
-
-	var itemFilters ItemFilters
-	itemFilters.Filters = []Filter{filterOne}
-
-	foundItems, err = _getItems(sOutput.Session, itemFilters)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	// check correct items returned
-	switch len(foundItems) {
-	case 0:
-		t.Errorf("no tags returned")
-	case 1:
-		fi := foundItems[0].(*Tag)
-
-		if fi.Content.Title != "Zippy, Bungle" {
-			t.Errorf("incorrect tag returned (title mismatch)")
-		}
-	default:
-		t.Errorf("expected one tag but got: %d", len(foundItems))
-	}
-}
-
-func TestSearchTagsByRegex(t *testing.T) {
-	//SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	cleanup(&sOutput.Session)
-
-	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
-	if _, err = _createTags(sOutput.Session, tagInput); err != nil {
-		t.Errorf("failed to create tags")
-	}
-	// find one note by text
-	var foundItems Items
-
-	filterOne := Filter{
-		Type:       "Tag",
-		Key:        "Title",
-		Comparison: "~",
-		Value:      "pp",
-	}
-
-	var itemFilters ItemFilters
-	itemFilters.Filters = []Filter{filterOne}
-
-	foundItems, err = _getItems(sOutput.Session, itemFilters)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	// check correct items returned
-	switch len(foundItems) {
-	case 0:
-		t.Errorf("no tags returned")
-	case 1:
-		fi := foundItems[0].(*Tag)
-		if fi.Content.Title != "Zippy, Bungle" {
-			t.Errorf("incorrect tag returned (title mismatch)")
-		}
-	default:
-		t.Errorf("expected one tag but got: %d", len(foundItems))
-	}
-}
-
-func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
-
-	newNotes := genNotes(200, 2)
-	assert.NoError(t, newNotes.Validate())
-
-	eItems, _ := newNotes.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	si := SyncInput{
-		Session: sOutput.Session,
-		Items:   eItems,
-		Debug:   true,
-	}
-
-	_, err = Sync(si)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	var retrievedNotes Items
-
-	var cursorToken string
-
-	var so SyncOutput
-
-	for {
-		si = SyncInput{
-			Session:     sOutput.Session,
-			CursorToken: cursorToken,
-			BatchSize:   50,
-			Debug:       true,
-		}
-
-		so, err = Sync(si)
-		assert.NoError(t, err)
-
-		var di DecryptedItems
-		di, err = so.Items.Decrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-		assert.NoError(t, err)
-
-		var items Items
-
-		items, err = di.Parse()
-		assert.NoError(t, err)
-
-		retrievedNotes = append(retrievedNotes, items...)
-
-		if stripLineBreak(so.Cursor) == "" {
-			break
-		} else {
-			cursorToken = so.Cursor
-		}
-	}
-	retrievedNotes.DeDupe()
-
-	giFilter := Filter{
-		Type:  "Note",
-		Key:   "Deleted",
-		Value: "False",
-	}
-	giFilters := ItemFilters{
-		Filters: []Filter{giFilter},
-	}
-
-	retrievedNotes.Filter(giFilters)
-
-	if len(retrievedNotes) != 200 {
-		t.Errorf("expected 200 items but got %d\n", len(retrievedNotes))
-	}
-}
-
-func TestCreateAndGet301Notes(t *testing.T) {
-	numNotes := 301
-	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
-
-	cleanup(&sOutput.Session)
-	defer cleanup(&sOutput.Session)
-
-	newNotes := genNotes(numNotes, 10)
-	assert.NoError(t, newNotes.Validate())
-	eItems, _ := newNotes.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
-	si := SyncInput{
-		Session: sOutput.Session,
-		Items:   eItems,
-		Debug:   true,
-	}
-
-	_, err = Sync(si)
-	assert.NoError(t, err)
-
-	var retrievedNotes Items
-
-	var cursorToken string
-
-	giFilter := Filter{
-		Type:  "Note",
-		Key:   "Deleted",
-		Value: "False",
-	}
-	giFilters := ItemFilters{
-		Filters: []Filter{giFilter},
-	}
-
-	for {
-		si = SyncInput{
-			Session:     sOutput.Session,
-			CursorToken: cursorToken,
-			Debug:       true,
-		}
-
-		var so SyncOutput
-
-		so, err = Sync(si)
-		if err != nil {
-			t.Error(err)
-		}
-
-		so.Items.DeDupe()
-
-		var items Items
-
-		items, err = so.Items.DecryptAndParse(sOutput.Session.Mk, sOutput.Session.Ak, true)
-		if err != nil {
-			t.Error(err)
-		}
-
-		retrievedNotes = append(retrievedNotes, items...)
-
-		if stripLineBreak(so.Cursor) == "" {
-			break
-		} else {
-			cursorToken = so.Cursor
-		}
-	}
-	retrievedNotes.Filter(giFilters)
-
-	if len(retrievedNotes) != numNotes {
-		t.Errorf("expected %d items but got %d\n", numNotes, len(retrievedNotes))
-	}
-
-	retrievedNotes.Filter(giFilters)
-
-	for i, r := range retrievedNotes {
-		fi := r.(*Note)
-		if !strings.HasPrefix(fi.Content.Title, fmt.Sprintf("-%d-", i+1)) {
-			t.Errorf("incorrect note returned")
-		}
-	}
-}
+// func TestPutItemsAddSingleNote(t *testing.T) {
+//	// SetDebugLogger(log.Println)
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	//defer cleanup(&sOutput.Session)
+//
+//	// sync to get items keys
+//	si := SyncInput{
+//		Session: sOutput.Session,
+//	}
+//
+//	var so SyncOutput
+//
+//	so, err = Sync(si)
+//	assert.NoError(t, err)
+//
+//	var iks []ItemsKey
+//	iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+//	assert.NoError(t, err)
+//	if len(iks) > 1 {
+//		err = fmt.Errorf("too many items keys returned")
+//	}
+//
+//	//randPara := testParas[randInt(0, len(testParas))]
+//	randPara := "TestText"
+//
+//	newNoteContent := NoteContent{
+//		Title:          "TestTitle",
+//		Text:           randPara,
+//		ItemReferences: nil,
+//	}
+//
+//	newNoteContent.SetUpdateTime(time.Now())
+//
+//	newNote := NewNote()
+//	newNote.Content = newNoteContent
+//	dItems := Items{&newNote}
+//	assert.NoError(t, dItems.Validate())
+//	var eItems EncryptedItems
+//	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
+//	assert.NoError(t, err)
+//	assert.NotEmpty(t, eItems)
+//
+//	si = SyncInput{
+//		Items:   eItems,
+//		Session: sOutput.Session,
+//	}
+//
+//	so, err = Sync(si)
+//	assert.NoError(t, err, "Sync Failed", err)
+//	assert.Len(t, so.SavedItems, 1, "expected 1")
+//	uuidOfNewItem := so.SavedItems[0].UUID
+//	si = SyncInput{
+//		Session: sOutput.Session,
+//	}
+//
+//	so, err = Sync(si)
+//	if err != nil {
+//		return
+//	}
+//
+//	var di DecryptedItems
+//
+//	di, err = so.Items.Decrypt(iks[0], sOutput.Session.MasterKey, true)
+//	if err != nil {
+//		return
+//	}
+//
+//	var items Items
+//	items, err = di.Parse()
+//	assert.NoError(t, err, "failed to get items")
+//
+//	var foundCreatedItem bool
+//
+//	for i := range items {
+//		if items[i].GetUUID() == uuidOfNewItem {
+//			foundCreatedItem = true
+//
+//			ni := items[i].(*Note)
+//
+//			if ni.ContentType != "Note" {
+//				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
+//					items[i].GetContentType())
+//			}
+//
+//			if ni.Deleted {
+//				t.Errorf("deleted status of new item is incorrect - expected: False got: True")
+//			}
+//
+//			if ni.Content.GetText() != randPara {
+//				t.Errorf("text of new item is incorrect - expected: %s got: %s",
+//					randPara, ni.Content.GetText())
+//			}
+//		}
+//	}
+//
+//	if !foundCreatedItem {
+//		t.Errorf("failed to get created Item by UUID")
+//	}
+//}
+
+//func TestPutItemsAddSingleComponent(t *testing.T) {
+//	fmt.Println("In TestPutItemsAddSingleComponent")
+//	sOutput, err := SignIn(sInput)
+//	fmt.Printf("sOutput: %+v\n", sOutput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	newComponentContent := ComponentContent{
+//		Name:               "Minimal Markdown Editor",
+//		Area:               "editor-editor",
+//		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
+//		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
+//		OfflineOnly:        "",
+//		ValidUntil:         "2023-08-29T12:15:17.000Z",
+//		AutoUpdateDisabled: "",
+//		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
+//		AssociatedItemIds:  []string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"},
+//		ItemReferences:     nil,
+//		Active:             true,
+//		AppData:            AppDataContent{},
+//	}
+//
+//	newComponentContent.SetUpdateTime(time.Now())
+//
+//	newComponent := NewComponent()
+//	newComponent.Content = newComponentContent
+//
+//	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
+//	assert.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+//
+//	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
+//	assert.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+//
+//	dItems := Items{&newComponent}
+//	assert.NoError(t, dItems.Validate())
+//	eItems, _ := dItems.Encrypt("", "", true)
+//	syncInput := SyncInput{
+//		Items:   eItems,
+//		Session: sOutput.Session,
+//		Debug:   true,
+//	}
+//
+//	var syncOutput SyncOutput
+//
+//	syncOutput, err = Sync(syncInput)
+//	assert.NoError(t, err, "PutItems Failed", err)
+//	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
+//	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
+//	uuidOfNewItem := syncOutput.SavedItems[0].UUID
+//	syncInput = SyncInput{
+//		Session: sOutput.Session,
+//		Debug:   true,
+//	}
+//
+//	syncOutput, err = Sync(syncInput)
+//	if err != nil {
+//		return
+//	}
+//
+//	var di DecryptedItems
+//	di, err = syncOutput.Items.Decrypt("", "", true)
+//
+//	if err != nil {
+//		return
+//	}
+//
+//	var items Items
+//	items, err = di.Parse()
+//
+//	var foundCreatedItem bool
+//
+//	for i := range items {
+//		if items[i].GetUUID() == uuidOfNewItem {
+//			foundCreatedItem = true
+//
+//			assert.Equal(t, "SN|Component", items[i].GetContentType())
+//			assert.Equal(t, false, items[i].IsDeleted())
+//			assert.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
+//		}
+//	}
+//
+//	assert.True(t, foundCreatedItem, "failed to get created Item by UUID")
+//}
+//
+//func TestItemsRemoveDeleted(t *testing.T) {
+//	noteTitle := "Title"
+//	noteText := "Title"
+//	noteContent := NewNoteContent()
+//	noteContent.Title = noteTitle
+//	noteContent.Text = noteText
+//
+//	noteOne := NewNote()
+//	noteOne.Content = *noteContent
+//	noteTwo := noteOne.Copy()
+//	noteTwo.UUID += "a"
+//	noteThree := noteOne.Copy()
+//	noteThree.UUID += "b"
+//
+//	assert.False(t, noteOne.Deleted)
+//
+//	assert.False(t, noteTwo.Deleted)
+//
+//	assert.False(t, noteThree.Deleted)
+//
+//	noteTwo.Deleted = true
+//	notes := Notes{noteOne, noteTwo, noteThree}
+//	assert.Len(t, notes, 3)
+//	notes.RemoveDeleted()
+//	assert.Len(t, notes, 2)
+//
+//	for _, n := range notes {
+//		assert.NotEqual(t, n.UUID, noteTwo.UUID)
+//	}
+//}
+//
+//func TestDecryptedItemsRemoveDeleted(t *testing.T) {
+//	diOne := DecryptedItem{
+//		UUID:        "1234",
+//		Content:     "abcd",
+//		ContentType: "Note",
+//		Deleted:     false,
+//	}
+//	diTwo := DecryptedItem{
+//		UUID:        "2345",
+//		Content:     "abcd",
+//		ContentType: "Note",
+//		Deleted:     true,
+//	}
+//	diThree := DecryptedItem{
+//		UUID:        "3456",
+//		Content:     "abcd",
+//		ContentType: "Note",
+//		Deleted:     false,
+//	}
+//	dis := DecryptedItems{diOne, diTwo, diThree}
+//	assert.Len(t, dis, 3)
+//	dis.RemoveDeleted()
+//	assert.Len(t, dis, 2)
+//
+//	for _, n := range dis {
+//		assert.NotEqual(t, n.UUID, diTwo.UUID)
+//	}
+//}
+//
+//func TestEncryptedItemsRemoveDeleted(t *testing.T) {
+//	noteTitle := "Title"
+//	noteText := "Title"
+//	noteContent := NewNoteContent()
+//	noteContent.Title = noteTitle
+//	noteContent.Text = noteText
+//
+//	noteOne := NewNote()
+//	noteOne.SetContent(*noteContent)
+//	noteTwo := noteOne.Copy()
+//	noteTwo.UUID += "a"
+//	noteThree := noteOne.Copy()
+//	noteThree.UUID += "b"
+//
+//	assert.False(t, noteOne.Deleted)
+//	assert.False(t, noteTwo.Deleted)
+//	assert.False(t, noteThree.Deleted)
+//
+//	noteTwo.Deleted = true
+//	notes := Items{&noteOne, &noteTwo, &noteThree}
+//
+//	var testInput generateEncryptedPasswordInput
+//	testInput.userPassword = "oWB7c&77Zahw8XK$AUy#"
+//	testInput.Identifier = "soba@lessknown.co.uk"
+//	testInput.PasswordNonce = "9e88fc67fb8b1efe92deeb98b5b6a801c78bdfae08eecb315f843f6badf60aef"
+//	testInput.PasswordCost = 110000
+//	testInput.Version = "003"
+//	testInput.PasswordSalt = ""
+//	_, mk, ak, err := generateEncryptedPasswordAndKeys(testInput)
+//	assert.NoError(t, err)
+//
+//	var eNotes EncryptedItems
+//	eNotes, err = notes.Encrypt(mk, ak, true)
+//	assert.NoError(t, err)
+//	assert.Len(t, eNotes, 3)
+//	eNotes.RemoveDeleted()
+//	assert.Len(t, eNotes, 2)
+//
+//	for _, n := range eNotes {
+//		assert.NotEqual(t, n.UUID, noteTwo.UUID)
+//	}
+//}
+//
+//func TestNoteContentCopy(t *testing.T) {
+//	initialNoteTitle := "Title"
+//	initialNoteText := "Title"
+//	initialNoteContent := NewNoteContent()
+//	initialNoteContent.Title = initialNoteTitle
+//	initialNoteContent.Text = initialNoteText
+//	dupeNoteContent := initialNoteContent.Copy()
+//	// update initial to ensure copy
+//	initialNoteContent.Title = "Updated Title"
+//	initialNoteContent.Text = "Updated Text"
+//	// now check duplicate is correct
+//	assert.NotNil(t, dupeNoteContent)
+//	assert.Equal(t, initialNoteTitle, dupeNoteContent.Title)
+//	assert.Equal(t, initialNoteText, dupeNoteContent.GetText())
+//}
+//
+//func TestTagContentCopy(t *testing.T) {
+//	initialTagTitle := "Title"
+//	initialTagContent := NewNoteContent()
+//	initialTagContent.Title = initialTagTitle
+//	dupeNoteContent := initialTagContent.Copy()
+//	// update initial to ensure copy
+//	initialTagContent.Title = "Updated Title"
+//	// now check duplicate is correct
+//	assert.NotNil(t, dupeNoteContent)
+//	assert.Equal(t, initialTagTitle, dupeNoteContent.Title)
+//}
+//
+//func TestNoteCopy(t *testing.T) {
+//	initialNoteTitle := "Title"
+//	initialNote := NewNote()
+//	initialNoteContent := NewNoteContent()
+//	initialNoteContent.Title = initialNoteTitle
+//	initialNoteContent.Text = "Text"
+//	initialNote.SetContent(*initialNoteContent)
+//	dupeNote := initialNote.Copy()
+//	assert.Equal(t, initialNote.Content.GetTitle(), initialNoteTitle)
+//	assert.NotNil(t, dupeNote.Content)
+//	assert.Equal(t, initialNote.UUID, dupeNote.UUID)
+//	assert.Equal(t, initialNote.ContentType, dupeNote.ContentType)
+//	assert.Equal(t, initialNote.Content.GetText(), dupeNote.Content.GetText())
+//	assert.Equal(t, initialNote.Content.GetTitle(), dupeNote.Content.GetTitle())
+//	assert.Equal(t, initialNote.ContentSize, dupeNote.ContentSize)
+//	assert.Equal(t, initialNote.CreatedAt, dupeNote.CreatedAt)
+//	assert.Equal(t, initialNote.UpdatedAt, dupeNote.UpdatedAt)
+//}
+//
+//func TestTagCopy(t *testing.T) {
+//	initialTag := NewTag()
+//	initialTagContent := NewTagContent()
+//	initialTagContent.Title = "Title"
+//	initialTag.SetContent(*initialTagContent)
+//	dupeTag := initialTag.Copy()
+//	assert.NotNil(t, dupeTag.Content)
+//	assert.Equal(t, dupeTag.UUID, initialTag.UUID)
+//	assert.Equal(t, dupeTag.ContentType, initialTag.ContentType)
+//	assert.Equal(t, dupeTag.Content.GetTitle(), initialTag.Content.GetTitle())
+//	assert.Equal(t, dupeTag.ContentSize, initialTag.ContentSize)
+//	assert.Equal(t, dupeTag.CreatedAt, initialTag.CreatedAt)
+//	assert.Equal(t, dupeTag.UpdatedAt, initialTag.UpdatedAt)
+//}
+//
+//func TestTagComparison(t *testing.T) {
+//	xUUID := GenUUID()
+//	one := NewTag()
+//	one.UUID = xUUID
+//	one.Content = *NewTagContent()
+//	two := NewTag()
+//	two.Content = *NewTagContent()
+//	two.UUID = xUUID
+//	assert.True(t, one.Equals(two))
+//
+//	one.Content.SetTitle("one")
+//	two.Content.SetTitle("one")
+//	assert.True(t, one.Equals(two))
+//
+//	one.Content.SetTitle("one")
+//	two.Content.SetTitle("two")
+//	assert.False(t, one.Equals(two))
+//}
+//
+
+//
+//func TestNoteTagging(t *testing.T) {
+//	sOutput, err := SignIn(sInput)
+//
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	// create base notes
+//	newNotes := genNotes(100, 2)
+//	assert.NoError(t, newNotes.Validate())
+//	eItems, _ := newNotes.Encrypt("", "", true)
+//
+//	si := SyncInput{
+//		Session: sOutput.Session,
+//		Items:   eItems,
+//	}
+//
+//	_, err = Sync(si)
+//	if err != nil {
+//		t.Errorf(err.Error())
+//	}
+//
+//	dogNote := createNote("Dogs", "Can't look up", "")
+//	cheeseNote := createNote("Cheese", "Is not a vegetable", "")
+//	baconNote := createNote("Bacon", "Goes with everything", "")
+//	gnuNote := createNote("GNU", "Is not Unix", "")
+//	spiderNote := createNote("Spiders", "Are not welcome", "")
+//
+//	animalTag := createTag("Animal Facts", "")
+//	foodTag := createTag("Food Facts", "")
+//
+//	// tag dog and gnu note with animal tag
+//	updatedAnimalTagsInput := UpdateItemRefsInput{
+//		Items: Items{animalTag},
+//		ToRef: Items{dogNote, gnuNote, spiderNote},
+//	}
+//	updatedAnimalTagsOutput := UpdateItemRefs(updatedAnimalTagsInput)
+//
+//	// confirm new tags both reference dog and gnu notes
+//	animalNoteUUIDs := []string{
+//		dogNote.UUID,
+//		gnuNote.UUID,
+//		spiderNote.UUID,
+//	}
+//
+//	foodNoteUUIDs := []string{
+//		cheeseNote.UUID,
+//		baconNote.UUID,
+//	}
+//
+//	// tag cheese note with food tag
+//	updatedFoodTagsInput := UpdateItemRefsInput{
+//		Items: Items{foodTag},
+//		ToRef: Items{cheeseNote, baconNote},
+//	}
+//	updatedFoodTagsOutput := UpdateItemRefs(updatedFoodTagsInput)
+//
+//	for _, at := range updatedAnimalTagsOutput.Items {
+//		at = at.(*Tag)
+//		for _, ref := range at.GetContent().References() {
+//			if !stringInSlice(ref.UUID, animalNoteUUIDs, true) {
+//				t.Error("failed to find an animal note reference")
+//			}
+//
+//			if stringInSlice(ref.UUID, foodNoteUUIDs, true) {
+//				t.Error("found a food note reference")
+//			}
+//		}
+//	}
+//
+//	for _, ft := range updatedFoodTagsOutput.Items {
+//		for _, ref := range ft.GetContent().References() {
+//			if !stringInSlice(ref.UUID, foodNoteUUIDs, true) {
+//				t.Error("failed to find an food note reference")
+//			}
+//
+//			if stringInSlice(ref.UUID, animalNoteUUIDs, true) {
+//				t.Error("found an animal note reference")
+//			}
+//		}
+//	}
+//
+//	// Put Notes and Tags
+//	var allItems Items
+//	allItems = append(allItems, dogNote, cheeseNote, gnuNote)
+//	allItems = append(allItems, updatedAnimalTagsOutput.Items...)
+//	allItems = append(allItems, updatedFoodTagsOutput.Items...)
+//	assert.NoError(t, allItems.Validate())
+//	eItems, _ = allItems.Encrypt("", "", true)
+//	si = SyncInput{
+//		Items:   eItems,
+//		Session: sOutput.Session,
+//	}
+//
+//	_, err = Sync(si)
+//	if err != nil {
+//		t.Errorf("failed to put items: %+v", err)
+//	}
+//
+//	getAnimalNotesFilter := Filter{
+//		Type:       "Note",
+//		Key:        "TagTitle",
+//		Comparison: "~",
+//		Value:      "Animal Facts",
+//	}
+//	getAnimalNotesFilters := ItemFilters{
+//		Filters: []Filter{getAnimalNotesFilter},
+//	}
+//	getAnimalNotesInput := SyncInput{
+//		Session: sOutput.Session,
+//	}
+//
+//	var so SyncOutput
+//
+//	so, err = Sync(getAnimalNotesInput)
+//	if err != nil {
+//		t.Error("failed to retrieve animal notes by tag")
+//		return
+//	}
+//
+//	var animalNotes Items
+//
+//	animalNotes, err = so.Items.DecryptAndParse("", "", true)
+//	if err != nil {
+//		return
+//	}
+//
+//	animalNotes.Filter(getAnimalNotesFilters)
+//	// check two notes are animal tagged ones
+//	animalNoteTitles := []string{
+//		dogNote.Content.GetTitle(),
+//		gnuNote.Content.GetTitle(),
+//	}
+//
+//	if len(animalNotes) != 2 {
+//		t.Errorf("expected two notes, got: %d", len(animalNotes))
+//	}
+//
+//	for _, fn := range animalNotes {
+//		an := fn.(*Note)
+//		if !stringInSlice(an.Content.Title, animalNoteTitles, true) {
+//			t.Error("got non animal note based on animal tag")
+//		}
+//	}
+//
+//	// get using regex
+//	regexFilter := Filter{
+//		Type:       "Note",
+//		Comparison: "~",
+//		Key:        "Text",
+//		Value:      `not\s(Unix|a vegetable)`,
+//	}
+//
+//	regexFilters := ItemFilters{
+//		Filters: []Filter{regexFilter},
+//	}
+//
+//	getNotesInput := SyncInput{
+//		Session: sOutput.Session,
+//	}
+//
+//	so, err = Sync(getNotesInput)
+//	assert.NoError(t, err, "failed to retrieve notes using regex")
+//
+//	var notes Items
+//	notes, err = so.Items.DecryptAndParse("", "", true)
+//	assert.NoError(t, err)
+//
+//	notes.Filter(regexFilters)
+//	// check two notes are animal tagged ones
+//	expectedNoteTitles := []string{"Cheese", "GNU"}
+//	if len(notes) != len(expectedNoteTitles) {
+//		t.Errorf("expected two notes, got: %d", len(notes))
+//	}
+//
+//	for _, fn := range notes {
+//		an := fn.(*Note)
+//		if !stringInSlice(an.Content.Title, expectedNoteTitles, true) {
+//			t.Errorf("got unexpected result: %s", an.Content.Title)
+//		}
+//	}
+//}
+//
+//func TestSearchNotesByUUID(t *testing.T) {
+//	//SetDebugLogger(log.Println)
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	// create two notes
+//	noteInput := map[string]string{
+//		"Cheese Fact": "Cheese is not a vegetable",
+//		"Dog Fact":    "Dogs can't look up",
+//		"GNU":         "Is Not Unix",
+//	}
+//
+//	var cnO SyncOutput
+//	cnO, err = _createNotes(sOutput.Session, noteInput)
+//	assert.NoError(t, err, "failed to create notes")
+//
+//	var dogFactUUID string
+//
+//	var di DecryptedItems
+//
+//	di, err = cnO.SavedItems.Decrypt("", "", true)
+//	assert.NoError(t, err)
+//
+//	var dis Items
+//	dis, err = di.Parse()
+//	assert.NoError(t, err)
+//
+//	for _, di := range dis {
+//		dn := di.(*Note)
+//		if dn.Content.Title == "Dog Fact" {
+//			dogFactUUID = dn.UUID
+//		}
+//	}
+//
+//	var foundItems Items
+//
+//	filterOne := Filter{
+//		Type:  "Note",
+//		Key:   "UUID",
+//		Value: dogFactUUID,
+//	}
+//
+//	var itemFilters ItemFilters
+//	itemFilters.Filters = []Filter{filterOne}
+//
+//	foundItems, err = _getItems(sOutput.Session, itemFilters)
+//	if err != nil {
+//		t.Error(err.Error())
+//	}
+//
+//	// check correct items returned
+//	switch len(foundItems) {
+//	case 0:
+//		t.Errorf("no notes returned")
+//	case 1:
+//		fi := foundItems[0].(*Note)
+//		if fi.Content.Title != "Dog Fact" {
+//			t.Errorf("incorrect note returned (title mismatch)")
+//		}
+//
+//		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
+//			t.Errorf("incorrect note returned (text mismatch)")
+//		}
+//	default:
+//		t.Errorf("expected one note but got: %d", len(foundItems))
+//	}
+//}
+//
+//func TestSearchNotesByText(t *testing.T) {
+//	//SetDebugLogger(log.Println)
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	// create two notes
+//	noteInput := map[string]string{
+//		"Dog Fact":    "Dogs can't look up",
+//		"Cheese Fact": "Cheese is not a vegetable",
+//	}
+//
+//	if _, err = _createNotes(sOutput.Session, noteInput); err != nil {
+//		t.Errorf("failed to create notes")
+//	}
+//	// find one note by text
+//	var foundItems Items
+//
+//	filterOne := Filter{
+//		Type:       "Note",
+//		Key:        "Text",
+//		Comparison: "contains",
+//		Value:      "Cheese",
+//	}
+//
+//	var itemFilters ItemFilters
+//	itemFilters.Filters = []Filter{filterOne}
+//
+//	foundItems, err = _getItems(sOutput.Session, itemFilters)
+//	if err != nil {
+//		t.Error(err.Error())
+//	}
+//	// check correct items returned
+//	switch len(foundItems) {
+//	case 0:
+//		t.Errorf("no notes returned")
+//	case 1:
+//		fi := foundItems[0].(*Note)
+//		if fi.Content.Title != "Cheese Fact" {
+//			t.Errorf("incorrect note returned (title mismatch)")
+//		}
+//
+//		if !strings.Contains(fi.Content.Text, "Cheese is not a vegetable") {
+//			t.Errorf("incorrect note returned (text mismatch)")
+//		}
+//	default:
+//		t.Errorf("expected one note but got: %d", len(foundItems))
+//	}
+//}
+//
+//func TestSearchNotesByRegexTitleFilter(t *testing.T) {
+//	//SetDebugLogger(log.Println)
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	// create two notes
+//	noteInput := map[string]string{
+//		"Dog Fact":    "Dogs can't look up",
+//		"Cheese Fact": "Cheese is not a vegetable",
+//	}
+//	if _, err = _createNotes(sOutput.Session, noteInput); err != nil {
+//		t.Errorf("failed to create notes")
+//	}
+//	// find one note by text
+//	var foundItems Items
+//
+//	filterOne := Filter{
+//		Type:       "Note",
+//		Key:        "Title",
+//		Comparison: "~",
+//		Value:      "^Do.*",
+//	}
+//
+//	var itemFilters ItemFilters
+//
+//	itemFilters.Filters = []Filter{filterOne}
+//
+//	foundItems, err = _getItems(sOutput.Session, itemFilters)
+//	if err != nil {
+//		t.Error(err.Error())
+//	}
+//	// check correct items returned
+//	switch len(foundItems) {
+//	case 0:
+//		t.Errorf("no notes returned")
+//	case 1:
+//		fi := foundItems[0].(*Note)
+//
+//		if fi.Content.Title != "Dog Fact" {
+//			t.Errorf("incorrect note returned (title mismatch)")
+//		}
+//
+//		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
+//			t.Errorf("incorrect note returned (text mismatch)")
+//		}
+//	default:
+//		t.Errorf("expected one note but got: %d", len(foundItems))
+//	}
+//}
+//
+//func TestSearchTagsByText(t *testing.T) {
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err)
+//	cleanup(&sOutput.Session)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	defer cleanup(&sOutput.Session)
+//
+//	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
+//	if _, err = _createTags(sOutput.Session, tagInput); err != nil {
+//		t.Errorf("failed to create tags")
+//	}
+//	// find one note by text
+//	var foundItems Items
+//
+//	filterOne := Filter{
+//		Type:       "Tag",
+//		Key:        "Title",
+//		Comparison: "contains",
+//		Value:      "Bungle",
+//	}
+//
+//	var itemFilters ItemFilters
+//	itemFilters.Filters = []Filter{filterOne}
+//
+//	foundItems, err = _getItems(sOutput.Session, itemFilters)
+//	if err != nil {
+//		t.Error(err.Error())
+//	}
+//	// check correct items returned
+//	switch len(foundItems) {
+//	case 0:
+//		t.Errorf("no tags returned")
+//	case 1:
+//		fi := foundItems[0].(*Tag)
+//
+//		if fi.Content.Title != "Zippy, Bungle" {
+//			t.Errorf("incorrect tag returned (title mismatch)")
+//		}
+//	default:
+//		t.Errorf("expected one tag but got: %d", len(foundItems))
+//	}
+//}
+//
+//func TestSearchTagsByRegex(t *testing.T) {
+//	//SetDebugLogger(log.Println)
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	cleanup(&sOutput.Session)
+//
+//	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
+//	if _, err = _createTags(sOutput.Session, tagInput); err != nil {
+//		t.Errorf("failed to create tags")
+//	}
+//	// find one note by text
+//	var foundItems Items
+//
+//	filterOne := Filter{
+//		Type:       "Tag",
+//		Key:        "Title",
+//		Comparison: "~",
+//		Value:      "pp",
+//	}
+//
+//	var itemFilters ItemFilters
+//	itemFilters.Filters = []Filter{filterOne}
+//
+//	foundItems, err = _getItems(sOutput.Session, itemFilters)
+//	if err != nil {
+//		t.Error(err.Error())
+//	}
+//	// check correct items returned
+//	switch len(foundItems) {
+//	case 0:
+//		t.Errorf("no tags returned")
+//	case 1:
+//		fi := foundItems[0].(*Tag)
+//		if fi.Content.Title != "Zippy, Bungle" {
+//			t.Errorf("incorrect tag returned (title mismatch)")
+//		}
+//	default:
+//		t.Errorf("expected one tag but got: %d", len(foundItems))
+//	}
+//}
+
+//
+//func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//	defer cleanup(&sOutput.Session)
+
+	//newNotes := genNotes(200, 2)
+	//assert.NoError(t, newNotes.Validate())
+	//
+	//var so SyncOutput
+	//
+	//so, err = Sync(SyncInput{
+	//	Session: sOutput.Session,
+	//})
+	//assert.NoError(t, err)
+	//
+	//// get items key
+	//var iks []ItemsKey
+	//iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	//assert.NoError(t, err)
+	//
+	//eItems, err := newNotes.Encrypt(sOutput.Session.MasterKey, iks[0], true)
+	//assert.NoError(t, err)
+	//assert.NoError(t, eItems.Validate())
+	//
+	//si := SyncInput{
+	//	Session: sOutput.Session,
+	//	Items:   eItems,
+	//	Debug:   true,
+	//}
+	//
+	//_, err = Sync(si)
+	//if err != nil {
+	//	t.Errorf(err.Error())
+	//}
+	//
+	//var retrievedNotes Items
+	//
+	//var cursorToken string
+	//
+	//for {
+	//	si = SyncInput{
+	//		Session:     sOutput.Session,
+	//		CursorToken: cursorToken,
+	//		BatchSize:   50,
+	//		Debug:       true,
+	//	}
+	//
+	//	so, err = Sync(si)
+	//	assert.NoError(t, err)
+	//
+	//	var di DecryptedItems
+	//	di, err = so.Items.Decrypt(iks[0], sOutput.Session.MasterKey, true)
+	//	assert.NoError(t, err)
+	//
+	//	var items Items
+	//
+	//	items, err = di.Parse()
+	//	assert.NoError(t, err)
+	//
+	//	retrievedNotes = append(retrievedNotes, items...)
+	//
+	//	if stripLineBreak(so.Cursor) == "" {
+	//		break
+	//	} else {
+	//		cursorToken = so.Cursor
+	//	}
+	//}
+	//retrievedNotes.DeDupe()
+	//
+	//giFilter := Filter{
+	//	Type:  "Note",
+	//	Key:   "Deleted",
+	//	Value: "False",
+	//}
+	//giFilters := ItemFilters{
+	//	Filters: []Filter{giFilter},
+	//}
+	//
+	//retrievedNotes.Filter(giFilters)
+	//
+	//if len(retrievedNotes) != 200 {
+	//	t.Errorf("expected 200 items but got %d\n", len(retrievedNotes))
+	//}
+//}
+
+//func TestCreateAndGet301Notes(t *testing.T) {
+//	numNotes := 301
+//	sOutput, err := SignIn(sInput)
+//	assert.NoError(t, err, "sign-in failed", err)
+//
+//	cleanup(&sOutput.Session)
+//	defer cleanup(&sOutput.Session)
+//
+//	newNotes := genNotes(numNotes, 10)
+//	assert.NoError(t, newNotes.Validate())
+//	eItems, _ := newNotes.Encrypt("", "", true)
+//	si := SyncInput{
+//		Session: sOutput.Session,
+//		Items:   eItems,
+//		Debug:   true,
+//	}
+//
+//	_, err = Sync(si)
+//	assert.NoError(t, err)
+//
+//	var retrievedNotes Items
+//
+//	var cursorToken string
+//
+//	giFilter := Filter{
+//		Type:  "Note",
+//		Key:   "Deleted",
+//		Value: "False",
+//	}
+//	giFilters := ItemFilters{
+//		Filters: []Filter{giFilter},
+//	}
+//
+//	for {
+//		si = SyncInput{
+//			Session:     sOutput.Session,
+//			CursorToken: cursorToken,
+//			Debug:       true,
+//		}
+//
+//		var so SyncOutput
+//
+//		so, err = Sync(si)
+//		if err != nil {
+//			t.Error(err)
+//		}
+//
+//		so.Items.DeDupe()
+//
+//		var items Items
+//
+//		items, err = so.Items.DecryptAndParse("", "", true)
+//		if err != nil {
+//			t.Error(err)
+//		}
+//
+//		retrievedNotes = append(retrievedNotes, items...)
+//
+//		if stripLineBreak(so.Cursor) == "" {
+//			break
+//		} else {
+//			cursorToken = so.Cursor
+//		}
+//	}
+//	retrievedNotes.Filter(giFilters)
+//
+//	if len(retrievedNotes) != numNotes {
+//		t.Errorf("expected %d items but got %d\n", numNotes, len(retrievedNotes))
+//	}
+//
+//	retrievedNotes.Filter(giFilters)
+//
+//	for i, r := range retrievedNotes {
+//		fi := r.(*Note)
+//		if !strings.HasPrefix(fi.Content.Title, fmt.Sprintf("-%d-", i+1)) {
+//			t.Errorf("incorrect note returned")
+//		}
+//	}
+//}
 
 func genRandomText(paragraphs int) string {
 	var strBuilder strings.Builder
@@ -1243,7 +1530,8 @@ func genNotes(num int, textParas int) (notes Items) {
 
 		noteContent := &NoteContent{
 			Title:          fmt.Sprintf("-%d-,%s", i, "Title"),
-			Text:           fmt.Sprintf("%d,%s", i, genRandomText(textParas)),
+			Text:           "test",
+			//Text:           fmt.Sprintf("%d,%s", i, genRandomText(textParas)),
 			ItemReferences: ItemReferences{},
 		}
 		noteContent.SetUpdateTime(time.Now())
