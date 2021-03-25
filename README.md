@@ -4,7 +4,9 @@
 # about
 <a href="https://standardnotes.org/" target="_blank">Standard Notes</a> is a service and application for the secure management and storage of notes.  
 
-gosn is a library to help develop your own application to manage notes on the official, or your self-hosted, Standard Notes server.
+gosn-v2 is a library to help develop your own application to manage notes on the official, or your self-hosted, Standard Notes server.
+
+***Note: This release adds support for version 004 of encryption (introduced Nov 2020) and removes support for 003.***
 
 # installation
 
@@ -43,7 +45,7 @@ gio, _ := gosn.Sync(input)
 
 ## decrypt and parse items
 ```golang
-di, _ := gio.Items.DecryptAndParse(so.Session.Mk, so.Session.Ak, false)
+di, _ := gio.Items.DecryptAndParse(so.Session.Mk, itemsKey, false)
 ```
 
 ## output items
