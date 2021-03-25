@@ -25,6 +25,7 @@ type Item struct {
 	UUID        string `storm:"id,unique"`
 	Content     string
 	ContentType string `storm:"index"`
+	ItemsKeyID  string
 	EncItemKey  string
 	Deleted     bool
 	CreatedAt   string
@@ -32,6 +33,9 @@ type Item struct {
 	Dirty       bool
 	DirtiedDate time.Time
 }
+
+//var _ Item = (*Note)(nil)
+
 
 type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
@@ -51,29 +55,37 @@ type Items []Item
 
 func (s *Session) gosn() gosn.Session {
 	return gosn.Session{
-		Token:  s.Token,
-		Mk:     s.Mk,
-		Ak:     s.Ak,
-		Server: s.Server,
+		Server:            s.Server,
+		Token:             s.Token,
+		MasterKey:         s.MasterKey,
+		AccessToken:       s.AccessToken,
+		RefreshToken:      s.RefreshToken,
+		AccessExpiration:  s.AccessExpiration,
+		RefreshExpiration: s.RefreshExpiration,
 	}
 }
 
-func (pi Items) ToItems(Mk, Ak string) (items gosn.Items, err error) {
+func (pi Items) ToItems(Mk string, itemsKey gosn.ItemsKey) (items gosn.Items, err error) {
 	var eItems gosn.EncryptedItems
 	for _, ei := range pi {
 		eItems = append(eItems, gosn.EncryptedItem{
 			UUID:        ei.UUID,
 			Content:     ei.Content,
 			ContentType: ei.ContentType,
+			ItemsKeyID:  ei.ItemsKeyID,
 			EncItemKey:  ei.EncItemKey,
 			Deleted:     ei.Deleted,
 			CreatedAt:   ei.CreatedAt,
 			UpdatedAt:   ei.UpdatedAt,
 		})
+		// fmt.Printf("- added item: %s to eItems", ei.ContentType)
 	}
 
 	if eItems != nil {
-		items, err = eItems.DecryptAndParse(Mk, Ak, false)
+		items, err = eItems.DecryptAndParse(Mk, itemsKey, "", false)
+		if err != nil {
+			return
+		}
 	}
 
 	return
@@ -91,6 +103,7 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 		}
 
 		cItem.ContentType = i.ContentType
+		cItem.ItemsKeyID = i.ItemsKeyID
 		cItem.EncItemKey = i.EncItemKey
 		cItem.Deleted = i.Deleted
 		cItem.CreatedAt = i.CreatedAt
@@ -101,9 +114,8 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 	return
 }
 
-func SaveItems(db *storm.DB, mk, ak string, items gosn.Items, close, debug bool) error {
-	eItems, err := items.Encrypt(mk, ak, debug)
-
+func SaveItems(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Items, close, debug bool) error {
+	eItems, err := items.Encrypt(mk, ik, debug)
 	if err != nil {
 		return err
 	}
@@ -113,9 +125,8 @@ func SaveItems(db *storm.DB, mk, ak string, items gosn.Items, close, debug bool)
 	return SaveCacheItems(db, cItems, close)
 }
 
-func SaveNotes(db *storm.DB, mk, ak string, items gosn.Notes, close, debug bool) error {
-	eItems, err := items.Encrypt(mk, ak, debug)
-
+func SaveNotes(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Notes, close, debug bool) error {
+	eItems, err := items.Encrypt(mk, ik, debug)
 	if err != nil {
 		return err
 	}
@@ -125,9 +136,8 @@ func SaveNotes(db *storm.DB, mk, ak string, items gosn.Notes, close, debug bool)
 	return SaveCacheItems(db, cItems, close)
 }
 
-func SaveTags(db *storm.DB, mk, ak string, items gosn.Tags, close, debug bool) error {
-	eItems, err := items.Encrypt(mk, ak, debug)
-
+func SaveTags(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Tags, close, debug bool) error {
+	eItems, err := items.Encrypt(mk, ik, debug)
 	if err != nil {
 		return err
 	}
@@ -136,7 +146,6 @@ func SaveTags(db *storm.DB, mk, ak string, items gosn.Tags, close, debug bool) e
 
 	return SaveCacheItems(db, cItems, close)
 }
-
 
 func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) error {
 	cItems := ToCacheItems(items, false)
@@ -243,6 +252,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			UUID:        d.UUID,
 			Content:     d.Content,
 			ContentType: d.ContentType,
+			ItemsKeyID: d.ItemsKeyID,
 			EncItemKey:  d.EncItemKey,
 			Deleted:     d.Deleted,
 			CreatedAt:   d.CreatedAt,
@@ -285,10 +295,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			continue
 		}
 
-		if x.UUID != components[2] {
-			err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
-			return
-		}
+		//if x.UUID != components[2] {
+		//	err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
+		//	return
+		//}
 	}
 
 	// check saved items are valid
@@ -300,10 +310,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 				continue
 			}
 
-			if x.UUID != components[2] {
-				err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
-				return
-			}
+			//if x.UUID != components[2] {
+			//	err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
+			//	return
+			//}
 		}
 	}
 
@@ -341,6 +351,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			UUID:        i.UUID,
 			Content:     i.Content,
 			ContentType: i.ContentType,
+			ItemsKeyID: i.ItemsKeyID,
 			EncItemKey:  i.EncItemKey,
 			Deleted:     i.Deleted,
 			CreatedAt:   i.CreatedAt,
@@ -398,14 +409,14 @@ func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 		dir = filepath.Join(homeDir, "."+appName)
 	}
 
-	err = os.MkdirAll(dir, 0700)
+	err = os.MkdirAll(dir, 0o700)
 	if err != nil {
 		return "", fmt.Errorf("failed to make cache directory: %s", dir)
 	}
 
 	h := sha256.New()
 
-	h.Write([]byte(session.Ak[:2] + session.Ak[len(session.Ak)-2:] + session.Server + appName))
+	h.Write([]byte(session.AccessToken[:2] + session.AccessToken[len(session.AccessToken)-2:] + session.Server + appName))
 	bs := h.Sum(nil)
 	hexedDigest := hex.EncodeToString(bs)[:8]
 

@@ -11,7 +11,7 @@ import (
 	"github.com/matryer/try"
 )
 
-// GetItemsInput defines the input for retrieving items
+// SyncInput defines the input for retrieving items
 type SyncInput struct {
 	Session     Session
 	SyncToken   string
@@ -24,7 +24,7 @@ type SyncInput struct {
 	Debug       bool
 }
 
-// GetItemsOutput defines the output from retrieving items
+// SyncOutput defines the output from retrieving items
 // It contains slices of items based on their state
 // see: https://standardfile.org/ for state details
 type SyncOutput struct {
@@ -117,7 +117,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	switch {
 	case input.BatchSize > 0:
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI |input.BatchSize: %d", input.BatchSize))
+		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | input.BatchSize: %d", input.BatchSize))
 		// batch size must be lower than or equal to page size
 		limit = input.BatchSize
 	case input.PageSize > 0:
@@ -158,15 +158,15 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		if len(input.Items) == 0 {
 
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `}`)
+				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `}`)
 			} else {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
+				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
 			}
 		} else {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
+				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
 			} else {
-				requestBody = []byte(`{"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
+				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 					`,"sync_token":"` + newST + `"}`)
 			}
 		}
@@ -175,10 +175,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		debugPrint(input.Debug, "syncItemsViaAPI | cursor is null")
 
 		if input.SyncToken == "" {
-			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) +
 				`,"items":[],"cursor_token":null}`)
 		} else {
-			requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) +
 				`,"items":[],"sync_token":"` + newST + `","cursor_token":null}`)
 		}
 

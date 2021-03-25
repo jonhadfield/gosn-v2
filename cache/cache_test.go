@@ -16,9 +16,12 @@ import (
 func gosnSessionToCacheSession(gs gosn.Session) Session {
 	var session Session
 	session.Server = gs.Server
-	session.Mk = gs.Mk
-	session.Ak = gs.Ak
+	session.AccessToken = gs.AccessToken
+	session.RefreshToken = gs.RefreshToken
+	session.MasterKey = gs.MasterKey
 	session.Token = gs.Token
+	session.AccessExpiration = gs.AccessExpiration
+	session.RefreshExpiration = gs.RefreshExpiration
 
 	return session
 }
@@ -41,8 +44,6 @@ func TestSyncWithInvalidSession(t *testing.T) {
 
 	var invalidSession Session
 	invalidSession.Token = "a"
-	invalidSession.Mk = "b"
-	invalidSession.Ak = "c"
 	_, err = Sync(SyncInput{Session: invalidSession})
 
 	assert.EqualError(t, err, "invalid session")
@@ -91,16 +92,29 @@ func TestSyncWithInvalidSession(t *testing.T) {
 
 func TestSyncWithNoItems(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
+	assert.NoError(t, err)
+	assert.NotNil(t, sOutput)
 	session := gosnSessionToCacheSession(sOutput.Session)
 	session.CacheDBPath = tempDBPath
 
 	assert.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	var gsoi gosn.SyncOutput
+	gsoi, err = gosn.Sync(gosn.SyncInput{
+		Session:     sOutput.Session,
+	})
+	assert.NoError(t, err)
+
+	var iks []gosn.ItemsKey
+	iks, err = gsoi.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	assert.NoError(t, err)
+
+	defer cleanup(&sOutput.Session, iks[0])
 
 	defer removeDB(tempDBPath)
 
 	var so SyncOutput
+
 	so, err = Sync(SyncInput{
 		Session: session,
 	})
@@ -109,6 +123,7 @@ func TestSyncWithNoItems(t *testing.T) {
 	assert.NotNil(t, so.DB)
 
 	var syncTokens []SyncToken
+	//assert.NotNil(t, syncTokens)
 	err = so.DB.All(&syncTokens)
 	assert.NoError(t, err)
 	assert.Len(t, syncTokens, 1)
@@ -145,7 +160,15 @@ func TestSyncWithNewNote(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	var gsoi gosn.SyncOutput
+	gsoi, err = gosn.Sync(gosn.SyncInput{
+		Session:     sOutput.Session,
+	})
+	assert.NoError(t, err)
+
+	var iks []gosn.ItemsKey
+	iks, err = gsoi.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	defer cleanup(&sOutput.Session, iks[0])
 
 	// create new note with random content
 	newNote, _ := createNote("test", "")
@@ -153,7 +176,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	assert.NoError(t, dItems.Validate())
 
 	var eItems gosn.EncryptedItems
-	eItems, err = dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
 
 	assert.NoError(t, err)
 
@@ -215,7 +238,16 @@ func TestSyncOneExisting(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	var gsoi gosn.SyncOutput
+	gsoi, err = gosn.Sync(gosn.SyncInput{
+		Session:     sOutput.Session,
+	})
+	assert.NoError(t, err)
+
+	var iks []gosn.ItemsKey
+	iks, err = gsoi.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+
+	defer cleanup(&sOutput.Session, iks[0])
 
 	session := gosnSessionToCacheSession(sOutput.Session)
 	// create new note with random content and push to SN (not DB)
@@ -224,7 +256,7 @@ func TestSyncOneExisting(t *testing.T) {
 	assert.NoError(t, dItems.Validate())
 
 	var eItems gosn.EncryptedItems
-	eItems, err = dItems.Encrypt(sOutput.Session.Mk, sOutput.Session.Ak, true)
+	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
 	assert.NoError(t, err)
 
 	// push to SN
@@ -274,7 +306,7 @@ func TestSyncOneExisting(t *testing.T) {
 	assert.Equal(t, 1, foundNotes)
 }
 
-func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
+func _deleteAllTagsNotesComponents(session *gosn.Session, ik gosn.ItemsKey) (err error) {
 	gnf := gosn.Filter{
 		Type: "Note",
 	}
@@ -302,7 +334,7 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 
 	var items gosn.Items
 
-	items, err = so.Items.DecryptAndParse(session.Mk, session.Ak, true)
+	items, err = so.Items.DecryptAndParse(session.MasterKey, ik, "", true)
 	if err != nil {
 		return
 	}
@@ -327,7 +359,7 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	}
 
 	if len(toDel) > 0 {
-		eToDel, _ := toDel.Encrypt(session.Mk, session.Ak, true)
+		eToDel, _ := toDel.Encrypt(session.MasterKey, ik, true)
 		si := gosn.SyncInput{
 			Session: *session,
 			Items:   eToDel,
@@ -362,8 +394,8 @@ func createNote(title, content string) (note gosn.Note, text string) {
 	return newNote, text
 }
 
-func cleanup(session *gosn.Session) {
-	if err := _deleteAllTagsNotesComponents(session); err != nil {
+func cleanup(session *gosn.Session, ik gosn.ItemsKey) {
+	if err := _deleteAllTagsNotesComponents(session, ik); err != nil {
 		panic(err)
 	}
 }

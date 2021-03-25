@@ -10,6 +10,8 @@ type Note struct {
 	Content NoteContent
 }
 
+var _ Item = &Note{}
+
 func parseNote(i DecryptedItem) Item {
 	n := Note{}
 	n.UUID = i.UUID
@@ -80,7 +82,7 @@ func (n *Notes) DeDupe() {
 	*n = deDuped
 }
 
-func (n *Notes) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error) {
+func (n *Notes) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, err error) {
 	var ite Items
 
 	na := *n
@@ -89,7 +91,7 @@ func (n *Notes) Encrypt(mk, ak string, debug bool) (e EncryptedItems, err error)
 		ite = append(ite, &g)
 	}
 
-	e, err = encryptItems(&ite, mk, ak, debug)
+	e, err = encryptItems(&ite, mk, ik, debug)
 
 	return
 }
@@ -103,7 +105,6 @@ func NewNote() Note {
 	note.CreatedAt = now
 	note.UpdatedAt = now
 	note.UUID = GenUUID()
-
 	return note
 }
 
@@ -117,6 +118,7 @@ func NewNoteContent() *NoteContent {
 
 type Notes []Note
 
+
 func (n Notes) Validate() error {
 	var updatedTime time.Time
 
@@ -129,8 +131,13 @@ func (n Notes) Validate() error {
 			if err != nil {
 				return err
 			}
-
 			switch {
+			//case item.ItemsKeyID == "":
+			//	err = fmt.Errorf("failed to create \"%s\" due to missing ItemsKeyID: \"%s\"",
+			//		item.ContentType, item.UUID)
+			//case item.EncryptedItemKey == "":
+			//	err = fmt.Errorf("failed to create \"%s\" due to missing EncryptedItemKey: \"%s\"",
+			//		item.ContentType, item.UUID)
 			case item.Content.GetTitle() == "":
 				err = fmt.Errorf("failed to create \"%s\" due to missing title: \"%s\"",
 					item.ContentType, item.UUID)
