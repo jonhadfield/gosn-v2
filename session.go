@@ -26,6 +26,21 @@ const (
 	MsgSessionRemovalFailure = "failed to remove Session"
 )
 
+// Session holds authentication and encryption parameters required
+// to communicate with the API and process transferred data
+type Session struct {
+	Debug             bool
+	Server            string
+	Token             string
+	MasterKey         string
+	ItemsKeys         []ItemsKey
+	DefaultItemsKey   ItemsKey
+	AccessToken       string `json:"access_token"`
+	RefreshToken      string `json:"refresh_token"`
+	AccessExpiration  int64  `json:"access_expiration"`
+	RefreshExpiration int64  `json:"refresh_expiration"`
+}
+
 func GetCredentials(inServer string) (email, password, apiServer, errMsg string) {
 	switch {
 	case viper.GetString("email") != "":
@@ -69,7 +84,7 @@ func GetCredentials(inServer string) (email, password, apiServer, errMsg string)
 	return email, password, apiServer, errMsg
 }
 
-// encrypt string to base64 crypto using AES
+// Encrypt string to base64 crypto using AES
 func Encrypt(key []byte, text string) string {
 	key = padToAESBlockSize(key)
 	plaintext := []byte(text)
@@ -312,7 +327,7 @@ func ParseSessionString(in string) (email string, session Session, err error) {
 	return
 }
 
-// decrypt from base64 to decrypted string
+// Decrypt from base64 to decrypted string
 func Decrypt(key []byte, cryptoText string) (pt string, err error) {
 	var ciphertext []byte
 

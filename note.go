@@ -82,7 +82,7 @@ func (n *Notes) DeDupe() {
 	*n = deDuped
 }
 
-func (n *Notes) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, err error) {
+func (n *Notes) Encrypt(s Session) (e EncryptedItems, err error) {
 	var ite Items
 
 	na := *n
@@ -91,7 +91,9 @@ func (n *Notes) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, e
 		ite = append(ite, &g)
 	}
 
-	e, err = encryptItems(&ite, mk, ik, debug)
+	// get default items key
+
+	e, err = encryptItems(s, &ite)
 
 	return
 }

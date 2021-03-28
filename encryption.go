@@ -126,12 +126,12 @@ type itemsKey struct {
 
 // decryptItemsKeys takes the master key and a list of EncryptedItemKeys
 // and returns a list of items keys
-func decryptAndParseItemKeys(masterKey string, eiks EncryptedItems) (iks []ItemsKey, err error) {
+func decryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
 	for _, eik := range eiks {
 		// decrypt enc_item_key
 		_, encNonce, cipherText, authenticatedData := splitContent(eik.EncItemKey)
 		var pt []byte
-		pt, err = decryptString(cipherText, masterKey, encNonce, authenticatedData)
+		pt, err = decryptString(cipherText, mk, encNonce, authenticatedData)
 		if err != nil {
 			return
 		}
@@ -159,16 +159,34 @@ func decryptAndParseItemKeys(masterKey string, eiks EncryptedItems) (iks []Items
 
 }
 
+func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
+	for _, i := range iks {
+		if uuid == i.UUID {
+			return i
+		}
+	}
+
+	return ItemsKey{}
+}
+
 // decryptItems takes the itemsKeys and the EncryptedItems to decrypt
 // and returns a list of items keys uuid (string) and key (bytes)
-func decryptItems(masterKey string, eis EncryptedItems, itemsKey ItemsKey) (items DecryptedItems, err error) {
+func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
 	for _, ei := range eis {
 		if ei.ContentType == "SN|ItemsKey" {
 			continue
 		}
 
 		// decrypt item key with itemsKey
-		if ei.ItemsKeyID != itemsKey.UUID {
+		if ei.ItemsKeyID == ""{
+			debugPrint(s.Debug,fmt.Sprintf("ignoring invalid item: %+v\n", ei))
+
+			continue
+		}
+
+
+		ik := getMatchingItem(ei.ItemsKeyID, s.ItemsKeys)
+		if ik.UUID == "" {
 			err = errors.New("wrong items key passed for decrypting item key")
 			return
 		}
@@ -179,7 +197,7 @@ func decryptItems(masterKey string, eis EncryptedItems, itemsKey ItemsKey) (item
 			return
 		}
 		var itemKey []byte
-		itemKey, err = decryptString(cipherText, itemsKey.ItemsKey, nonce, authData)
+		itemKey, err = decryptString(cipherText, ik.ItemsKey, nonce, authData)
 		if err != nil {
 			return
 		}
@@ -202,13 +220,12 @@ func decryptItems(masterKey string, eis EncryptedItems, itemsKey ItemsKey) (item
 	return
 }
 
-func encryptItems(decItems *Items, mk string, ik ItemsKey, debug bool) (encryptedItems EncryptedItems, err error) {
-	debugPrint(debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
-
+func encryptItems(s Session, decItems *Items) (encryptedItems EncryptedItems, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
 	d := *decItems
 	for _, decItem := range d {
 		var e EncryptedItem
-		e, err = encryptItem(decItem, mk, ik)
+		e, err = encryptItem(decItem, s.DefaultItemsKey)
 		encryptedItems = append(encryptedItems, e)
 	}
 
@@ -248,7 +265,7 @@ func encryptString(plainText, key, nonce, authenticatedData string) (result stri
 	return base64.StdEncoding.EncodeToString(encryptedMsg), err
 }
 
-func encryptItem(item Item, mk string, ik ItemsKey) (encryptedItem EncryptedItem, err error) {
+func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error) {
 	encryptedItem.UUID = item.GetUUID()
 	encryptedItem.ItemsKeyID = ik.GetUUID()
 	encryptedItem.ContentType = item.GetContentType()

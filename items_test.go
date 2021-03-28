@@ -130,7 +130,8 @@ func randInt(min int, max int) int {
 //	return
 //}
 
-func _deleteAllTagsNotesComponents(session *Session) (err error) {
+func _deleteAllTagsNotesComponents(s *Session) (err error) {
+	fmt.Println("In _deleteAllTagsNotesComponents")
 	gnf := Filter{
 		Type: "Note",
 	}
@@ -146,7 +147,7 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		MatchAny: true,
 	}
 	si := SyncInput{
-		Session: *session,
+		Session: s,
 		Debug:   true,
 	}
 
@@ -157,8 +158,9 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 		return
 	}
 
-	var iks []ItemsKey
-	iks, err = so.Items.DecryptAndParseItemsKeys(session.MasterKey, true)
+	// user may have changed password since last sync and resulted in new default Items key being added.
+	// retrieve and decrypt items keys and update session before continuing.
+
 	var uuids []string
 
 	seenItems := make(map[string]bool)
@@ -191,7 +193,7 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	}
 
 	var items Items
-	items, err = so.Items.DecryptAndParse(session.MasterKey, iks[0], session.AccessToken, true)
+	items, err = so.Items.DecryptAndParse(s)
 	if err != nil {
 		return
 	}
@@ -215,9 +217,9 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 	}
 
 	if len(toDel) > 0 {
-		eToDel, _ := toDel.Encrypt(session.MasterKey, iks[0], true)
+		eToDel, _ := toDel.Encrypt(*s)
 		si := SyncInput{
-			Session: *session,
+			Session: s,
 			Items:   eToDel,
 		}
 
@@ -281,7 +283,26 @@ func _deleteAllTagsNotesComponents(session *Session) (err error) {
 //}
 
 func cleanup(session *Session) {
-	if err := _deleteAllTagsNotesComponents(session); err != nil {
+	sOutput, err := SignIn(sInput)
+	if err != nil {
+		panic(err)
+	}
+
+	syncInput := SyncInput{
+		Session: &sOutput.Session,
+		Debug:   true,
+	}
+
+	var syncOutput SyncOutput
+
+
+	syncOutput, err = Sync(syncInput)
+
+	s := sOutput.Session
+
+	_, err = syncOutput.Items.DecryptAndParseItemsKeys(&s)
+
+	if err := _deleteAllTagsNotesComponents(&s); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -295,7 +316,7 @@ func TestDecryptItemsKeys(t *testing.T) {
 	}()
 
 	syncInput := SyncInput{
-		Session: sOutput.Session,
+		Session: &sOutput.Session,
 		Debug:   true,
 	}
 
@@ -304,7 +325,7 @@ func TestDecryptItemsKeys(t *testing.T) {
 	syncOutput, err = Sync(syncInput)
 	assert.NoError(t, err, "Sync Failed", err)
 
-	iks, err := syncOutput.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	iks, err := syncOutput.Items.DecryptAndParseItemsKeys(&sOutput.Session)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, iks)
 
@@ -316,7 +337,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 
 	// sync to get items keys
 	si := SyncInput{
-		Session: sOutput.Session,
+		Session: &sOutput.Session,
 	}
 
 	var so SyncOutput
@@ -325,11 +346,11 @@ func TestEncryptDecryptItem(t *testing.T) {
 	assert.NoError(t, err)
 
 	// get items key
-	var iks []ItemsKey
-	iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	s := sOutput.Session
+
+	_, err = so.Items.DecryptAndParseItemsKeys(&s)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, iks)
-	assert.Len(t, iks, 1)
+	assert.NotEmpty(t, s.DefaultItemsKey)
 
 	randPara := testParas[randInt(0, len(testParas))]
 
@@ -347,13 +368,13 @@ func TestEncryptDecryptItem(t *testing.T) {
 	assert.NoError(t, dItems.Validate())
 
 	var eItems EncryptedItems
-	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
+	eItems, err = dItems.Encrypt(s)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eItems)
 
 	// Now Decrypt Item
 	var items Items
-	items, err = eItems.DecryptAndParse(sOutput.Session.MasterKey, iks[0], "", true)
+	items, err = eItems.DecryptAndParse(&s)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 
@@ -413,7 +434,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 //	return itemsKey{}, err
 //}
 
-func (ei *EncryptedItems) GetItemsKeys(mk string) (iks []ItemsKey, err error) {
+func (ei *EncryptedItems) GetItemsKeys(s *Session) (iks []ItemsKey, err error) {
 	var encItemKeys EncryptedItems
 
 	for _, i := range *ei {
@@ -426,7 +447,7 @@ func (ei *EncryptedItems) GetItemsKeys(mk string) (iks []ItemsKey, err error) {
 		return nil, fmt.Errorf("no ItemsKeys found")
 	}
 
-	iks, err = encItemKeys.DecryptAndParseItemsKeys(mk, true)
+	iks, err = encItemKeys.DecryptAndParseItemsKeys(s)
 
 	return iks, err
 }
@@ -437,11 +458,11 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
-	//defer cleanup(&sOutput.Session)
+	defer cleanup(&sOutput.Session)
 
 	// sync to get items keys
 	si := SyncInput{
-		Session: sOutput.Session,
+		Session: &sOutput.Session,
 	}
 
 	var so SyncOutput
@@ -449,12 +470,10 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	so, err = Sync(si)
 	assert.NoError(t, err)
 
-	var iks []ItemsKey
-	iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
+	s := sOutput.Session
+
+	_, err = so.Items.DecryptAndParseItemsKeys(&s)
 	assert.NoError(t, err)
-	if len(iks) > 1 {
-		err = fmt.Errorf("too many items keys returned")
-	}
 
 	randPara := "TestText"
 
@@ -471,38 +490,34 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	dItems := Items{&newNote}
 	assert.NoError(t, dItems.Validate())
 	var eItems EncryptedItems
-	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
+	eItems, err = dItems.Encrypt(s)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eItems)
 
 	si = SyncInput{
 		Items:   eItems,
-		Session: sOutput.Session,
+		Session: &s,
 	}
 
 	so, err = Sync(si)
 	assert.NoError(t, err, "Sync Failed", err)
+	_, err = so.Items.DecryptAndParseItemsKeys(&s)
+	assert.NoError(t, err)
 	assert.Len(t, so.SavedItems, 1, "expected 1")
 	uuidOfNewItem := so.SavedItems[0].UUID
 	si = SyncInput{
-		Session: sOutput.Session,
+		Session: &s,
 	}
 
 	so, err = Sync(si)
+	assert.NoError(t, err, "Sync Failed", err)
+	_, err = so.Items.DecryptAndParseItemsKeys(&s)
+	assert.NoError(t, err)
+
+	items, err := so.Items.DecryptAndParse(&s)
 	if err != nil {
 		return
 	}
-
-	var di DecryptedItems
-
-	di, err = so.Items.Decrypt(iks[0], sOutput.Session.MasterKey, true)
-	if err != nil {
-		return
-	}
-
-	var items Items
-	items, err = di.Parse()
-	assert.NoError(t, err, "failed to get items")
 
 	var foundCreatedItem bool
 

@@ -36,7 +36,6 @@ type Item struct {
 
 //var _ Item = (*Note)(nil)
 
-
 type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
 }
@@ -65,7 +64,7 @@ func (s *Session) gosn() gosn.Session {
 	}
 }
 
-func (pi Items) ToItems(Mk string, itemsKey gosn.ItemsKey) (items gosn.Items, err error) {
+func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 	var eItems gosn.EncryptedItems
 	for _, ei := range pi {
 		eItems = append(eItems, gosn.EncryptedItem{
@@ -78,11 +77,11 @@ func (pi Items) ToItems(Mk string, itemsKey gosn.ItemsKey) (items gosn.Items, er
 			CreatedAt:   ei.CreatedAt,
 			UpdatedAt:   ei.UpdatedAt,
 		})
-		// fmt.Printf("- added item: %s to eItems", ei.ContentType)
 	}
 
 	if eItems != nil {
-		items, err = eItems.DecryptAndParse(Mk, itemsKey, "", false)
+		gs := s.gosn()
+		items, err = eItems.DecryptAndParse(&gs)
 		if err != nil {
 			return
 		}
@@ -114,8 +113,9 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 	return
 }
 
-func SaveItems(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Items, close, debug bool) error {
-	eItems, err := items.Encrypt(mk, ik, debug)
+func SaveItems(db *storm.DB, s *Session, items gosn.Items, close, debug bool) error {
+	gs := s.gosn()
+	eItems, err := items.Encrypt(gs)
 	if err != nil {
 		return err
 	}
@@ -125,8 +125,8 @@ func SaveItems(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Items, clos
 	return SaveCacheItems(db, cItems, close)
 }
 
-func SaveNotes(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Notes, close, debug bool) error {
-	eItems, err := items.Encrypt(mk, ik, debug)
+func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
+	eItems, err := items.Encrypt(s.gosn())
 	if err != nil {
 		return err
 	}
@@ -136,8 +136,9 @@ func SaveNotes(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Notes, clos
 	return SaveCacheItems(db, cItems, close)
 }
 
-func SaveTags(db *storm.DB, mk string, ik gosn.ItemsKey, items gosn.Tags, close, debug bool) error {
-	eItems, err := items.Encrypt(mk, ik, debug)
+func SaveTags(db *storm.DB, s *Session, items gosn.Tags, close bool) error {
+	gs := s.gosn()
+	eItems, err := items.Encrypt(gs)
 	if err != nil {
 		return err
 	}
@@ -252,7 +253,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			UUID:        d.UUID,
 			Content:     d.Content,
 			ContentType: d.ContentType,
-			ItemsKeyID: d.ItemsKeyID,
+			ItemsKeyID:  d.ItemsKeyID,
 			EncItemKey:  d.EncItemKey,
 			Deleted:     d.Deleted,
 			CreatedAt:   d.CreatedAt,
@@ -263,15 +264,17 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// call gosn sync with dirty items to push
 	var gSI gosn.SyncInput
 
+	gs := si.Session.gosn()
+
 	if len(dirtyItemsToPush) > 0 {
 		gSI = gosn.SyncInput{
-			Session:   si.Session.gosn(),
+			Session:   &gs,
 			Items:     dirtyItemsToPush,
 			SyncToken: syncToken,
 		}
 	} else {
 		gSI = gosn.SyncInput{
-			Session:   si.Session.gosn(),
+			Session:   &gs,
 			SyncToken: syncToken,
 		}
 	}
@@ -351,7 +354,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			UUID:        i.UUID,
 			Content:     i.Content,
 			ContentType: i.ContentType,
-			ItemsKeyID: i.ItemsKeyID,
+			ItemsKeyID:  i.ItemsKeyID,
 			EncItemKey:  i.EncItemKey,
 			Deleted:     i.Deleted,
 			CreatedAt:   i.CreatedAt,
