@@ -36,7 +36,8 @@ type SyncOutput struct {
 	Cursor     string
 }
 
-// Sync retrieves items from the API using optional filters
+// Sync retrieves items from the API using optional filters and updates the provided
+// session with the items keys required to encrypt and decrypt items
 func Sync(input SyncInput) (output SyncOutput, err error) {
 	giStart := time.Now()
 
@@ -91,6 +92,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postElapsed := time.Since(postStart)
 	debugPrint(input.Debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	debugPrint(input.Debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
+
+	_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
 
 	return output, err
 }
