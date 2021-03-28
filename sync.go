@@ -13,7 +13,7 @@ import (
 
 // SyncInput defines the input for retrieving items
 type SyncInput struct {
-	Session     Session
+	Session     *Session
 	SyncToken   string
 	CursorToken string
 	Items       EncryptedItems
@@ -32,6 +32,7 @@ type SyncOutput struct {
 	SavedItems EncryptedItems // dirty items needing resolution
 	Unsaved    EncryptedItems // items not saved during sync
 	SyncToken  string
+
 	Cursor     string
 }
 
@@ -199,7 +200,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	msrStart := time.Now()
 
 	var responseBody []byte
-	responseBody, err = makeSyncRequest(input.Session, requestBody, input.Debug)
+	responseBody, err = makeSyncRequest(*input.Session, requestBody, input.Debug)
 	msrEnd := time.Since(msrStart)
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 

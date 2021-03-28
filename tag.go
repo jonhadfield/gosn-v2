@@ -79,7 +79,7 @@ func (t *Tags) DeDupe() {
 	*t = deDuped
 }
 
-func (t *Tags) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, err error) {
+func (t *Tags) Encrypt(s Session) (e EncryptedItems, err error) {
 	var ite Items
 
 	ta := *t
@@ -88,7 +88,7 @@ func (t *Tags) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, er
 		ite = append(ite, &g)
 	}
 
-	e, err = encryptItems(&ite, mk, ik, debug)
+	e, err = encryptItems(s, &ite)
 
 	return
 }
@@ -150,12 +150,6 @@ func (t Tags) Validate() error {
 			}
 
 			switch {
-			//case item.ItemsKeyID == "":
-			//	err = fmt.Errorf("failed to create \"%s\" due to missing ItemsKeyID: \"%s\"",
-			//		item.ContentType, item.UUID)
-			//case item.EncryptedItemKey == "":
-			//	err = fmt.Errorf("failed to create \"%s\" due to missing EncryptedItemKey: \"%s\"",
-			//		item.ContentType, item.UUID)
 			case item.Content.Title == "":
 				err = fmt.Errorf("failed to create \"%s\" due to missing title: \"%s\"",
 					item.ContentType, item.UUID)

@@ -244,19 +244,6 @@ type signInInput struct {
 	debug       bool
 }
 
-// Session holds authentication and encryption parameters required
-// to communicate with the API and process transferred data
-type Session struct {
-	Server            string
-	Token             string
-	MasterKey         string
-	//ItemsKeyUUID	  string
-	AccessToken       string `json:"access_token"`
-	RefreshToken      string `json:"refresh_token"`
-	AccessExpiration  int64  `json:"access_expiration"`
-	RefreshExpiration int64  `json:"refresh_expiration"`
-}
-
 type keyParams struct {
 	Created     string `json:"created"`
 	Identifier  string `json:"identifier"`
@@ -402,6 +389,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	output.KeyParams = tokenResp.KeyParams
 	output.User = tokenResp.User
 	output.Session.MasterKey = mk
+	output.Session.Debug = input.Debug
 	// output.Session.Token = tokenResp.Token
 	output.Session.Server = input.APIServer
 	return output, err

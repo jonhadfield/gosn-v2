@@ -36,25 +36,14 @@ const retryScaleFactor = 0.25
 
 type EncryptedItems []EncryptedItem
 
-func (ei EncryptedItems) Decrypt(itemsKey ItemsKey, mk string, debug bool) (o DecryptedItems, err error) {
-	// if no itemsKeys are passed, then items must be items keys to decrypt with mk
-	//if len(itemsKey) == 0 {
-	//	fmt.Println("going to decrypt items with mk")
-	//}
-	//fmt.Println("decrypt")
-	//var iks []ItemsKey
-	//iks, err = decryptAndParseItemKeys(mk, itemsKeys)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	o, err = decryptItems(mk, ei, itemsKey)
+func (ei EncryptedItems) Decrypt(s *Session) (o DecryptedItems, err error) {
+	o, err = decryptItems(s, ei)
 
 	return o, err
 }
 
-func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []ItemsKey, err error) {
-	debugPrint(debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
+func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
 
 	var eiks EncryptedItems
 	for _, e := range ei {
@@ -67,15 +56,13 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []It
 		err = errors.New("no encrypted items keys passed")
 	}
 
-	o, err = decryptAndParseItemKeys(mk, eiks)
-	//var di DecryptedItems
-	////
-	//di, err = ei.Decrypt(itemsKeys, mk, debug)
-	//if err != nil {
-	//	return
-	//}
-	//
-	//o, err = di.Parse()
+	o, err = decryptAndParseItemKeys(s.MasterKey, eiks)
+	for _, ik := range o {
+		if ik.IsDefault {
+			s.DefaultItemsKey = ik
+		}
+	}
+	s.ItemsKeys = o
 
 	return
 }
@@ -87,6 +74,9 @@ func (ei *EncryptedItems) Validate() error {
 		case i.ContentType != "SN|ItemsKey" && i.ItemsKeyID == "":
 			err = fmt.Errorf("failed to create \"%s\" due to missing ItemsKeyID: \"%s\"",
 				i.ContentType, i.UUID)
+		case i.ContentType != "SN|ItemsKey" && i.EncItemKey == "":
+			err = fmt.Errorf("failed to create \"%s\" due to missing encrypted item key: \"%s\"",
+				i.ContentType, i.UUID)
 		}
 		if err != nil {
 			return err
@@ -95,12 +85,14 @@ func (ei *EncryptedItems) Validate() error {
 	return err
 }
 
-func (ei EncryptedItems) DecryptAndParse(mk string, itemsKey ItemsKey, ak string, debug bool) (o Items, err error) {
-	debugPrint(debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
-	fmt.Sprintf("DecryptAndParse | items: %d\n", len(ei))
+func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
+
 	// if no itemsKeys are passed, then items must be items keys to decrypt with mk
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
+
 	var di DecryptedItems
-	di, err = ei.Decrypt(itemsKey, mk, debug)
+	di, err = ei.Decrypt(s)
 	if err != nil {
 		return
 	}
@@ -110,8 +102,11 @@ func (ei EncryptedItems) DecryptAndParse(mk string, itemsKey ItemsKey, ak string
 	return
 }
 
-func (i *Items) Encrypt(mk string, ik ItemsKey, debug bool) (e EncryptedItems, err error) {
-	e, err = encryptItems(i, mk, ik, debug)
+func (i *Items) Encrypt(s Session) (e EncryptedItems, err error) {
+	e, err = encryptItems(s, i)
+	if err := e.Validate(); err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -254,7 +249,6 @@ type OrgStandardNotesSNDetail struct {
 
 type AppDataContent struct {
 	OrgStandardNotesSN OrgStandardNotesSNDetail `json:"org.standardnotes.sn"`
-	IsDefault          bool                     `json:"isDefault"`
 }
 
 type TagContent struct {
