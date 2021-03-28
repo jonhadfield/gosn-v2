@@ -282,25 +282,23 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 //	return &tag
 //}
 
-func cleanup(session *Session) {
+func cleanup() {
 	sOutput, err := SignIn(sInput)
 	if err != nil {
 		panic(err)
 	}
 
+	s := sOutput.Session
+
 	syncInput := SyncInput{
-		Session: &sOutput.Session,
+		Session: &s,
 		Debug:   true,
 	}
 
-	var syncOutput SyncOutput
-
-
-	syncOutput, err = Sync(syncInput)
-
-	s := sOutput.Session
-
-	_, err = syncOutput.Items.DecryptAndParseItemsKeys(&s)
+	_, err = Sync(syncInput)
+	if err != nil {
+		panic(fmt.Sprintf("clean up failed %+v", err))
+	}
 
 	if err := _deleteAllTagsNotesComponents(&s); err != nil {
 		log.Fatal(err)
@@ -310,47 +308,36 @@ func cleanup(session *Session) {
 func TestDecryptItemsKeys(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
+	s := sOutput.Session
 
 	defer func() {
-		cleanup(&sOutput.Session)
+		cleanup()
 	}()
 
 	syncInput := SyncInput{
-		Session: &sOutput.Session,
+		Session: &s,
 		Debug:   true,
 	}
 
-	var syncOutput SyncOutput
-
-	syncOutput, err = Sync(syncInput)
+	_, err = Sync(syncInput)
 	assert.NoError(t, err, "Sync Failed", err)
-
-	iks, err := syncOutput.Items.DecryptAndParseItemsKeys(&sOutput.Session)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, iks)
+	assert.NotEmpty(t, s.ItemsKeys)
+	assert.NotEmpty(t, s.DefaultItemsKey)
 
 }
 
 func TestEncryptDecryptItem(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
+	s := sOutput.Session
 
 	// sync to get items keys
 	si := SyncInput{
-		Session: &sOutput.Session,
+		Session: &s,
 	}
 
-	var so SyncOutput
-
-	so, err = Sync(si)
+	_, err = Sync(si)
 	assert.NoError(t, err)
-
-	// get items key
-	s := sOutput.Session
-
-	_, err = so.Items.DecryptAndParseItemsKeys(&s)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, s.DefaultItemsKey)
 
 	randPara := testParas[randInt(0, len(testParas))]
 
@@ -434,45 +421,40 @@ func TestEncryptDecryptItem(t *testing.T) {
 //	return itemsKey{}, err
 //}
 
-func (ei *EncryptedItems) GetItemsKeys(s *Session) (iks []ItemsKey, err error) {
-	var encItemKeys EncryptedItems
-
-	for _, i := range *ei {
-		if i.ContentType == "SN|ItemsKey" && strings.HasPrefix(i.Content, "004") {
-			encItemKeys = append(encItemKeys, i)
-		}
-	}
-
-	if encItemKeys == nil {
-		return nil, fmt.Errorf("no ItemsKeys found")
-	}
-
-	iks, err = encItemKeys.DecryptAndParseItemsKeys(s)
-
-	return iks, err
-}
+//func (ei *EncryptedItems) GetItemsKeys(s *Session) (iks []ItemsKey, err error) {
+//	var encItemKeys EncryptedItems
+//
+//	for _, i := range *ei {
+//		if i.ContentType == "SN|ItemsKey" && strings.HasPrefix(i.Content, "004") {
+//			encItemKeys = append(encItemKeys, i)
+//		}
+//	}
+//
+//	if encItemKeys == nil {
+//		return nil, fmt.Errorf("no ItemsKeys found")
+//	}
+//
+//	iks, err = encItemKeys.DecryptAndParseItemsKeys(s)
+//
+//	return iks, err
+//}
 
 //
 func TestPutItemsAddSingleNote(t *testing.T) {
 	// SetDebugLogger(log.Println)
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(&sOutput.Session)
+	s := sOutput.Session
+	defer cleanup()
 
 	// sync to get items keys
 	si := SyncInput{
-		Session: &sOutput.Session,
+		Session: &s,
 	}
 
 	var so SyncOutput
 
 	so, err = Sync(si)
-	assert.NoError(t, err)
-
-	s := sOutput.Session
-
-	_, err = so.Items.DecryptAndParseItemsKeys(&s)
 	assert.NoError(t, err)
 
 	randPara := "TestText"
@@ -501,8 +483,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 
 	so, err = Sync(si)
 	assert.NoError(t, err, "Sync Failed", err)
-	_, err = so.Items.DecryptAndParseItemsKeys(&s)
-	assert.NoError(t, err)
 	assert.Len(t, so.SavedItems, 1, "expected 1")
 	uuidOfNewItem := so.SavedItems[0].UUID
 	si = SyncInput{
@@ -511,8 +491,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 
 	so, err = Sync(si)
 	assert.NoError(t, err, "Sync Failed", err)
-	_, err = so.Items.DecryptAndParseItemsKeys(&s)
-	assert.NoError(t, err)
 
 	items, err := so.Items.DecryptAndParse(&s)
 	if err != nil {
