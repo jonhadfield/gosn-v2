@@ -28,14 +28,14 @@ func parseUserPreferences(i DecryptedItem) Item {
 
 	var cAt, uAt time.Time
 
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	cAt, err = parseSNTime(i.CreatedAt)
 	if err != nil {
 		panic(err)
 	}
 
 	c.CreatedAt = cAt.Format(timeLayout)
 
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	uAt, err = parseSNTime(i.UpdatedAt)
 	if err != nil {
 		panic(err)
 	}
@@ -43,6 +43,15 @@ func parseUserPreferences(i DecryptedItem) Item {
 	c.UpdatedAt = uAt.Format(timeLayout)
 
 	return &c
+}
+
+func parseSNTime(s string) (t time.Time, err error) {
+	t, err = time.Parse(timeLayout, s)
+	if err == nil {
+		return
+	}
+	return time.Parse(timeLayout2, s)
+
 }
 
 
@@ -101,7 +110,7 @@ func NewUserPreferences() UserPreferences {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewUserPreferencesContent returns an empty Tag content instance
 func NewUserPreferencesContent() *UserPreferencesContent {
 	c := &UserPreferencesContent{}
 	c.SetUpdateTime(time.Now().UTC())
