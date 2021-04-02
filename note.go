@@ -37,14 +37,14 @@ func parseNote(i DecryptedItem) Item {
 
 	var cAt, uAt time.Time
 
-	cAt, err = time.Parse(timeLayout, i.CreatedAt)
+	cAt, err = parseSNTime(i.CreatedAt)
 	if err != nil {
 		panic(err)
 	}
 
 	n.CreatedAt = cAt.Format(timeLayout)
 
-	uAt, err = time.Parse(timeLayout, i.UpdatedAt)
+	uAt, err = parseSNTime(i.UpdatedAt)
 	if err != nil {
 		panic(err)
 	}
