@@ -92,8 +92,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postElapsed := time.Since(postStart)
 	debugPrint(input.Debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	debugPrint(input.Debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
+	if len(output.Items) > 0 {
+		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
+	}
 
-	_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
 
 	return output, err
 }

@@ -131,7 +131,6 @@ func randInt(min int, max int) int {
 //}
 
 func _deleteAllTagsNotesComponents(s *Session) (err error) {
-	fmt.Println("In _deleteAllTagsNotesComponents")
 	gnf := Filter{
 		Type: "Note",
 	}

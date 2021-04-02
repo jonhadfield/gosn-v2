@@ -53,7 +53,7 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 	}
 
 	if len(eiks) == 0 {
-		err = errors.New("no encrypted items keys passed")
+		return
 	}
 
 	o, err = decryptAndParseItemKeys(s.MasterKey, eiks)
@@ -62,7 +62,10 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 			s.DefaultItemsKey = ik
 		}
 	}
-	s.ItemsKeys = o
+
+	if len(o) != 0 {
+		s.ItemsKeys = o
+	}
 
 	return
 }
