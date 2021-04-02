@@ -529,7 +529,7 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 	return
 }
 
-// CLiSignIn takes the server URL and credentials and sends them to the API to get a response including
+// CliSignIn takes the server URL and credentials and sends them to the API to get a response including
 // an authentication token plus the keys required to encrypt and decrypt SN items
 func CliSignIn(email, password, apiServer string) (session Session, err error) {
 	sInput := SignInInput{
@@ -540,14 +540,13 @@ func CliSignIn(email, password, apiServer string) (session Session, err error) {
 
 	// attempt sign-in without MFA
 	var sioNoMFA SignInOutput
-
 	sioNoMFA, err = SignIn(sInput)
 	if err != nil {
 		return
 	}
 	// return Session if auth and master key returned
 	if sioNoMFA.Session.AccessToken != "" && sioNoMFA.Session.RefreshExpiration != 0 {
-		return session, err
+		return sioNoMFA.Session, err
 	}
 
 	if sioNoMFA.TokenName != "" {
@@ -577,6 +576,9 @@ func CliSignIn(email, password, apiServer string) (session Session, err error) {
 }
 
 func (s *Session) Valid() bool {
+	if s == nil {
+		return false
+	}
 	switch {
 	case s.RefreshToken == "":
 		return false

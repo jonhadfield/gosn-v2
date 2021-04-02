@@ -14,17 +14,25 @@ import (
 )
 
 func gosnSessionToCacheSession(gs gosn.Session) Session {
-	var session Session
-	session.Server = gs.Server
-	session.AccessToken = gs.AccessToken
-	session.RefreshToken = gs.RefreshToken
-	session.MasterKey = gs.MasterKey
-	session.Token = gs.Token
-	session.AccessExpiration = gs.AccessExpiration
-	session.RefreshExpiration = gs.RefreshExpiration
+	session := Session{
+		Session:     &gosn.Session{
+			Debug:             gs.Debug,
+			Server:           gs.Server,
+			Token:             gs.Token,
+			MasterKey:         gs.MasterKey,
+			ItemsKeys:         gs.ItemsKeys,
+			DefaultItemsKey:   gs.DefaultItemsKey,
+			AccessToken:       gs.AccessToken,
+			RefreshToken:      gs.RefreshToken,
+			AccessExpiration:  gs.AccessExpiration,
+			RefreshExpiration: gs.RefreshExpiration,
+		},
+		CacheDBPath: "",
+	}
 
 	return session
 }
+
 
 func TestSyncWithoutDatabase(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
@@ -32,7 +40,7 @@ func TestSyncWithoutDatabase(t *testing.T) {
 
 	session := gosnSessionToCacheSession(sOutput.Session)
 	session.CacheDBPath = ""
-	_, err = Sync(SyncInput{Session: session})
+	_, err = Sync(SyncInput{Session: &session})
 	assert.EqualError(t, err, "database path is required")
 }
 
@@ -43,8 +51,8 @@ func TestSyncWithInvalidSession(t *testing.T) {
 	assert.EqualError(t, err, "invalid session")
 
 	var invalidSession Session
-	invalidSession.Token = "a"
-	_, err = Sync(SyncInput{Session: invalidSession})
+
+	_, err = Sync(SyncInput{Session: &invalidSession})
 
 	assert.EqualError(t, err, "invalid session")
 }
@@ -112,7 +120,7 @@ func TestSyncWithNoItems(t *testing.T) {
 	var so SyncOutput
 
 	so, err = Sync(SyncInput{
-		Session: session,
+		Session: &session,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, so)
@@ -180,7 +188,7 @@ func TestSyncWithNewNote(t *testing.T) {
 
 	var so SyncOutput
 	so, err = Sync(SyncInput{
-		Session: cs,
+		Session: &cs,
 	})
 	assert.NoError(t, err)
 
@@ -196,7 +204,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	assert.NoError(t, so.DB.Close())
 
 	so, err = Sync(SyncInput{
-		Session: cs,
+		Session: &cs,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, so)
@@ -265,7 +273,7 @@ func TestSyncOneExisting(t *testing.T) {
 
 	cs.CacheDBPath = tempDBPath
 	so, err = Sync(SyncInput{
-		Session: cs,
+		Session: &cs,
 	})
 	assert.NoError(t, err)
 

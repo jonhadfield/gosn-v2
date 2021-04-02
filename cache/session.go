@@ -5,25 +5,48 @@ import (
 )
 
 type Session struct {
-	gosn.Session
+	*gosn.Session
 	CacheDBPath string
 }
 
-func GetSession(loadSession bool, sessionKey, server string) (session Session, email string, err error) {
-	var gSession gosn.Session
+func GetSession(loadSession bool, sessionKey, server string) (s Session, email string, err error) {
+	var gs gosn.Session
 
-	gSession, _, err = gosn.GetSession(loadSession, sessionKey, server)
+	gs, _, err = gosn.GetSession(loadSession, sessionKey, server)
 	if err != nil {
 		return
 	}
 
-	session.Token = gSession.Token
-	session.Server = gSession.Server
-	session.AccessExpiration = gSession.AccessExpiration
-	session.RefreshExpiration = gSession.RefreshExpiration
-	session.MasterKey = gSession.MasterKey
-	session.AccessToken = gSession.AccessToken
-	session.RefreshToken = gSession.RefreshToken
+	return Session{
+		Session: &gosn.Session{
+			gs.Debug,
+			gs.Server,
+			gs.Token,
+			gs.MasterKey,
+			gs.ItemsKeys,
+			gs.DefaultItemsKey,
+			gs.AccessToken,
+			gs.RefreshToken,
+			gs.AccessExpiration,
+			gs.RefreshExpiration,
+		},
+		CacheDBPath: "",
+	}, email, err
 
-	return session, email, err
+	return s, email, err
+}
+
+func (s Session) Gosn() gosn.Session {
+	return gosn.Session{
+		Debug:             s.Debug,
+		Server:            s.Server,
+		Token:             s.Token,
+		MasterKey:         s.MasterKey,
+		ItemsKeys:         s.ItemsKeys,
+		DefaultItemsKey:   s.DefaultItemsKey,
+		AccessToken:       s.AccessToken,
+		RefreshToken:      s.RefreshToken,
+		AccessExpiration:  s.AccessExpiration,
+		RefreshExpiration: s.RefreshExpiration,
+	}
 }

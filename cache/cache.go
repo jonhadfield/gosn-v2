@@ -41,9 +41,9 @@ type SyncToken struct {
 }
 
 type SyncInput struct {
-	Session Session
-	Close   bool
-	Debug   bool
+	*Session
+	Close bool
+	Debug bool
 }
 
 type SyncOutput struct {
@@ -52,16 +52,20 @@ type SyncOutput struct {
 
 type Items []Item
 
-func (s *Session) gosn() gosn.Session {
-	return gosn.Session{
+func (s *Session) gosn() *gosn.Session {
+	gs := gosn.Session{
+		Debug:             false,
 		Server:            s.Server,
 		Token:             s.Token,
 		MasterKey:         s.MasterKey,
+		ItemsKeys:         s.ItemsKeys,
+		DefaultItemsKey:   s.DefaultItemsKey,
 		AccessToken:       s.AccessToken,
 		RefreshToken:      s.RefreshToken,
 		AccessExpiration:  s.AccessExpiration,
 		RefreshExpiration: s.RefreshExpiration,
 	}
+	return &gs
 }
 
 func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
@@ -81,7 +85,7 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 
 	if eItems != nil {
 		gs := s.gosn()
-		items, err = eItems.DecryptAndParse(&gs)
+		items, err = eItems.DecryptAndParse(gs)
 		if err != nil {
 			return
 		}
@@ -115,7 +119,7 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 
 func SaveItems(db *storm.DB, s *Session, items gosn.Items, close, debug bool) error {
 	gs := s.gosn()
-	eItems, err := items.Encrypt(gs)
+	eItems, err := items.Encrypt(*gs)
 	if err != nil {
 		return err
 	}
@@ -125,8 +129,9 @@ func SaveItems(db *storm.DB, s *Session, items gosn.Items, close, debug bool) er
 	return SaveCacheItems(db, cItems, close)
 }
 
+// SaveNotes encrypts and then stores notes into the database
 func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
-	eItems, err := items.Encrypt(s.gosn())
+	eItems, err := items.Encrypt(*s.gosn())
 	if err != nil {
 		return err
 	}
@@ -137,8 +142,7 @@ func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
 }
 
 func SaveTags(db *storm.DB, s *Session, items gosn.Tags, close bool) error {
-	gs := s.gosn()
-	eItems, err := items.Encrypt(gs)
+	eItems, err := items.Encrypt(*s.gosn())
 	if err != nil {
 		return err
 	}
@@ -185,7 +189,7 @@ func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
 
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
-	if !si.Session.Valid() {
+	if si.Session == nil || !si.Session.Valid() {
 		err = fmt.Errorf("invalid session")
 		return
 	}
@@ -268,19 +272,18 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	if len(dirtyItemsToPush) > 0 {
 		gSI = gosn.SyncInput{
-			Session:   &gs,
+			Session:   gs,
 			Items:     dirtyItemsToPush,
 			SyncToken: syncToken,
 		}
 	} else {
 		gSI = gosn.SyncInput{
-			Session:   &gs,
+			Session:   gs,
 			SyncToken: syncToken,
 		}
 	}
 
 	var gSO gosn.SyncOutput
-
 	gSO, err = gosn.Sync(gSI)
 	if err != nil {
 		return
@@ -379,6 +382,16 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	so.DB = db
+	si.ItemsKeys = gs.ItemsKeys
+	si.DefaultItemsKey = gs.DefaultItemsKey
+	si.Debug = gs.Debug
+	si.MasterKey = gs.MasterKey
+	si.AccessExpiration = gs.AccessExpiration
+	si.RefreshToken = gs.RefreshToken
+	si.AccessToken = gs.AccessToken
+	si.RefreshExpiration = gs.RefreshExpiration
+	si.Token = gs.Token
+	si.Server = gs.Server
 
 	return
 }
