@@ -193,7 +193,7 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 
 		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
 		if version != "004" {
-			err = errors.New(fmt.Sprintf("unable to decrypt item %s %s as it was encrypted with version %s", ei.ContentType, ei.UUID, version))
+			err = errors.New(fmt.Sprintf("your account contains items encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app"))
 			return
 		}
 		var itemKey []byte
