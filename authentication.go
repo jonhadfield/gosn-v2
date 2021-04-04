@@ -221,10 +221,8 @@ func getAuthParams(input authParamsInput) (output authParamsOutput, err error) {
 	}
 
 	output.Identifier = authRequestOutput.Identifier
-	// output.PasswordCost = authRequestOutput.PasswordCost
 	output.PasswordNonce = authRequestOutput.PasswordNonce
 	output.Version = authRequestOutput.Version
-	// output.PasswordSalt = authRequestOutput.PasswordSalt
 	output.TokenName = authRequestOutput.mfaKEY
 
 	return
@@ -261,6 +259,7 @@ type signInResponse struct {
 	Session   Session   `json:"Session"`
 	KeyParams keyParams `json:"key_params"`
 	User      user      `json:"user"`
+	Token     string    `json:"token"`
 }
 
 type registerResponse struct {
@@ -342,7 +341,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 
 	// if we received a token name then we need to request token value
 	if getAuthParamsOutput.TokenName != "" {
-		// output.TokenName = getAuthParamsOutput.TokenName
+		output.TokenName = getAuthParamsOutput.TokenName
 		return
 	}
 
@@ -390,7 +389,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	output.User = tokenResp.User
 	output.Session.MasterKey = mk
 	output.Session.Debug = input.Debug
-	// output.Session.Token = tokenResp.Token
+	output.Session.Token = tokenResp.Token
 	output.Session.Server = input.APIServer
 	return output, err
 }
@@ -580,16 +579,18 @@ func (s *Session) Valid() bool {
 		return false
 	}
 	switch {
-	case s.RefreshToken == "":
-		return false
-	case s.AccessToken == "":
-		return false
+	//case s.RefreshToken == "":
+	//	fmt.Println("ref empty")
+	//	return false
+	//case s.AccessToken == "":
+	//	fmt.Println("at empty")
+	//	return false
 	case s.MasterKey == "":
 		return false
-	//case s.AccessExpiration == 0:
-	//	return false
-	//case s.RefreshExpiration == 0:
-	//	return false
+		//case s.AccessExpiration == 0:
+		//	return false
+		//case s.RefreshExpiration == 0:
+		//	return false
 	}
 
 	return true
