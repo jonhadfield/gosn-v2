@@ -119,11 +119,6 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 	return plaintext, err
 }
 
-type itemsKey struct {
-	uuid string
-	key  []byte
-}
-
 // decryptItemsKeys takes the master key and a list of EncryptedItemKeys
 // and returns a list of items keys
 func decryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
@@ -304,6 +299,7 @@ func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error
 		return
 	}
 	content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
+
 	encryptedItem.Content = content
 
 	// generate nonce
