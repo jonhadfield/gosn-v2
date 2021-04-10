@@ -271,6 +271,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	if iks != nil && len(iks) > 0 {
+		err = iks.Validate()
+		if err != nil {
+			return
+		}
+
 		gs := si.Session.gosn()
 		_, err = iks.DecryptAndParseItemsKeys(gs)
 		si.Session.ItemsKeys = gs.ItemsKeys
