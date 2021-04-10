@@ -2,6 +2,7 @@ package gosn
 
 // Item defines all types of SN item, e.g. Note, Tag, and Component
 type Item interface {
+	GetItemsKeyID() string
 	GetUUID() string
 	SetUUID(string)
 	GetContentSize() int

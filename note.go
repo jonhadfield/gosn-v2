@@ -172,6 +172,10 @@ func (n Note) GetContent() Content {
 	return &n.Content
 }
 
+func (n Note) GetItemsKeyID() string {
+	return n.ItemsKeyID
+}
+
 func (n Note) GetUUID() string {
 	return n.UUID
 }

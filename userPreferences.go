@@ -170,6 +170,10 @@ func (c *UserPreferences) SetContent(cc Content) {
 	c.Content = cc.(UserPreferencesContent)
 }
 
+func (c UserPreferences) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c UserPreferences) GetUUID() string {
 	return c.UUID
 }

@@ -182,6 +182,10 @@ func (t Tag) GetContent() Content {
 	return &t.Content
 }
 
+func (t Tag) GetItemsKeyID() string {
+	return t.ItemsKeyID
+}
+
 func (t Tag) GetUUID() string {
 	return t.UUID
 }

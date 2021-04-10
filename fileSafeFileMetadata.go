@@ -160,6 +160,10 @@ func (c *FileSafeFileMetaData) SetContent(cc Content) {
 	c.Content = cc.(FileSafeFileMetaDataContent)
 }
 
+func (c FileSafeFileMetaData) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c FileSafeFileMetaData) GetUUID() string {
 	return c.UUID
 }

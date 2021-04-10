@@ -161,6 +161,10 @@ func (c *SmartTag) SetContent(cc Content) {
 	c.Content = cc.(SmartTagContent)
 }
 
+func (c SmartTag) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c SmartTag) GetUUID() string {
 	return c.UUID
 }

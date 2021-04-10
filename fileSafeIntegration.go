@@ -162,6 +162,10 @@ func (c *FileSafeIntegration) SetContent(cc Content) {
 	c.Content = cc.(FileSafeIntegrationContent)
 }
 
+func (c FileSafeIntegration) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c FileSafeIntegration) GetUUID() string {
 	return c.UUID
 }

@@ -162,6 +162,10 @@ func (c *Privileges) SetContent(cc Content) {
 	c.Content = cc.(PrivilegesContent)
 }
 
+func (c Privileges) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c Privileges) GetUUID() string {
 	return c.UUID
 }

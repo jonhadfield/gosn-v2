@@ -163,6 +163,10 @@ func (c *SFExtension) SetContent(cc Content) {
 	c.Content = cc.(SFExtensionContent)
 }
 
+func (c SFExtension) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c SFExtension) GetUUID() string {
 	return c.UUID
 }

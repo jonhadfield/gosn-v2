@@ -162,6 +162,10 @@ func (c *Extension) SetContent(cc Content) {
 	c.Content = cc.(ExtensionContent)
 }
 
+func (c Extension) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c Extension) GetUUID() string {
 	return c.UUID
 }
