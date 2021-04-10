@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -185,7 +185,8 @@ func writeSession(s string, k keyring.Keyring) error {
 }
 
 func makeSessionString(email string, session Session) string {
-	return fmt.Sprintf("%s;%s;%d;%s;%d", email, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
+	return fmt.Sprintf("%s;%s;%s;%s;%d;%s;%d", email, session.Server, session.MasterKey, session.AccessToken,
+		session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
 }
 
 func SessionExists(k keyring.Keyring) error {
@@ -222,7 +223,7 @@ func RemoveSession(k keyring.Keyring) string {
 }
 
 func MakeSessionString(email string, session Session) string {
-	return fmt.Sprintf("%s;%s;%d;%s;%d", email, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
+	return fmt.Sprintf("%s;%s;%s;%d;%s;%d", email, session.MasterKey, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
 }
 
 func GetSessionFromUser(server string) (Session, string, error) {
@@ -263,9 +264,7 @@ func GetSession(loadSession bool, sessionKey, server string) (session Session, e
 		if !isUnencryptedSession(rawSess) {
 			if sessionKey == "" {
 				var byteKey []byte
-
 				fmt.Print("Session key: ")
-
 				byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
 				if err != nil {
 					return
@@ -301,8 +300,12 @@ func GetSession(loadSession bool, sessionKey, server string) (session Session, e
 }
 
 func isUnencryptedSession(in string) bool {
-	re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-	if len(strings.Split(in, ";")) == 5 && re.MatchString(strings.Split(in, ";")[0]) {
+	//re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	//if len(strings.Split(in, ";")) == 5 && re.MatchString(strings.Split(in, ";")[0]) {
+	//	return true
+	//}
+
+	if len(strings.Split(in, ";")) == 7 {
 		return true
 	}
 
@@ -311,17 +314,27 @@ func isUnencryptedSession(in string) bool {
 
 func ParseSessionString(in string) (email string, session Session, err error) {
 	if !isUnencryptedSession(in) {
-		err = errors.New("Session invalid, or encrypted and key was not provided")
+		err = errors.New("session invalid, or encrypted and key was not provided")
 		return
 	}
-
 	parts := strings.Split(in, ";")
 	email = parts[0]
+	var ae, re int
+	ae, err = strconv.Atoi(parts[4])
+	if err != nil {
+		return
+	}
+	ae, err = strconv.Atoi(parts[6])
+	if err != nil {
+		return
+	}
 	session = Session{
-		AccessToken:       "",
-		AccessExpiration:  0,
-		RefreshToken:      "",
-		RefreshExpiration: 0,
+		Server:            parts[1],
+		MasterKey:         parts[2],
+		AccessToken:       parts[3],
+		AccessExpiration:  int64(ae),
+		RefreshToken:      parts[5],
+		RefreshExpiration: int64(re),
 	}
 
 	return
@@ -360,7 +373,7 @@ func Decrypt(key []byte, cryptoText string) (pt string, err error) {
 
 func getSessionContent(key, rawSession string) (session string, err error) {
 	// check if Session is encrypted
-	if len(strings.Split(rawSession, ";")) != 5 {
+	if len(strings.Split(rawSession, ";")) != numRawSessionTokens {
 		if key == "" {
 
 			var byteKey []byte
@@ -383,7 +396,7 @@ func getSessionContent(key, rawSession string) (session string, err error) {
 			return
 		}
 
-		if len(strings.Split(session, ";")) != 5 {
+		if len(strings.Split(session, ";")) != numRawSessionTokens {
 			err = fmt.Errorf("invalid Session or wrong key provided")
 		}
 	} else {
