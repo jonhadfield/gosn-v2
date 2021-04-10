@@ -15,9 +15,9 @@ import (
 
 func gosnSessionToCacheSession(gs gosn.Session) Session {
 	session := Session{
-		Session:     &gosn.Session{
+		Session: &gosn.Session{
 			Debug:             gs.Debug,
-			Server:           gs.Server,
+			Server:            gs.Server,
 			Token:             gs.Token,
 			MasterKey:         gs.MasterKey,
 			ItemsKeys:         gs.ItemsKeys,
@@ -32,7 +32,6 @@ func gosnSessionToCacheSession(gs gosn.Session) Session {
 
 	return session
 }
-
 
 func TestSyncWithoutDatabase(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
@@ -57,46 +56,29 @@ func TestSyncWithInvalidSession(t *testing.T) {
 	assert.EqualError(t, err, "invalid session")
 }
 
-//
-//func TestSyncWithPathAndDB(t *testing.T) {
-//	sOutput, err := gosn.SignIn(sInput)
-//	session := gosnSessionToCacheSession(sOutput.Session)
-//
-//	assert.NoError(t, err, "sign-in failed", err)
-//	var db *storm.DB
-//	db, err = storm.Open(tempDBPath)
-//	assert.NoError(t, err)
-//	defer db.Close()
-//	session.CacheDBPath = tempDBPath
-//	defer removeDB(tempDBPath)
-//	_, err = Sync(SyncInput{Session: session})
-//	assert.EqualError(t, err, "passing a DB pointer and DB path does not make sense")
-//}
+func TestInitialSyncWithItemButNoDB(t *testing.T) {
+	sOutput, err := gosn.SignIn(sInput)
+	session := gosnSessionToCacheSession(sOutput.Session)
+	session.CacheDBPath = tempDBPath
+	assert.NoError(t, err, "sign-in failed", err)
 
-//func TestInitialSyncWithItemButNoDB(t *testing.T) {
-//	sOutput, err := gosn.SignIn(sInput)
-//	session := gosnSessionToCacheSession(sOutput.Session)
-//	session.CacheDBPath = tempDBPath
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	defer cleanup(&sOutput.Session)
-//
-//	defer removeDB(tempDBPath)
-//
-//	var so SyncOutput
-//	so, err = Sync(SyncInput{
-//		Session: session,
-//	})
-//	assert.NoError(t, err)
-//
-//	var syncTokens []SyncToken
-//	err = so.DB.All(&syncTokens)
-//	assert.NoError(t, err)
-//	assert.Len(t, syncTokens, 1)
-//	assert.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
-//	assert.Empty(t, so.SavedItems)
-//	so.DB.Close()
-//}
+	defer cleanup(&sOutput.Session)
+
+	defer removeDB(tempDBPath)
+
+	var so SyncOutput
+	so, err = Sync(SyncInput{
+		Session: &session,
+	})
+	assert.NoError(t, err)
+
+	var syncTokens []SyncToken
+	err = so.DB.All(&syncTokens)
+	assert.NoError(t, err)
+	assert.Len(t, syncTokens, 1)
+	assert.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
+	assert.NoError(t, so.DB.Close())
+}
 
 func TestSyncWithNoItems(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
@@ -109,7 +91,7 @@ func TestSyncWithNoItems(t *testing.T) {
 	assert.NoError(t, err, "sign-in failed", err)
 
 	_, err = gosn.Sync(gosn.SyncInput{
-		Session:     &sOutput.Session,
+		Session: &sOutput.Session,
 	})
 	assert.NoError(t, err)
 
@@ -166,7 +148,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	s := sOutput.Session
 
 	_, err = gosn.Sync(gosn.SyncInput{
-		Session:     &s,
+		Session: &s,
 	})
 	assert.NoError(t, err)
 
@@ -242,7 +224,7 @@ func TestSyncOneExisting(t *testing.T) {
 
 	s := sOutput.Session
 	_, err = gosn.Sync(gosn.SyncInput{
-		Session:     &s,
+		Session: &s,
 	})
 	assert.NoError(t, err)
 
@@ -267,6 +249,8 @@ func TestSyncOneExisting(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, gso.SavedItems, 1)
+
+	cs = gosnSessionToCacheSession(s)
 
 	// call sync
 	var so SyncOutput
@@ -303,6 +287,130 @@ func TestSyncOneExisting(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, foundNotes)
+}
+
+// create a note in SN directly
+// call persist, Sync, and check DB contains the note
+// update new note, sync to SN, then check new content is persisted
+func TestSyncUpdateExisting(t *testing.T) {
+	sOutput, err := gosn.SignIn(sInput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	s := sOutput.Session
+	_, err = gosn.Sync(gosn.SyncInput{
+		Session: &s,
+	})
+	assert.NoError(t, err)
+
+	defer cleanup(&sOutput.Session)
+
+	cs := gosnSessionToCacheSession(sOutput.Session)
+	// create new note with random content and push to SN (not DB)
+	newNote, _ := createNote("test", "")
+	dItems := gosn.Items{&newNote}
+	assert.NoError(t, dItems.Validate())
+
+	var eItems gosn.EncryptedItems
+	eItems, err = dItems.Encrypt(s)
+	assert.NoError(t, err)
+
+	// push new note to SN
+	var gso gosn.SyncOutput
+	gso, err = gosn.Sync(gosn.SyncInput{
+		Session: &s,
+		Items:   eItems,
+	})
+
+	assert.NoError(t, err)
+	assert.Len(t, gso.SavedItems, 1)
+
+	cs = gosnSessionToCacheSession(s)
+
+	// call cache sync
+	var so SyncOutput
+
+	cs.CacheDBPath = tempDBPath
+	so, err = Sync(SyncInput{
+		Session: &cs,
+	})
+	assert.NoError(t, err)
+
+	defer so.DB.Close()
+	defer removeDB(tempDBPath)
+
+	// get all items
+	var allPersistedItems Items
+
+	err = so.DB.All(&allPersistedItems)
+	assert.NoError(t, err)
+
+	var syncTokens []SyncToken
+	err = so.DB.All(&syncTokens)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, syncTokens)
+
+	err = so.DB.All(&allPersistedItems)
+	assert.Greater(t, len(allPersistedItems), 0)
+
+	var foundNotes int
+
+	for _, pi := range allPersistedItems {
+		if pi.ContentType == "Note" && pi.UUID == newNote.UUID {
+			foundNotes++
+		}
+
+	}
+
+	assert.Equal(t, 1, foundNotes)
+
+	// *****
+	// Now modify note in db and sync
+	// *****
+
+	var items gosn.Items
+	items, err = allPersistedItems.ToItems(&cs)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, items)
+	var existingNote gosn.Note
+	for _, item := range items {
+		if item.GetUUID() == newNote.UUID {
+			existingNote = *item.(*gosn.Note)
+		}
+	}
+	assert.NotEmpty(t, existingNote.UUID)
+	assert.NotEmpty(t, existingNote.GetContent())
+
+	existingNote.Content.SetTitle("New Title")
+	existingNote.Content.SetText("New Text")
+
+	assert.NoError(t, SaveNotes(&cs, so.DB, gosn.Notes{existingNote}, true))
+
+	// sync back to SN
+	_, err = Sync(SyncInput{
+		Session: &cs,
+	})
+
+	// now do a gosn sync and check item has updates
+	var newSO gosn.SyncOutput
+	newSO, err = gosn.Sync(gosn.SyncInput{
+		Session: &s,
+	})
+	assert.NoError(t, err)
+	var uItem  gosn.EncryptedItem
+	for _, i := range newSO.Items {
+		if i.UUID == existingNote.UUID {
+			uItem = i
+		}
+	}
+	assert.NotEmpty(t, uItem.UUID)
+	newEncItems := gosn.EncryptedItems{uItem}
+	var newDecItems gosn.Items
+	newDecItems, err = newEncItems.DecryptAndParse(&s)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, newDecItems)
+	uNote := *newDecItems[0].(*gosn.Note)
+	assert.Equal(t, "New Title", uNote.Content.GetTitle())
+	assert.Equal(t, "New Text", uNote.Content.GetText())
 }
 
 func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {

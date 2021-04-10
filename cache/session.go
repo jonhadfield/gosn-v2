@@ -1,11 +1,13 @@
 package cache
 
 import (
+	"github.com/asdine/storm/v3"
 	"github.com/jonhadfield/gosn-v2"
 )
 
 type Session struct {
 	*gosn.Session
+	CacheDB     *storm.DB
 	CacheDBPath string
 }
 
@@ -19,21 +21,20 @@ func GetSession(loadSession bool, sessionKey, server string) (s Session, email s
 
 	return Session{
 		Session: &gosn.Session{
-			gs.Debug,
-			gs.Server,
-			gs.Token,
-			gs.MasterKey,
-			gs.ItemsKeys,
-			gs.DefaultItemsKey,
-			gs.AccessToken,
-			gs.RefreshToken,
-			gs.AccessExpiration,
-			gs.RefreshExpiration,
+			Debug:             gs.Debug,
+			Server:            gs.Server,
+			Token:             gs.Token,
+			MasterKey:         gs.MasterKey,
+			ItemsKeys:         gs.ItemsKeys,
+			DefaultItemsKey:   gs.DefaultItemsKey,
+			AccessToken:       gs.AccessToken,
+			RefreshToken:      gs.RefreshToken,
+			AccessExpiration:  gs.AccessExpiration,
+			RefreshExpiration: gs.RefreshExpiration,
 		},
+		CacheDB:     nil,
 		CacheDBPath: "",
 	}, email, err
-
-	return s, email, err
 }
 
 func (s Session) Gosn() gosn.Session {

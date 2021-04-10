@@ -54,7 +54,7 @@ type Items []Item
 
 func (s *Session) gosn() *gosn.Session {
 	gs := gosn.Session{
-		Debug:             false,
+		Debug:             s.Debug,
 		Server:            s.Server,
 		Token:             s.Token,
 		MasterKey:         s.MasterKey,
@@ -85,6 +85,12 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 
 	if eItems != nil {
 		gs := s.gosn()
+		if len(gs.ItemsKeys) == 0 {
+			panic("trying to convert cache items to items with no items keys")
+		}
+		if gs.DefaultItemsKey.ItemsKey == "" {
+			panic("trying to convert cache items to items with no default items key")
+		}
 		items, err = eItems.DecryptAndParse(gs)
 		if err != nil {
 			return
@@ -119,6 +125,7 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 
 func SaveItems(db *storm.DB, s *Session, items gosn.Items, close, debug bool) error {
 	gs := s.gosn()
+
 	eItems, err := items.Encrypt(*gs)
 	if err != nil {
 		return err
@@ -204,7 +211,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// open DB if path provided
 	if si.Session.CacheDBPath != "" {
-		debugPrint(si.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath))
+		debugPrint(si.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath))
 
 		db, err = storm.Open(si.Session.CacheDBPath)
 		if err != nil {
@@ -226,6 +233,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
+
 	// get sync token from previous operation
 	var syncTokens []SyncToken
 
@@ -234,8 +242,45 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		if !strings.Contains(err.Error(), "not found") {
 			return
 		}
-
 		return
+	}
+
+
+	// load items keys from previous operation
+	var ciks []Item
+
+	err = db.Find("ContentType", "SN|ItemsKey", &ciks)
+	if err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			return
+		}
+	}
+
+	var iks gosn.EncryptedItems
+	for _, cik := range ciks {
+		iks = append(iks, gosn.EncryptedItem{
+			UUID:        cik.UUID,
+			ItemsKeyID:  cik.ItemsKeyID,
+			Content:     cik.Content,
+			ContentType: cik.ContentType,
+			EncItemKey:  cik.EncItemKey,
+			Deleted:     cik.Deleted,
+			CreatedAt:   cik.CreatedAt,
+			UpdatedAt:   cik.UpdatedAt,
+		})
+	}
+
+	if iks != nil && len(iks) > 0 {
+		gs := si.Session.gosn()
+		_, err = iks.DecryptAndParseItemsKeys(gs)
+		si.Session.ItemsKeys = gs.ItemsKeys
+		si.Session.DefaultItemsKey = gs.DefaultItemsKey
+		if err != nil {
+			return
+		}
+		if len(si.Session.ItemsKeys) == 0 {
+			panic("pants")
+		}
 	}
 
 	var syncToken string
@@ -248,6 +293,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	if len(syncTokens) == 1 {
 		syncToken = syncTokens[0].SyncToken
+	}
+
+	// if session doesn't contain items keys then set remove sync token
+	if si.DefaultItemsKey.ItemsKey == "" {
+		syncToken = ""
 	}
 
 	// convert dirty to gosn.Items
@@ -265,11 +315,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		})
 	}
 
+	// TODO: Only call if dirty items to push
 	// call gosn sync with dirty items to push
 	var gSI gosn.SyncInput
 
 	gs := si.Session.gosn()
-
 	if len(dirtyItemsToPush) > 0 {
 		gSI = gosn.SyncInput{
 			Session:   gs,
@@ -283,8 +333,18 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
+	if ! gSI.Session.Valid() {
+		fmt.Println("Invalid Session")
+	}
+
 	var gSO gosn.SyncOutput
 	gSO, err = gosn.Sync(gSI)
+	// CHECK NO ITEMS KEYS ARE DELETED
+	//for _, savedItem := range gSO.SavedItems {
+	//	if savedItem.ContentType == "SN|ItemsKey" {
+	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
+	//	}
+	//}
 	if err != nil {
 		return
 	}
@@ -332,10 +392,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 				continue
 			}
 
-			if x.UUID != components[2] {
-				err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
-				return
-			}
+			//if x.UUID != components[2] {
+			//	err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s - %+v\n", string(x.UUID), components[2], x)
+			//	return
+			//}
 		}
 	}
 
@@ -353,6 +413,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// put new Items in db
 	for _, i := range gSO.Items {
+		if i.ContentType == "SN|ItemsKey" && i.Deleted {
+			continue
+		}
+
 		item := Item{
 			UUID:        i.UUID,
 			Content:     i.Content,
@@ -370,9 +434,34 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
+	// updated db with saved items
+	// put new Items in db
+	for _, i := range gSO.SavedItems {
+		if i.ContentType == "SN|ItemsKey" && i.Deleted {
+			continue
+		}
+
+		item := Item{
+			UUID:        i.UUID,
+			Content:     i.Content,
+			ContentType: i.ContentType,
+			ItemsKeyID:  i.ItemsKeyID,
+			EncItemKey:  i.EncItemKey,
+			Deleted:     i.Deleted,
+			CreatedAt:   i.CreatedAt,
+			UpdatedAt:   i.UpdatedAt,
+		}
+
+
+		err = db.Save(&item)
+		if err != nil {
+			return
+		}
+	}
+
 	// drop the SyncToken db if it exists
 	_ = db.Drop("SyncToken")
-
+	// replace with latest from server
 	sv := SyncToken{
 		SyncToken: gSO.SyncToken,
 	}
@@ -381,17 +470,21 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		return
 	}
 
+	if len(gSO.Items) > 0 {
+		_, err = gSO.Items.DecryptAndParseItemsKeys(si.Session.Session)
+	}
+
 	so.DB = db
-	si.ItemsKeys = gs.ItemsKeys
-	si.DefaultItemsKey = gs.DefaultItemsKey
-	si.Debug = gs.Debug
-	si.MasterKey = gs.MasterKey
-	si.AccessExpiration = gs.AccessExpiration
-	si.RefreshToken = gs.RefreshToken
-	si.AccessToken = gs.AccessToken
-	si.RefreshExpiration = gs.RefreshExpiration
-	si.Token = gs.Token
-	si.Server = gs.Server
+	si.Session.ItemsKeys = gs.ItemsKeys
+	si.Session.DefaultItemsKey = gs.DefaultItemsKey
+	si.Session.Debug = gs.Debug
+	si.Session.MasterKey = gs.MasterKey
+	si.Session.AccessExpiration = gs.AccessExpiration
+	si.Session.RefreshToken = gs.RefreshToken
+	si.Session.AccessToken = gs.AccessToken
+	si.Session.RefreshExpiration = gs.RefreshExpiration
+	si.Session.Token = gs.Token
+	si.Session.Server = gs.Server
 
 	return
 }
@@ -432,7 +525,7 @@ func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 
 	h := sha256.New()
 
-	h.Write([]byte(session.AccessToken[:2] + session.AccessToken[len(session.AccessToken)-2:] + session.Server + appName))
+	h.Write([]byte(session.MasterKey[:2] + session.MasterKey[len(session.MasterKey)-2:] + session.MasterKey + appName))
 	bs := h.Sum(nil)
 	hexedDigest := hex.EncodeToString(bs)[:8]
 
