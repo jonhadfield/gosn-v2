@@ -107,9 +107,17 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 }
 
 func (i *Items) Encrypt(s Session) (e EncryptedItems, err error) {
+	// return empty if no items provided
+	if len(*i) == 0 {
+		return
+	}
 	e, err = encryptItems(s, i)
-	if err := e.Validate(); err != nil {
-		panic(err)
+	if err != nil {
+		return
+	}
+
+	if err = e.Validate(); err != nil {
+		return e, err
 	}
 	return
 }
