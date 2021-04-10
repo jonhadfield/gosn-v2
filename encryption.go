@@ -173,17 +173,16 @@ func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
 // and returns a list of items keys uuid (string) and key (bytes)
 func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
 	for _, ei := range eis {
-		if ei.ContentType == "SN|ItemsKey" {
+		if ei.ContentType == "SN|ItemsKey" || ei.Deleted {
 			continue
 		}
 
 		// decrypt item key with itemsKey
-		if ei.ItemsKeyID == ""{
-			debugPrint(s.Debug,fmt.Sprintf("ignoring invalid item: %+v\n", ei))
+		if ei.ItemsKeyID == "" {
+			debugPrint(s.Debug, fmt.Sprintf("ignoring invalid item: %+v\n", ei))
 
 			continue
 		}
-
 
 		ik := getMatchingItem(ei.ItemsKeyID, s.ItemsKeys)
 		if ik.UUID == "" {
