@@ -75,11 +75,13 @@ func (ei *EncryptedItems) Validate() error {
 	var err error
 	for _, i := range *ei {
 		switch {
+		case i.IsDeleted():
+			continue
 		case i.ContentType != "SN|ItemsKey" && i.ItemsKeyID == "":
-			err = fmt.Errorf("failed to create \"%s\" due to missing ItemsKeyID: \"%s\"",
+			err = fmt.Errorf("validation failed for \"%s\" due to missing ItemsKeyID: \"%s\"",
 				i.ContentType, i.UUID)
 		case i.ContentType != "SN|ItemsKey" && i.EncItemKey == "":
-			err = fmt.Errorf("failed to create \"%s\" due to missing encrypted item key: \"%s\"",
+			err = fmt.Errorf("validation failed for \"%s\" due to missing encrypted item key: \"%s\"",
 				i.ContentType, i.UUID)
 		}
 		if err != nil {
@@ -131,6 +133,14 @@ type EncryptedItem struct {
 	Deleted     bool   `json:"deleted"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
+}
+
+func (ei EncryptedItem) GetItemsKeyID() string {
+	return 	ei.ItemsKeyID
+}
+
+func (ei EncryptedItem) IsDeleted() bool {
+	return 	ei.Deleted
 }
 
 type DecryptedItem struct {
