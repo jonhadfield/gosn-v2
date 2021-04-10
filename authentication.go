@@ -145,6 +145,13 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		if err != nil {
 			return
 		}
+	case 403:
+		// server has denied request
+		// unmarshal error response
+		err = json.Unmarshal(body, &errResp)
+		if err != nil {
+			return
+		}
 	default:
 		err = fmt.Errorf("unhandled: %+v", response)
 		return
