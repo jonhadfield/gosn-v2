@@ -464,7 +464,6 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 func (input RegisterInput) Register() (token string, err error) {
 	var pwNonce, serverPassword string
 	_, pwNonce, _, serverPassword, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
-	// fmt.Println("pw:", pw, "\npwNonce:", pwNonce, "\nMasterKey:", masterKey, "\nServerPassword:", serverPassword)
 	var req *http.Request
 
 	reqBody := `{"email":"` + input.Email + `","identifier":"` + input.Email + `","password":"` + serverPassword + `","pw_nonce":"` + pwNonce + `","version":"` + defaultSNVersion + `","origination":"registration","created":"1608473387799","api":"20200115"}`
