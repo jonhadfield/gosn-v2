@@ -133,7 +133,7 @@ func NewComponent() Component {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewComponentContent returns an empty Tag content instance
 func NewComponentContent() *ComponentContent {
 	c := &ComponentContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -191,6 +191,10 @@ func (c Component) GetContent() Content {
 
 func (c *Component) SetContent(cc Content) {
 	c.Content = cc.(ComponentContent)
+}
+
+func (c Component) GetItemsKeyID() string {
+	return c.ItemsKeyID
 }
 
 func (c Component) GetUUID() string {

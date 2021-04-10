@@ -162,6 +162,10 @@ func (c *Theme) SetContent(cc Content) {
 	c.Content = cc.(ThemeContent)
 }
 
+func (c Theme) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c Theme) GetUUID() string {
 	return c.UUID
 }

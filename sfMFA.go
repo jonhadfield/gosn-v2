@@ -163,6 +163,10 @@ func (c *SFMFA) SetContent(cc Content) {
 	c.Content = cc.(SFMFAContent)
 }
 
+func (c SFMFA) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c SFMFA) GetUUID() string {
 	return c.UUID
 }

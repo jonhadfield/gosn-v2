@@ -102,7 +102,7 @@ func NewExtensionRepo() ExtensionRepo {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewExtensionRepoContent returns an empty Tag content instance
 func NewExtensionRepoContent() *ExtensionRepoContent {
 	c := &ExtensionRepoContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -160,6 +160,10 @@ func (c ExtensionRepo) GetContent() Content {
 
 func (c *ExtensionRepo) SetContent(cc Content) {
 	c.Content = cc.(ExtensionRepoContent)
+}
+
+func (c ExtensionRepo) GetItemsKeyID() string {
+	return c.ItemsKeyID
 }
 
 func (c ExtensionRepo) GetUUID() string {

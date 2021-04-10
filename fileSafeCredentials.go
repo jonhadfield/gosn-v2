@@ -160,6 +160,10 @@ func (c *FileSafeCredentials) SetContent(cc Content) {
 	c.Content = cc.(FileSafeCredentialsContent)
 }
 
+func (c FileSafeCredentials) GetItemsKeyID() string {
+	return c.ItemsKeyID
+}
+
 func (c FileSafeCredentials) GetUUID() string {
 	return c.UUID
 }

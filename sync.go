@@ -106,6 +106,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
 	//	}
 	//}
+	if err = output.Items.Validate() ; err != nil {
+		panic(err)
+	}
 
 	if len(output.Items) > 0 {
 		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
@@ -147,6 +150,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 			if a.Deleted {
 				panic("TRYING TO DELETE ITEMS KEY")
 			}
+		}
+		if a.ItemsKeyID == "" {
+			panic("Trying to sync item without itemskeyid")
 		}
 	}
 	// DEBUG END
