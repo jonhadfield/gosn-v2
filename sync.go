@@ -33,14 +33,22 @@ type SyncOutput struct {
 	Unsaved    EncryptedItems // items not saved during sync
 	SyncToken  string
 
-	Cursor     string
+	Cursor string
 }
 
 // Sync retrieves items from the API using optional filters and updates the provided
 // session with the items keys required to encrypt and decrypt items
 func Sync(input SyncInput) (output SyncOutput, err error) {
-	giStart := time.Now()
+	//if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
+	//	panic("In gosn Sync and trying to sync items without default items key")
+	//}
+	for _, a := range input.Items {
+		if a.ContentType == "SN|ItemsKey" && a.Deleted {
+			panic("trying to delete SN|ItemsKey")
+		}
+	}
 
+	giStart := time.Now()
 	defer func() {
 		debugPrint(input.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
 	}()
@@ -92,10 +100,22 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postElapsed := time.Since(postStart)
 	debugPrint(input.Debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	debugPrint(input.Debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
+	// CHECK NO ITEMS KEYS ARE DELETED
+	//for _, savedItem := range output.SavedItems {
+	//	if savedItem.ContentType == "SN|ItemsKey" {
+	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
+	//	}
+	//}
+
 	if len(output.Items) > 0 {
 		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
 	}
 
+	// START DEBUG
+	if input.Session.DefaultItemsKey.ItemsKey == "" {
+		//panic("input.Session.DefaultItemsKey.ItemsKey is empty")
+	}
+	// END DEBUG
 
 	return output, err
 }
@@ -120,6 +140,16 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
 	// determine how many items to retrieve with each call
 	var limit int
+
+	// DEBUG START
+	for _, a := range input.Items {
+		if a.ContentType == "SN|ItemsKey" {
+			if a.Deleted {
+				panic("TRYING TO DELETE ITEMS KEY")
+			}
+		}
+	}
+	// DEBUG END
 
 	switch {
 	case input.BatchSize > 0:
