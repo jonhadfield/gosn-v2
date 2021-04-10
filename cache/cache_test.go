@@ -219,9 +219,11 @@ func TestSyncWithNewNote(t *testing.T) {
 // create a note in SN directly
 // call persist Sync and check DB contains the note
 func TestSyncOneExisting(t *testing.T) {
+
 	sOutput, err := gosn.SignIn(sInput)
 	assert.NoError(t, err, "sign-in failed", err)
 
+	// load items keys into session
 	s := sOutput.Session
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
@@ -230,7 +232,6 @@ func TestSyncOneExisting(t *testing.T) {
 
 	defer cleanup(&sOutput.Session)
 
-	cs := gosnSessionToCacheSession(sOutput.Session)
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
@@ -238,7 +239,9 @@ func TestSyncOneExisting(t *testing.T) {
 
 	var eItems gosn.EncryptedItems
 	eItems, err = dItems.Encrypt(s)
+
 	assert.NoError(t, err)
+	assert.NoError(t, eItems.Validate())
 
 	// push to SN
 	var gso gosn.SyncOutput
@@ -250,7 +253,7 @@ func TestSyncOneExisting(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, gso.SavedItems, 1)
 
-	cs = gosnSessionToCacheSession(s)
+	cs := gosnSessionToCacheSession(s)
 
 	// call sync
 	var so SyncOutput
