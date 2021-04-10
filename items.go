@@ -14,6 +14,7 @@ type syncResponse struct {
 	Items        EncryptedItems `json:"retrieved_items"`
 	SavedItems   EncryptedItems `json:"saved_items"`
 	Unsaved      EncryptedItems `json:"unsaved"`
+	Conflicts    EncryptedItems `json:"conflicts"`
 	SyncToken    string         `json:"sync_token"`
 	CursorToken  string         `json:"cursor_token"`
 	LastItemPut  int            // the last item successfully put
@@ -179,7 +180,6 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 
 func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody []byte, err error) {
 	var request *http.Request
-
 	request, err = http.NewRequest(http.MethodPost, session.Server+syncPath, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return
@@ -234,7 +234,6 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	}
 
 	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response size %d bytes", len(responseBody)))
-
 	return responseBody, err
 }
 
