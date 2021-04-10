@@ -254,32 +254,32 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 //	return
 //}
 //
-//func createNote(title, text, uuid string) *Note {
-//	note := NewNote()
-//	if uuid != "" {
-//		note.UUID = uuid
-//	}
-//
-//	content := NewNoteContent()
-//	content.Title = title
-//	content.Text = text
-//	note.Content = *content
-//
-//	return &note
-//}
-//
-//func createTag(title, uuid string) *Tag {
-//	tag := NewTag()
-//	if uuid != "" {
-//		tag.UUID = uuid
-//	}
-//
-//	content := NewTagContent()
-//	content.Title = title
-//	tag.Content = *content
-//
-//	return &tag
-//}
+func createNote(title, text, uuid string) *Note {
+	note := NewNote()
+	if uuid != "" {
+		note.UUID = uuid
+	}
+
+	content := NewNoteContent()
+	content.Title = title
+	content.Text = text
+	note.Content = *content
+
+	return &note
+}
+
+func createTag(title, uuid string) *Tag {
+	tag := NewTag()
+	if uuid != "" {
+		tag.UUID = uuid
+	}
+
+	content := NewTagContent()
+	content.Title = title
+	tag.Content = *content
+
+	return &tag
+}
 
 func cleanup() {
 	sOutput, err := SignIn(sInput)
@@ -524,108 +524,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 		t.Errorf("failed to get created Item by UUID")
 	}
 }
-
-// func TestPutItemsAddSingleNote(t *testing.T) {
-//	// SetDebugLogger(log.Println)
-//	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	//defer cleanup(&sOutput.Session)
-//
-//	// sync to get items keys
-//	si := SyncInput{
-//		Session: sOutput.Session,
-//	}
-//
-//	var so SyncOutput
-//
-//	so, err = Sync(si)
-//	assert.NoError(t, err)
-//
-//	var iks []ItemsKey
-//	iks, err = so.Items.DecryptAndParseItemsKeys(sOutput.Session.MasterKey, true)
-//	assert.NoError(t, err)
-//	if len(iks) > 1 {
-//		err = fmt.Errorf("too many items keys returned")
-//	}
-//
-//	//randPara := testParas[randInt(0, len(testParas))]
-//	randPara := "TestText"
-//
-//	newNoteContent := NoteContent{
-//		Title:          "TestTitle",
-//		Text:           randPara,
-//		ItemReferences: nil,
-//	}
-//
-//	newNoteContent.SetUpdateTime(time.Now())
-//
-//	newNote := NewNote()
-//	newNote.Content = newNoteContent
-//	dItems := Items{&newNote}
-//	assert.NoError(t, dItems.Validate())
-//	var eItems EncryptedItems
-//	eItems, err = dItems.Encrypt(sOutput.Session.MasterKey, iks[0], true)
-//	assert.NoError(t, err)
-//	assert.NotEmpty(t, eItems)
-//
-//	si = SyncInput{
-//		Items:   eItems,
-//		Session: sOutput.Session,
-//	}
-//
-//	so, err = Sync(si)
-//	assert.NoError(t, err, "Sync Failed", err)
-//	assert.Len(t, so.SavedItems, 1, "expected 1")
-//	uuidOfNewItem := so.SavedItems[0].UUID
-//	si = SyncInput{
-//		Session: sOutput.Session,
-//	}
-//
-//	so, err = Sync(si)
-//	if err != nil {
-//		return
-//	}
-//
-//	var di DecryptedItems
-//
-//	di, err = so.Items.Decrypt(iks[0], sOutput.Session.MasterKey, true)
-//	if err != nil {
-//		return
-//	}
-//
-//	var items Items
-//	items, err = di.Parse()
-//	assert.NoError(t, err, "failed to get items")
-//
-//	var foundCreatedItem bool
-//
-//	for i := range items {
-//		if items[i].GetUUID() == uuidOfNewItem {
-//			foundCreatedItem = true
-//
-//			ni := items[i].(*Note)
-//
-//			if ni.ContentType != "Note" {
-//				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
-//					items[i].GetContentType())
-//			}
-//
-//			if ni.Deleted {
-//				t.Errorf("deleted status of new item is incorrect - expected: False got: True")
-//			}
-//
-//			if ni.Content.GetText() != randPara {
-//				t.Errorf("text of new item is incorrect - expected: %s got: %s",
-//					randPara, ni.Content.GetText())
-//			}
-//		}
-//	}
-//
-//	if !foundCreatedItem {
-//		t.Errorf("failed to get created Item by UUID")
-//	}
-//}
 
 //func TestPutItemsAddSingleComponent(t *testing.T) {
 //	fmt.Println("In TestPutItemsAddSingleComponent")
