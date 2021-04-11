@@ -35,6 +35,7 @@ func TestMain(m *testing.M) {
 
 	_, err = Sync(SyncInput{
 		Session: testSession,
+		Close:   true,
 		Debug:   true,
 	})
 	if err != nil {
@@ -120,7 +121,7 @@ func TestSyncWithNoItems(t *testing.T) {
 	defer cleanup(testSession.Session)
 
 	defer removeDB(tempDBPath)
-	
+
 	so, err := Sync(SyncInput{
 		Session: testSession,
 	})
