@@ -35,10 +35,10 @@ func gosnSessionToCacheSession(gs gosn.Session) Session {
 }
 
 func TestSyncWithoutDatabase(t *testing.T) {
-	sOutput, err := gosn.SignIn(sInput)
+	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
-	session := gosnSessionToCacheSession(sOutput.Session)
+	session := gosnSessionToCacheSession(sio.Session)
 	session.CacheDBPath = ""
 	_, err = Sync(SyncInput{Session: &session})
 	require.EqualError(t, err, "database path is required")
@@ -58,12 +58,12 @@ func TestSyncWithInvalidSession(t *testing.T) {
 }
 
 func TestInitialSyncWithItemButNoDB(t *testing.T) {
-	sOutput, err := gosn.SignIn(sInput)
-	session := gosnSessionToCacheSession(sOutput.Session)
+	sio, err := gosn.SignIn(sInput)
+	session := gosnSessionToCacheSession(sio.Session)
 	session.CacheDBPath = tempDBPath
 	require.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sOutput.Session)
+	defer cleanup(&sio.Session)
 
 	defer removeDB(tempDBPath)
 
@@ -82,21 +82,21 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 }
 
 func TestSyncWithNoItems(t *testing.T) {
-	sOutput, err := gosn.SignIn(sInput)
+	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err)
-	require.NotNil(t, sOutput)
-	s := sOutput.Session
+	require.NotNil(t, sio)
+	s := sio.Session
 	session := gosnSessionToCacheSession(s)
 	session.CacheDBPath = tempDBPath
 
 	require.NoError(t, err, "sign-in failed", err)
 
 	_, err = gosn.Sync(gosn.SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 	})
 	require.NoError(t, err)
 
-	defer cleanup(&sOutput.Session)
+	defer cleanup(&sio.Session)
 
 	defer removeDB(tempDBPath)
 
@@ -116,7 +116,7 @@ func TestSyncWithNoItems(t *testing.T) {
 	require.Len(t, syncTokens, 1)
 	require.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
 	//require.Empty(t, so.SavedItems)
-	so.DB.Close()
+	require.NoError(t, so.DB.Close())
 }
 
 func NewCacheDB(path string) (db *storm.DB, err error) {
@@ -144,9 +144,9 @@ func GetCacheDB(path string) (db *storm.DB, err error) {
 // the returned DB should have the note returned as not dirty
 // SN should now have that note
 func TestSyncWithNewNote(t *testing.T) {
-	sOutput, err := gosn.SignIn(sInput)
+	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
-	s := sOutput.Session
+	s := sio.Session
 
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
@@ -221,17 +221,17 @@ func TestSyncWithNewNote(t *testing.T) {
 // call persist Sync and check DB contains the note
 func TestSyncOneExisting(t *testing.T) {
 
-	sOutput, err := gosn.SignIn(sInput)
+	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	// load items keys into session
-	s := sOutput.Session
+	s := sio.Session
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
 	})
 	require.NoError(t, err)
 
-	defer cleanup(&sOutput.Session)
+	defer cleanup(&sio.Session)
 
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
@@ -297,18 +297,18 @@ func TestSyncOneExisting(t *testing.T) {
 // call persist, Sync, and check DB contains the note
 // update new note, sync to SN, then check new content is persisted
 func TestSyncUpdateExisting(t *testing.T) {
-	sOutput, err := gosn.SignIn(sInput)
+	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
-	s := sOutput.Session
+	s := sio.Session
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
 	})
 	require.NoError(t, err)
 
-	defer cleanup(&sOutput.Session)
+	defer cleanup(&sio.Session)
 
-	cs := gosnSessionToCacheSession(sOutput.Session)
+	cs := gosnSessionToCacheSession(sio.Session)
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}

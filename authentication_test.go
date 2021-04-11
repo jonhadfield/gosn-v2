@@ -45,10 +45,10 @@ func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
 
 // server required for following tests
 func TestSignIn(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
-	if sOutput.Session.AccessToken == "" || sOutput.Session.RefreshToken == "" || sOutput.Session.RefreshExpiration == 0 || sOutput.Session.AccessExpiration == 0 {
+	if sio.Session.AccessToken == "" || sio.Session.RefreshToken == "" || sio.Session.RefreshExpiration == 0 || sio.Session.AccessExpiration == 0 {
 		t.Errorf("SignIn Failed")
 	}
 }

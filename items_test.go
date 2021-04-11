@@ -277,12 +277,12 @@ func createTag(title, uuid string) *Tag {
 }
 
 func cleanup() {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	if err != nil {
 		panic(err)
 	}
 
-	s := sOutput.Session
+	s := sio.Session
 
 	_, err = Sync(SyncInput{
 		Session: &s,
@@ -299,9 +299,9 @@ func cleanup() {
 }
 
 func TestDecryptItemsKeys(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
-	s := sOutput.Session
+	s := sio.Session
 
 	defer func() {
 		cleanup()
@@ -320,9 +320,9 @@ func TestDecryptItemsKeys(t *testing.T) {
 }
 
 func TestEncryptDecryptItem(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
-	s := sOutput.Session
+	s := sio.Session
 
 	// sync to get items keys
 	si := SyncInput{
@@ -361,15 +361,15 @@ func TestEncryptDecryptItem(t *testing.T) {
 }
 
 //func TestDecryptItems(t *testing.T) {
-//	sOutput, err := SignIn(sInput)
+//	sio, err := SignIn(sInput)
 //	require.NoError(t, err, "sign-in failed", err)
 //
 //	defer func() {
-//		cleanup(&sOutput.Session)
+//		cleanup(&sio.Session)
 //	}()
 //
 //	syncInput := SyncInput{
-//		Session: sOutput.Session,
+//		Session: sio.Session,
 //		Debug:   true,
 //	}
 //
@@ -378,7 +378,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 //	syncOutput, err = Sync(syncInput)
 //	require.NoError(t, err, "Sync Failed", err)
 //
-//	items, err := decryptItems(sOutput.Session.MasterKey, syncOutput.Items, nil)
+//	items, err := decryptItems(sio.Session.MasterKey, syncOutput.Items, nil)
 //	require.NoError(t, err)
 //	require.NotEmpty(t, items)
 //}
@@ -435,9 +435,9 @@ func TestEncryptDecryptItem(t *testing.T) {
 //
 func TestPutItemsAddSingleNote(t *testing.T) {
 	// SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
-	s := sOutput.Session
+	s := sio.Session
 	defer cleanup()
 
 	// sync to get items keys
@@ -520,13 +520,13 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 }
 
 func TestPutItemsAddSingleComponent(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 
@@ -558,10 +558,10 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 
 	dItems := Items{&newComponent}
 	require.NoError(t, dItems.Validate())
-	eItems, _ := dItems.Encrypt(sOutput.Session)
+	eItems, _ := dItems.Encrypt(sio.Session)
 	syncInput := SyncInput{
 		Items:   eItems,
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	}
 
@@ -574,7 +574,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	uuidOfNewItem := syncOutput.SavedItems[0].UUID
 
 	syncOutput, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 	if err != nil {
@@ -582,7 +582,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	}
 
 	var di DecryptedItems
-	di, err = syncOutput.Items.Decrypt(&sOutput.Session)
+	di, err = syncOutput.Items.Decrypt(&sio.Session)
 
 	if err != nil {
 		return
@@ -746,7 +746,7 @@ func TestTagComparison(t *testing.T) {
 }
 
 func TestNoteTagging(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 
 	require.NoError(t, err, "sign-in failed", err)
 
@@ -754,17 +754,17 @@ func TestNoteTagging(t *testing.T) {
 
 	// initial sync to retrieve items keys
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 	})
 	require.NoError(t, err)
 
 	// create base notes
 	newNotes := genNotes(100, 2)
 	require.NoError(t, newNotes.Validate())
-	eItems, _ := newNotes.Encrypt(sOutput.Session)
+	eItems, _ := newNotes.Encrypt(sio.Session)
 
 	si := SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Items:   eItems,
 	}
 
@@ -836,10 +836,10 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, updatedAnimalTagsOutput.Items...)
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
 	require.NoError(t, allItems.Validate())
-	eItems, _ = allItems.Encrypt(sOutput.Session)
+	eItems, _ = allItems.Encrypt(sio.Session)
 	si = SyncInput{
 		Items:   eItems,
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 	}
 
 	_, err = Sync(si)
@@ -859,7 +859,7 @@ func TestNoteTagging(t *testing.T) {
 	var so SyncOutput
 
 	so, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 	})
 	if err != nil {
 		t.Error("failed to retrieve animal notes by tag")
@@ -868,7 +868,7 @@ func TestNoteTagging(t *testing.T) {
 
 	var animalNotes Items
 
-	animalNotes, err = so.Items.DecryptAndParse(&sOutput.Session)
+	animalNotes, err = so.Items.DecryptAndParse(&sio.Session)
 	if err != nil {
 		return
 	}
@@ -904,14 +904,14 @@ func TestNoteTagging(t *testing.T) {
 	}
 
 	getNotesInput := SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 	}
 
 	so, err = Sync(getNotesInput)
 	require.NoError(t, err, "failed to retrieve notes using regex")
 
 	var notes Items
-	notes, err = so.Items.DecryptAndParse(&sOutput.Session)
+	notes, err = so.Items.DecryptAndParse(&sio.Session)
 	require.NoError(t, err)
 
 	notes.Filter(regexFilters)
@@ -930,13 +930,13 @@ func TestNoteTagging(t *testing.T) {
 }
 
 func TestSearchNotesByUUID(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 
@@ -948,14 +948,14 @@ func TestSearchNotesByUUID(t *testing.T) {
 	}
 
 	var cnO SyncOutput
-	cnO, err = _createNotes(&sOutput.Session, noteInput)
+	cnO, err = _createNotes(&sio.Session, noteInput)
 	require.NoError(t, err, "failed to create notes")
 
 	var dogFactUUID string
 
 	var di DecryptedItems
 
-	di, err = cnO.SavedItems.Decrypt(&sOutput.Session)
+	di, err = cnO.SavedItems.Decrypt(&sio.Session)
 	require.NoError(t, err)
 
 	var dis Items
@@ -980,7 +980,7 @@ func TestSearchNotesByUUID(t *testing.T) {
 	var itemFilters ItemFilters
 	itemFilters.Filters = []Filter{filterOne}
 
-	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	foundItems, err = _getItems(&sio.Session, itemFilters)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1005,13 +1005,13 @@ func TestSearchNotesByUUID(t *testing.T) {
 
 func TestSearchNotesByText(t *testing.T) {
 	//SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 
@@ -1021,7 +1021,7 @@ func TestSearchNotesByText(t *testing.T) {
 		"Cheese Fact": "Cheese is not a vegetable",
 	}
 
-	if _, err = _createNotes(&sOutput.Session, noteInput); err != nil {
+	if _, err = _createNotes(&sio.Session, noteInput); err != nil {
 		t.Errorf("failed to create notes")
 	}
 
@@ -1038,7 +1038,7 @@ func TestSearchNotesByText(t *testing.T) {
 	var itemFilters ItemFilters
 	itemFilters.Filters = []Filter{filterOne}
 
-	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	foundItems, err = _getItems(&sio.Session, itemFilters)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1062,13 +1062,13 @@ func TestSearchNotesByText(t *testing.T) {
 
 func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 	//SetDebugLogger(log.Println)
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 
@@ -1077,7 +1077,7 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 		"Dog Fact":    "Dogs can't look up",
 		"Cheese Fact": "Cheese is not a vegetable",
 	}
-	if _, err = _createNotes(&sOutput.Session, noteInput); err != nil {
+	if _, err = _createNotes(&sio.Session, noteInput); err != nil {
 		t.Errorf("failed to create notes")
 	}
 	// find one note by text
@@ -1094,7 +1094,7 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 
 	itemFilters.Filters = []Filter{filterOne}
 
-	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	foundItems, err = _getItems(&sio.Session, itemFilters)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1118,7 +1118,7 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 }
 
 func TestSearchTagsByText(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err)
 	cleanup()
 	require.NoError(t, err, "sign-in failed", err)
@@ -1126,12 +1126,12 @@ func TestSearchTagsByText(t *testing.T) {
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 
 	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
-	if _, err = _createTags(&sOutput.Session, tagInput); err != nil {
+	if _, err = _createTags(&sio.Session, tagInput); err != nil {
 		t.Errorf("failed to create tags")
 	}
 	// find one note by text
@@ -1147,7 +1147,7 @@ func TestSearchTagsByText(t *testing.T) {
 	var itemFilters ItemFilters
 	itemFilters.Filters = []Filter{filterOne}
 
-	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	foundItems, err = _getItems(&sio.Session, itemFilters)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1167,18 +1167,18 @@ func TestSearchTagsByText(t *testing.T) {
 }
 
 func TestSearchTagsByRegex(t *testing.T) {
-	sOutput, err := SignIn(sInput)
+	sio, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	cleanup()
 
 	_, err = Sync(SyncInput{
-		Session: &sOutput.Session,
+		Session: &sio.Session,
 		Debug:   true,
 	})
 
 	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
-	if _, err = _createTags(&sOutput.Session, tagInput); err != nil {
+	if _, err = _createTags(&sio.Session, tagInput); err != nil {
 		t.Errorf("failed to create tags")
 	}
 	// find one note by text
@@ -1194,7 +1194,7 @@ func TestSearchTagsByRegex(t *testing.T) {
 	var itemFilters ItemFilters
 	itemFilters.Filters = []Filter{filterOne}
 
-	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	foundItems, err = _getItems(&sio.Session, itemFilters)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1297,17 +1297,17 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 
 //func TestCreateAndGet301Notes(t *testing.T) {
 //	numNotes := 301
-//	sOutput, err := SignIn(sInput)
+//	sio, err := SignIn(sInput)
 //	require.NoError(t, err, "sign-in failed", err)
 //
-//	cleanup(&sOutput.Session)
-//	defer cleanup(&sOutput.Session)
+//	cleanup(&sio.Session)
+//	defer cleanup(&sio.Session)
 //
 //	newNotes := genNotes(numNotes, 10)
 //	require.NoError(t, newNotes.Validate())
 //	eItems, _ := newNotes.Encrypt("", "", true)
 //	si := SyncInput{
-//		Session: sOutput.Session,
+//		Session: sio.Session,
 //		Items:   eItems,
 //		Debug:   true,
 //	}
@@ -1330,7 +1330,7 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 //
 //	for {
 //		si = SyncInput{
-//			Session:     sOutput.Session,
+//			Session:     sio.Session,
 //			CursorToken: cursorToken,
 //			Debug:       true,
 //		}
