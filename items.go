@@ -145,6 +145,7 @@ func (ei EncryptedItem) IsDeleted() bool {
 
 type DecryptedItem struct {
 	UUID        string `json:"uuid"`
+	ItemsKeyID  string `json:"items_key_id"`
 	Content     string `json:"content"`
 	ContentType string `json:"content_type"`
 	Deleted     bool   `json:"deleted"`

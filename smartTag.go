@@ -8,6 +8,7 @@ import (
 func parseSmartTag(i DecryptedItem) Item {
 	c := SmartTag{}
 	c.UUID = i.UUID
+	c.ItemsKeyID = i.ItemsKeyID
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt

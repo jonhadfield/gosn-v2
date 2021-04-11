@@ -203,6 +203,7 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 		}
 		var di DecryptedItem
 		di.UUID = ei.UUID
+		di.ItemsKeyID = ei.ItemsKeyID
 		di.ContentType = ei.ContentType
 		di.Deleted = ei.Deleted
 		di.UpdatedAt = ei.UpdatedAt
@@ -260,6 +261,7 @@ func encryptString(plainText, key, nonce, authenticatedData string) (result stri
 }
 
 func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error) {
+	fmt.Println("encrypting item")
 	encryptedItem.UUID = item.GetUUID()
 	encryptedItem.ItemsKeyID = ik.GetUUID()
 	encryptedItem.ContentType = item.GetContentType()

@@ -15,6 +15,7 @@ var _ Item = &Note{}
 func parseNote(i DecryptedItem) Item {
 	n := Note{}
 	n.UUID = i.UUID
+	n.ItemsKeyID = i.ItemsKeyID
 	n.ContentType = i.ContentType
 	n.Deleted = i.Deleted
 	n.UpdatedAt = i.UpdatedAt
