@@ -482,83 +482,75 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	}
 }
 
-//
-//func TestPutItemsAddSingleComponent(t *testing.T) {
-//	newComponentContent := ComponentContent{
-//		Name:               "Minimal Markdown Editor",
-//		Area:               "editor-editor",
-//		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
-//		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
-//		OfflineOnly:        "",
-//		ValidUntil:         "2023-08-29T12:15:17.000Z",
-//		AutoUpdateDisabled: "",
-//		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
-//		AssociatedItemIds:  []string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"},
-//		ItemReferences:     nil,
-//		Active:             true,
-//		AppData:            AppDataContent{},
-//	}
-//
-//	newComponentContent.SetUpdateTime(time.Now())
-//
-//	newComponent := NewComponent()
-//	newComponent.Content = newComponentContent
-//
-//	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-//	require.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-//
-//	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-//	require.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-//
-//	dItems := Items{&newComponent}
-//	require.NoError(t, dItems.Validate())
-//	eItems, _ := dItems.Encrypt(*testSession)
-//	syncInput := SyncInput{
-//		Items:   eItems,
-//		Session: testSession,
-//		Debug:   true,
-//	}
-//
-//	syncOutput, err := Sync(syncInput)
-//	require.NoError(t, err, "PutItems Failed", err)
-//	require.Len(t, syncOutput.SavedItems, 1, "expected 1")
-//	require.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
-//	uuidOfNewItem := syncOutput.SavedItems[0].UUID
-//
-//	syncOutput, err = Sync(SyncInput{
-//		Session: testSession,
-//		SyncToken: syncOutput.SyncToken,
-//		CursorToken: syncOutput.Cursor,
-//		Debug:   true,
-//	})
-//	if err != nil {
-//		return
-//	}
-//
-//	var di DecryptedItems
-//	di, err = syncOutput.Items.Decrypt(testSession)
-//
-//	if err != nil {
-//		return
-//	}
-//
-//	var items Items
-//	items, err = di.Parse()
-//
-//	var foundCreatedItem bool
-//
-//	for i := range items {
-//		if items[i].GetUUID() == uuidOfNewItem {
-//			foundCreatedItem = true
-//
-//			require.Equal(t, "SN|Component", items[i].GetContentType())
-//			require.Equal(t, false, items[i].IsDeleted())
-//			require.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
-//		}
-//	}
-//
-//	require.True(t, foundCreatedItem, "failed to get created Item by UUID")
-//}
+
+func TestPutItemsAddSingleComponent(t *testing.T) {
+	newComponentContent := ComponentContent{
+		Name:               "Minimal Markdown Editor",
+		Area:               "editor-editor",
+		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
+		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
+		OfflineOnly:        "",
+		ValidUntil:         "2023-08-29T12:15:17.000Z",
+		AutoUpdateDisabled: "",
+		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
+		AssociatedItemIds:  []string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"},
+		ItemReferences:     nil,
+		Active:             true,
+		AppData:            AppDataContent{},
+	}
+
+	newComponentContent.SetUpdateTime(time.Now())
+
+	newComponent := NewComponent()
+	newComponent.Content = newComponentContent
+
+	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
+	require.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+
+	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
+	require.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+
+	dItems := Items{&newComponent}
+	require.NoError(t, dItems.Validate())
+	eItems, _ := dItems.Encrypt(*testSession)
+	syncInput := SyncInput{
+		Items:   eItems,
+		Session: testSession,
+		Debug:   true,
+	}
+
+	syncOutput, err := Sync(syncInput)
+	require.NoError(t, err, "PutItems Failed", err)
+	require.Len(t, syncOutput.SavedItems, 1, "expected 1")
+	require.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
+	uuidOfNewItem := syncOutput.SavedItems[0].UUID
+
+	syncOutput, err = Sync(SyncInput{
+		Debug:   true,
+	})
+	if err != nil {
+		return
+	}
+
+	var items Items
+	items, err = syncOutput.Items.DecryptAndParse(testSession)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
+
+	var foundCreatedItem bool
+
+	for i := range items {
+		if items[i].GetUUID() == uuidOfNewItem {
+			foundCreatedItem = true
+
+			require.Equal(t, "SN|Component", items[i].GetContentType())
+			require.Equal(t, false, items[i].IsDeleted())
+			require.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
+		}
+	}
+
+	require.True(t, foundCreatedItem, "failed to get created Item by UUID")
+}
 
 func TestItemsRemoveDeleted(t *testing.T) {
 	noteContent := NewNoteContent()
