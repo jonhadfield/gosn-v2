@@ -3,9 +3,7 @@ module github.com/jonhadfield/gosn-v2
 go 1.15
 
 require (
-	github.com/asdine/storm v1.1.0
 	github.com/asdine/storm/v3 v3.2.1
-	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
@@ -28,7 +26,6 @@ require (
 	golang.org/x/sys v0.0.0-20210331175145-43e1dd70ce54 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
-	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
