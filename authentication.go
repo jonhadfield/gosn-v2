@@ -137,6 +137,12 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 		return
+	case 400:
+		// most likely authentication missing or SN API has changed
+		err = json.Unmarshal(body, &errResp)
+		if err != nil {
+			return
+		}
 	case 401:
 		// need mfa token
 		// unmarshal error response
