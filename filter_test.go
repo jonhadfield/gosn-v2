@@ -1,6 +1,5 @@
 package gosn
 
-
 import (
 	"testing"
 

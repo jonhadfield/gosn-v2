@@ -1,4 +1,5 @@
 package gosn
+
 //
 //import (
 //	"testing"

@@ -47,7 +47,6 @@ func parseExtensionRepo(i DecryptedItem) Item {
 	return &c
 }
 
-
 type ExtensionRepoContent struct {
 	ItemReferences     ItemReferences `json:"references"`
 	AppData            AppDataContent `json:"appData"`

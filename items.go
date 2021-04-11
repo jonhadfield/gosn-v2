@@ -136,11 +136,11 @@ type EncryptedItem struct {
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
-	return 	ei.ItemsKeyID
+	return ei.ItemsKeyID
 }
 
 func (ei EncryptedItem) IsDeleted() bool {
-	return 	ei.Deleted
+	return ei.Deleted
 }
 
 type DecryptedItem struct {

@@ -10,7 +10,6 @@ type Tag struct {
 	Content TagContent
 }
 
-
 func parseTag(i DecryptedItem) Item {
 	t := Tag{}
 	t.UUID = i.UUID

@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 func parseTheme(i DecryptedItem) Item {
 	c := Theme{}
 	c.UUID = i.UUID

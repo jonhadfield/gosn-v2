@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdine/storm/v3"
-	"github.com/jonhadfield/gosn-v2"
+	"github.com/asdine/storm"
+	gosn "github.com/jonhadfield/gosn-v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -399,7 +399,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 		Session: &s,
 	})
 	assert.NoError(t, err)
-	var uItem  gosn.EncryptedItem
+	var uItem gosn.EncryptedItem
 	for _, i := range newSO.Items {
 		if i.UUID == existingNote.UUID {
 			uItem = i

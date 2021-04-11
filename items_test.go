@@ -75,7 +75,6 @@ func randInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-
 func _createNotes(session *Session, input map[string]string) (so SyncOutput, err error) {
 	var newNotes Items
 
@@ -662,7 +661,6 @@ func TestDecryptedItemsRemoveDeleted(t *testing.T) {
 	}
 }
 
-
 func TestNoteContentCopy(t *testing.T) {
 	initialNoteTitle := "Title"
 	initialNoteText := "Title"
@@ -777,7 +775,6 @@ func TestNoteTagging(t *testing.T) {
 	baconNote := createNote("Bacon", "Goes with everything", "")
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	spiderNote := createNote("Spiders", "Are not welcome", "")
-
 
 	// tag dog and gnu note with animal tag
 	updatedAnimalTagsInput := UpdateItemRefsInput{
@@ -1106,91 +1103,100 @@ func TestNoteTagging(t *testing.T) {
 //	}
 //}
 //
-//func TestSearchTagsByText(t *testing.T) {
-//	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err)
-//	cleanup(&sOutput.Session)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	defer cleanup(&sOutput.Session)
-//
-//	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
-//	if _, err = _createTags(sOutput.Session, tagInput); err != nil {
-//		t.Errorf("failed to create tags")
-//	}
-//	// find one note by text
-//	var foundItems Items
-//
-//	filterOne := Filter{
-//		Type:       "Tag",
-//		Key:        "Title",
-//		Comparison: "contains",
-//		Value:      "Bungle",
-//	}
-//
-//	var itemFilters ItemFilters
-//	itemFilters.Filters = []Filter{filterOne}
-//
-//	foundItems, err = _getItems(sOutput.Session, itemFilters)
-//	if err != nil {
-//		t.Error(err.Error())
-//	}
-//	// check correct items returned
-//	switch len(foundItems) {
-//	case 0:
-//		t.Errorf("no tags returned")
-//	case 1:
-//		fi := foundItems[0].(*Tag)
-//
-//		if fi.Content.Title != "Zippy, Bungle" {
-//			t.Errorf("incorrect tag returned (title mismatch)")
-//		}
-//	default:
-//		t.Errorf("expected one tag but got: %d", len(foundItems))
-//	}
-//}
-//
-//func TestSearchTagsByRegex(t *testing.T) {
-//	//SetDebugLogger(log.Println)
-//	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	cleanup(&sOutput.Session)
-//
-//	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
-//	if _, err = _createTags(sOutput.Session, tagInput); err != nil {
-//		t.Errorf("failed to create tags")
-//	}
-//	// find one note by text
-//	var foundItems Items
-//
-//	filterOne := Filter{
-//		Type:       "Tag",
-//		Key:        "Title",
-//		Comparison: "~",
-//		Value:      "pp",
-//	}
-//
-//	var itemFilters ItemFilters
-//	itemFilters.Filters = []Filter{filterOne}
-//
-//	foundItems, err = _getItems(sOutput.Session, itemFilters)
-//	if err != nil {
-//		t.Error(err.Error())
-//	}
-//	// check correct items returned
-//	switch len(foundItems) {
-//	case 0:
-//		t.Errorf("no tags returned")
-//	case 1:
-//		fi := foundItems[0].(*Tag)
-//		if fi.Content.Title != "Zippy, Bungle" {
-//			t.Errorf("incorrect tag returned (title mismatch)")
-//		}
-//	default:
-//		t.Errorf("expected one tag but got: %d", len(foundItems))
-//	}
-//}
+func TestSearchTagsByText(t *testing.T) {
+	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err)
+	cleanup()
+	assert.NoError(t, err, "sign-in failed", err)
+
+	defer cleanup()
+
+	_, err = Sync(SyncInput{
+		Session: &sOutput.Session,
+		Debug:   true,
+	})
+
+	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
+	if _, err = _createTags(&sOutput.Session, tagInput); err != nil {
+		t.Errorf("failed to create tags")
+	}
+	// find one note by text
+	var foundItems Items
+
+	filterOne := Filter{
+		Type:       "Tag",
+		Key:        "Title",
+		Comparison: "contains",
+		Value:      "Bungle",
+	}
+
+	var itemFilters ItemFilters
+	itemFilters.Filters = []Filter{filterOne}
+
+	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// check correct items returned
+	switch len(foundItems) {
+	case 0:
+		t.Errorf("no tags returned")
+	case 1:
+		fi := foundItems[0].(*Tag)
+
+		if fi.Content.Title != "Zippy, Bungle" {
+			t.Errorf("incorrect tag returned (title mismatch)")
+		}
+	default:
+		t.Errorf("expected one tag but got: %d", len(foundItems))
+	}
+}
+
+func TestSearchTagsByRegex(t *testing.T) {
+	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	cleanup()
+
+	_, err = Sync(SyncInput{
+		Session: &sOutput.Session,
+		Debug:   true,
+	})
+
+	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
+	if _, err = _createTags(&sOutput.Session, tagInput); err != nil {
+		t.Errorf("failed to create tags")
+	}
+	// find one note by text
+	var foundItems Items
+
+	filterOne := Filter{
+		Type:       "Tag",
+		Key:        "Title",
+		Comparison: "~",
+		Value:      "pp",
+	}
+
+	var itemFilters ItemFilters
+	itemFilters.Filters = []Filter{filterOne}
+
+	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// check correct items returned
+	switch len(foundItems) {
+	case 0:
+		t.Errorf("no tags returned")
+	case 1:
+		fi := foundItems[0].(*Tag)
+		if fi.Content.Title != "Zippy, Bungle" {
+			t.Errorf("incorrect tag returned (title mismatch)")
+		}
+	default:
+		t.Errorf("expected one tag but got: %d", len(foundItems))
+	}
+}
 
 func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 	sio, err := SignIn(sInput)

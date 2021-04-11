@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"github.com/asdine/storm/v3"
-	"github.com/jonhadfield/gosn-v2"
+	"github.com/asdine/storm"
+	gosn "github.com/jonhadfield/gosn-v2"
 )
 
 type Session struct {

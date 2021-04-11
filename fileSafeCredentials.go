@@ -55,6 +55,7 @@ func parseFileSafeCredentials(i DecryptedItem) Item {
 
 	return &c
 }
+
 type FileSafeCredentials struct {
 	ItemCommon
 	Content FileSafeCredentialsContent

@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-
-
 func parseComponent(i DecryptedItem) Item {
 	c := Component{}
 	c.UUID = i.UUID
