@@ -48,18 +48,6 @@ const (
 	NonceSizeX = 24
 )
 
-type aData struct {
-	Kp struct {
-		Identifier  string
-		PwNonce     string `json:"pw_nonce"`
-		Version     string
-		Origination string
-		Created     string
-	}
-	U string
-	V string
-}
-
 // Encryption - Specifics
 //
 //An encrypted payload consists of:
@@ -75,15 +63,6 @@ type aData struct {
 // - encryption nonce
 // - ciphertext
 // - authenticated_data
-
-func getMatchingItemsKey(itemsKeys EncryptedItems, id string) EncryptedItem {
-	for _, i := range itemsKeys {
-		if i.UUID == id {
-			return i
-		}
-	}
-	return EncryptedItem{}
-}
 
 func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
 	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
@@ -261,7 +240,6 @@ func encryptString(plainText, key, nonce, authenticatedData string) (result stri
 }
 
 func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error) {
-	fmt.Println("encrypting item")
 	encryptedItem.UUID = item.GetUUID()
 	encryptedItem.ItemsKeyID = ik.GetUUID()
 	encryptedItem.ContentType = item.GetContentType()
