@@ -3,7 +3,7 @@ package gosn
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFilterNoteTitle(t *testing.T) {
@@ -19,7 +19,7 @@ func TestFilterNoteTitle(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by title")
+	require.True(t, res, "failed to match note by title")
 }
 
 func TestFilterNoteUUID(t *testing.T) {
@@ -36,7 +36,7 @@ func TestFilterNoteUUID(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by uuid")
+	require.True(t, res, "failed to match note by uuid")
 }
 
 func TestFilterNoteByTagUUID(t *testing.T) {
@@ -110,47 +110,47 @@ func TestFilterNoteByTagUUID(t *testing.T) {
 	}
 	// try match single animal (success)
 	res := applyNoteFilters(*gnuNote, animalItemFilters, Tags{*animalTag})
-	assert.True(t, res, "failed to match any note by tag uuid")
+	require.True(t, res, "failed to match any note by tag uuid")
 
 	// try match animal note against food tag (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFilters, Tags{*foodTag})
-	assert.False(t, res, "incorrectly matched note by tag uuid")
+	require.False(t, res, "incorrectly matched note by tag uuid")
 
 	// try against any of multiple filters - match any (success)
 	res = applyNoteFilters(*cheeseNote, animalAndFoodItemFiltersAnyTrue, Tags{*animalTag, *foodTag})
-	assert.True(t, res, "failed to match cheese note against any of animal or food tag")
+	require.True(t, res, "failed to match cheese note against any of animal or food tag")
 
 	// try against any of multiple filters - match all (failure)
 	res = applyNoteFilters(*cheeseNote, animalAndFoodItemFiltersAnyFalse, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "incorrectly matched cheese note against both animal and food tag")
+	require.False(t, res, "incorrectly matched cheese note against both animal and food tag")
 
 	// try against any of multiple filters - match any (failure)
 	res = applyNoteFilters(*sportNote, animalAndFoodItemFiltersAnyFalse, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "incorrectly matched sport note against animal and food tags")
+	require.False(t, res, "incorrectly matched sport note against animal and food tags")
 
 	// try against any of multiple filters - match any (success)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAny, Tags{*foodTag})
-	assert.True(t, res, "expected true as gnu note should be negative match for food tag")
+	require.True(t, res, "expected true as gnu note should be negative match for food tag")
 
 	// try against any of multiple filters - match all (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAll, Tags{*foodTag, *animalTag})
-	assert.False(t, res, "expected false as gnu note should be negative match for food tag only")
+	require.False(t, res, "expected false as gnu note should be negative match for food tag only")
 
 	// try against any of multiple filters - match any (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAny, Tags{*animalTag})
-	assert.False(t, res, "expected gnu note not to match negative animal tag")
+	require.False(t, res, "expected gnu note not to match negative animal tag")
 
 	// try against any of multiple filters - don't want note to match any of the food nor animal tags (success)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAny, Tags{*foodTag, *animalTag})
-	assert.False(t, res, "wanted negative match against animal tag")
+	require.False(t, res, "wanted negative match against animal tag")
 
 	// try against any of multiple filters - match all (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAll, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "expected gnu note not to match negative animal tag")
+	require.False(t, res, "expected gnu note not to match negative animal tag")
 
 	// try against any of multiple filters - match all (success)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAll, Tags{*foodTag})
-	assert.True(t, res, "expected gnu note to negative match food tag")
+	require.True(t, res, "expected gnu note to negative match food tag")
 }
 
 func TestFilterNoteByTagTitle(t *testing.T) {
@@ -246,59 +246,59 @@ func TestFilterNoteByTagTitle(t *testing.T) {
 
 	// try match single animal by tag title regex (success)
 	res := applyNoteFilters(*gnuNote, animalItemFiltersTagTitleRegex, Tags{*animalTag})
-	assert.True(t, res, "failed to match any note by tag title regex")
+	require.True(t, res, "failed to match any note by tag title regex")
 
 	// try match single animal (success)
 	res = applyNoteFilters(*gnuNote, animalItemFilters, Tags{*animalTag})
-	assert.True(t, res, "failed to match any note by tag title")
+	require.True(t, res, "failed to match any note by tag title")
 
 	// try match animal note against food tag (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFilters, Tags{*foodTag})
-	assert.False(t, res, "incorrectly matched note by tag title")
+	require.False(t, res, "incorrectly matched note by tag title")
 
 	// try against any of multiple filters - match any (success)
 	res = applyNoteFilters(*cheeseNote, animalAndFoodItemFiltersAnyTrue, Tags{*animalTag, *foodTag})
-	assert.True(t, res, "failed to match cheese note against any of animal or food tag")
+	require.True(t, res, "failed to match cheese note against any of animal or food tag")
 
 	// try against any of multiple filters - match any (success)
 	res = applyNoteFilters(*cheeseNote, animalAndFoodItemFiltersIncRegexAnyTrue, Tags{*animalTag, *foodTag})
-	assert.True(t, res, "failed to match cheese note against any of animal or food tag")
+	require.True(t, res, "failed to match cheese note against any of animal or food tag")
 
 	// try against any of multiple filters - match any (success)
 	res = applyNoteFilters(*cheeseNote, animalAndFoodItemFiltersIncRegexAnyFalse, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "incorrectly matched cheese note against both animal and food")
+	require.False(t, res, "incorrectly matched cheese note against both animal and food")
 
 	// try against any of multiple filters - match all (failure)
 	res = applyNoteFilters(*cheeseNote, animalAndFoodItemFiltersAnyFalse, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "incorrectly matched cheese note against both animal and food tag")
+	require.False(t, res, "incorrectly matched cheese note against both animal and food tag")
 
 	// try against any of multiple filters - match any (failure)
 	res = applyNoteFilters(*sportNote, animalAndFoodItemFiltersAnyFalse, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "incorrectly matched sport note against animal and food tags")
+	require.False(t, res, "incorrectly matched sport note against animal and food tags")
 
 	// try against any of multiple filters - match any (success)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAny, Tags{*foodTag})
-	assert.True(t, res, "expected true as gnu note should be negative match for food tag")
+	require.True(t, res, "expected true as gnu note should be negative match for food tag")
 
 	// try against any of multiple filters - match all (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAll, Tags{*foodTag, *animalTag})
-	assert.False(t, res, "expected false as gnu note should be negative match for food tag only")
+	require.False(t, res, "expected false as gnu note should be negative match for food tag only")
 
 	// try against any of multiple filters - match any (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAny, Tags{*animalTag})
-	assert.False(t, res, "expected gnu note not to match negative animal tag")
+	require.False(t, res, "expected gnu note not to match negative animal tag")
 
 	// try against any of multiple filters - don't want note to match any of the food nor animal tags (success)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAny, Tags{*foodTag, *animalTag})
-	assert.False(t, res, "wanted negative match against animal tag")
+	require.False(t, res, "wanted negative match against animal tag")
 
 	// try against any of multiple filters - match all (failure)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAll, Tags{*animalTag, *foodTag})
-	assert.False(t, res, "expected gnu note not to match negative animal tag")
+	require.False(t, res, "expected gnu note not to match negative animal tag")
 
 	// try against any of multiple filters - match all (success)
 	res = applyNoteFilters(*gnuNote, animalItemFiltersNegativeMatchAll, Tags{*foodTag})
-	assert.True(t, res, "expected gnu note to negative match food tag")
+	require.True(t, res, "expected gnu note to negative match food tag")
 }
 
 func TestFilterNoteTitleContains(t *testing.T) {
@@ -314,7 +314,7 @@ func TestFilterNoteTitleContains(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by title contains")
+	require.True(t, res, "failed to match note by title contains")
 }
 
 func TestFilterNoteText(t *testing.T) {
@@ -330,7 +330,7 @@ func TestFilterNoteText(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by text")
+	require.True(t, res, "failed to match note by text")
 }
 
 func TestFilterNoteTextContains(t *testing.T) {
@@ -346,7 +346,7 @@ func TestFilterNoteTextContains(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by title contains")
+	require.True(t, res, "failed to match note by title contains")
 }
 
 func TestFilterNoteTitleNotEqualTo(t *testing.T) {
@@ -362,7 +362,7 @@ func TestFilterNoteTitleNotEqualTo(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by negative title match")
+	require.True(t, res, "failed to match note by negative title match")
 }
 
 func TestFilterNoteTextNotEqualTo(t *testing.T) {
@@ -378,7 +378,7 @@ func TestFilterNoteTextNotEqualTo(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by negative text match")
+	require.True(t, res, "failed to match note by negative text match")
 }
 
 func TestFilterNoteTextByRegex(t *testing.T) {
@@ -394,7 +394,7 @@ func TestFilterNoteTextByRegex(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
-	assert.True(t, res, "failed to match note by text regex")
+	require.True(t, res, "failed to match note by text regex")
 }
 
 //func TestFilterNoteTitleByRegex(t *testing.T) {
@@ -410,7 +410,7 @@ func TestFilterNoteTextByRegex(t *testing.T) {
 //		MatchAny: true,
 //	}
 //	res := applyTagFilters(gnuNote, itemFilters)
-//	assert.True(t, res, "failed to match note by title text regex")
+//	require.True(t, res, "failed to match note by title text regex")
 //}
 
 func TestFilterTagTitle(t *testing.T) {
@@ -426,7 +426,7 @@ func TestFilterTagTitle(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyTagFilters(*gnuTag, itemFilters)
-	assert.True(t, res, "failed to match tag by title")
+	require.True(t, res, "failed to match tag by title")
 }
 
 func TestFilterTagUUID(t *testing.T) {
@@ -443,7 +443,7 @@ func TestFilterTagUUID(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyTagFilters(*gnuTag, itemFilters)
-	assert.True(t, res, "failed to match tag by uuid")
+	require.True(t, res, "failed to match tag by uuid")
 }
 
 func TestFilterTagTitleByRegex(t *testing.T) {
@@ -459,7 +459,7 @@ func TestFilterTagTitleByRegex(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyTagFilters(*gnuTag, itemFilters)
-	assert.True(t, res, "failed to match tag by title regex")
+	require.True(t, res, "failed to match tag by title regex")
 }
 
 func TestFilterTagTitleByNotEqualTo(t *testing.T) {
@@ -475,5 +475,5 @@ func TestFilterTagTitleByNotEqualTo(t *testing.T) {
 		MatchAny: true,
 	}
 	res := applyTagFilters(*gnuTag, itemFilters)
-	assert.True(t, res, "failed to match tag by title negative title match")
+	require.True(t, res, "failed to match tag by title negative title match")
 }

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -300,7 +300,7 @@ func cleanup() {
 
 func TestDecryptItemsKeys(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 	s := sOutput.Session
 
 	defer func() {
@@ -313,15 +313,15 @@ func TestDecryptItemsKeys(t *testing.T) {
 	}
 
 	_, err = Sync(syncInput)
-	assert.NoError(t, err, "Sync Failed", err)
-	assert.NotEmpty(t, s.ItemsKeys)
-	assert.NotEmpty(t, s.DefaultItemsKey)
+	require.NoError(t, err, "Sync Failed", err)
+	require.NotEmpty(t, s.ItemsKeys)
+	require.NotEmpty(t, s.DefaultItemsKey)
 
 }
 
 func TestEncryptDecryptItem(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 	s := sOutput.Session
 
 	// sync to get items keys
@@ -330,7 +330,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 	}
 
 	_, err = Sync(si)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	randPara := testParas[randInt(0, len(testParas))]
 
@@ -345,24 +345,24 @@ func TestEncryptDecryptItem(t *testing.T) {
 	newNote := NewNote()
 	newNote.Content = newNoteContent
 	dItems := Items{&newNote}
-	assert.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate())
 
 	var eItems EncryptedItems
 	eItems, err = dItems.Encrypt(s)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, eItems)
+	require.NoError(t, err)
+	require.NotEmpty(t, eItems)
 
 	// Now Decrypt Item
 	var items Items
 	items, err = eItems.DecryptAndParse(&s)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, items)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
 
 }
 
 //func TestDecryptItems(t *testing.T) {
 //	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
+//	require.NoError(t, err, "sign-in failed", err)
 //
 //	defer func() {
 //		cleanup(&sOutput.Session)
@@ -376,11 +376,11 @@ func TestEncryptDecryptItem(t *testing.T) {
 //	var syncOutput SyncOutput
 //
 //	syncOutput, err = Sync(syncInput)
-//	assert.NoError(t, err, "Sync Failed", err)
+//	require.NoError(t, err, "Sync Failed", err)
 //
 //	items, err := decryptItems(sOutput.Session.MasterKey, syncOutput.Items, nil)
-//	assert.NoError(t, err)
-//	assert.NotEmpty(t, items)
+//	require.NoError(t, err)
+//	require.NotEmpty(t, items)
 //}
 //
 //func getItemsKey(masterKey, uuid string, keys *[]itemsKey, items EncryptedItems) (ik ItemsKey, err error) {
@@ -436,7 +436,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 func TestPutItemsAddSingleNote(t *testing.T) {
 	// SetDebugLogger(log.Println)
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 	s := sOutput.Session
 	defer cleanup()
 
@@ -448,7 +448,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	var so SyncOutput
 
 	so, err = Sync(si)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	randPara := "TestText"
 
@@ -463,11 +463,11 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	newNote := NewNote()
 	newNote.Content = newNoteContent
 	dItems := Items{&newNote}
-	assert.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate())
 	var eItems EncryptedItems
 	eItems, err = dItems.Encrypt(s)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, eItems)
+	require.NoError(t, err)
+	require.NotEmpty(t, eItems)
 
 	si = SyncInput{
 		Items:   eItems,
@@ -475,15 +475,15 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	}
 
 	so, err = Sync(si)
-	assert.NoError(t, err, "Sync Failed", err)
-	assert.Len(t, so.SavedItems, 1, "expected 1")
+	require.NoError(t, err, "Sync Failed", err)
+	require.Len(t, so.SavedItems, 1, "expected 1")
 	uuidOfNewItem := so.SavedItems[0].UUID
 	si = SyncInput{
 		Session: &s,
 	}
 
 	so, err = Sync(si)
-	assert.NoError(t, err, "Sync Failed", err)
+	require.NoError(t, err, "Sync Failed", err)
 
 	items, err := so.Items.DecryptAndParse(&s)
 	if err != nil {
@@ -522,13 +522,13 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 func TestPutItemsAddSingleComponent(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	fmt.Printf("sOutput: %+v\n", sOutput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session:     &sOutput.Session,
-		Debug:       true,
+		Session: &sOutput.Session,
+		Debug:   true,
 	})
 
 	newComponentContent := ComponentContent{
@@ -552,13 +552,13 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	newComponent.Content = newComponentContent
 
 	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-	assert.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+	require.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
 
 	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-	assert.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+	require.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
 
 	dItems := Items{&newComponent}
-	assert.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate())
 	eItems, _ := dItems.Encrypt(sOutput.Session)
 	syncInput := SyncInput{
 		Items:   eItems,
@@ -569,9 +569,9 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	var syncOutput SyncOutput
 
 	syncOutput, err = Sync(syncInput)
-	assert.NoError(t, err, "PutItems Failed", err)
-	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
-	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
+	require.NoError(t, err, "PutItems Failed", err)
+	require.Len(t, syncOutput.SavedItems, 1, "expected 1")
+	require.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
 	uuidOfNewItem := syncOutput.SavedItems[0].UUID
 
 	syncOutput, err = Sync(SyncInput{
@@ -598,13 +598,13 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 		if items[i].GetUUID() == uuidOfNewItem {
 			foundCreatedItem = true
 
-			assert.Equal(t, "SN|Component", items[i].GetContentType())
-			assert.Equal(t, false, items[i].IsDeleted())
-			assert.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
+			require.Equal(t, "SN|Component", items[i].GetContentType())
+			require.Equal(t, false, items[i].IsDeleted())
+			require.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
 		}
 	}
 
-	assert.True(t, foundCreatedItem, "failed to get created Item by UUID")
+	require.True(t, foundCreatedItem, "failed to get created Item by UUID")
 }
 
 func TestItemsRemoveDeleted(t *testing.T) {
@@ -619,20 +619,20 @@ func TestItemsRemoveDeleted(t *testing.T) {
 	noteThree := noteOne.Copy()
 	noteThree.UUID += "b"
 
-	assert.False(t, noteOne.Deleted)
+	require.False(t, noteOne.Deleted)
 
-	assert.False(t, noteTwo.Deleted)
+	require.False(t, noteTwo.Deleted)
 
-	assert.False(t, noteThree.Deleted)
+	require.False(t, noteThree.Deleted)
 
 	noteTwo.Deleted = true
 	notes := Notes{noteOne, noteTwo, noteThree}
-	assert.Len(t, notes, 3)
+	require.Len(t, notes, 3)
 	notes.RemoveDeleted()
-	assert.Len(t, notes, 2)
+	require.Len(t, notes, 2)
 
 	for _, n := range notes {
-		assert.NotEqual(t, n.UUID, noteTwo.UUID)
+		require.NotEqual(t, n.UUID, noteTwo.UUID)
 	}
 }
 
@@ -656,12 +656,12 @@ func TestDecryptedItemsRemoveDeleted(t *testing.T) {
 		Deleted:     false,
 	}
 	dis := DecryptedItems{diOne, diTwo, diThree}
-	assert.Len(t, dis, 3)
+	require.Len(t, dis, 3)
 	dis.RemoveDeleted()
-	assert.Len(t, dis, 2)
+	require.Len(t, dis, 2)
 
 	for _, n := range dis {
-		assert.NotEqual(t, n.UUID, diTwo.UUID)
+		require.NotEqual(t, n.UUID, diTwo.UUID)
 	}
 }
 
@@ -676,9 +676,9 @@ func TestNoteContentCopy(t *testing.T) {
 	initialNoteContent.Title = "Updated Title"
 	initialNoteContent.Text = "Updated Text"
 	// now check duplicate is correct
-	assert.NotNil(t, dupeNoteContent)
-	assert.Equal(t, initialNoteTitle, dupeNoteContent.Title)
-	assert.Equal(t, initialNoteText, dupeNoteContent.GetText())
+	require.NotNil(t, dupeNoteContent)
+	require.Equal(t, initialNoteTitle, dupeNoteContent.Title)
+	require.Equal(t, initialNoteText, dupeNoteContent.GetText())
 }
 
 func TestTagContentCopy(t *testing.T) {
@@ -689,8 +689,8 @@ func TestTagContentCopy(t *testing.T) {
 	// update initial to ensure copy
 	initialTagContent.Title = "Updated Title"
 	// now check duplicate is correct
-	assert.NotNil(t, dupeNoteContent)
-	assert.Equal(t, initialTagTitle, dupeNoteContent.Title)
+	require.NotNil(t, dupeNoteContent)
+	require.Equal(t, initialTagTitle, dupeNoteContent.Title)
 }
 
 func TestNoteCopy(t *testing.T) {
@@ -701,15 +701,15 @@ func TestNoteCopy(t *testing.T) {
 	initialNoteContent.Text = "Text"
 	initialNote.SetContent(*initialNoteContent)
 	dupeNote := initialNote.Copy()
-	assert.Equal(t, initialNote.Content.GetTitle(), initialNoteTitle)
-	assert.NotNil(t, dupeNote.Content)
-	assert.Equal(t, initialNote.UUID, dupeNote.UUID)
-	assert.Equal(t, initialNote.ContentType, dupeNote.ContentType)
-	assert.Equal(t, initialNote.Content.GetText(), dupeNote.Content.GetText())
-	assert.Equal(t, initialNote.Content.GetTitle(), dupeNote.Content.GetTitle())
-	assert.Equal(t, initialNote.ContentSize, dupeNote.ContentSize)
-	assert.Equal(t, initialNote.CreatedAt, dupeNote.CreatedAt)
-	assert.Equal(t, initialNote.UpdatedAt, dupeNote.UpdatedAt)
+	require.Equal(t, initialNote.Content.GetTitle(), initialNoteTitle)
+	require.NotNil(t, dupeNote.Content)
+	require.Equal(t, initialNote.UUID, dupeNote.UUID)
+	require.Equal(t, initialNote.ContentType, dupeNote.ContentType)
+	require.Equal(t, initialNote.Content.GetText(), dupeNote.Content.GetText())
+	require.Equal(t, initialNote.Content.GetTitle(), dupeNote.Content.GetTitle())
+	require.Equal(t, initialNote.ContentSize, dupeNote.ContentSize)
+	require.Equal(t, initialNote.CreatedAt, dupeNote.CreatedAt)
+	require.Equal(t, initialNote.UpdatedAt, dupeNote.UpdatedAt)
 }
 
 func TestTagCopy(t *testing.T) {
@@ -718,13 +718,13 @@ func TestTagCopy(t *testing.T) {
 	initialTagContent.Title = "Title"
 	initialTag.SetContent(*initialTagContent)
 	dupeTag := initialTag.Copy()
-	assert.NotNil(t, dupeTag.Content)
-	assert.Equal(t, dupeTag.UUID, initialTag.UUID)
-	assert.Equal(t, dupeTag.ContentType, initialTag.ContentType)
-	assert.Equal(t, dupeTag.Content.GetTitle(), initialTag.Content.GetTitle())
-	assert.Equal(t, dupeTag.ContentSize, initialTag.ContentSize)
-	assert.Equal(t, dupeTag.CreatedAt, initialTag.CreatedAt)
-	assert.Equal(t, dupeTag.UpdatedAt, initialTag.UpdatedAt)
+	require.NotNil(t, dupeTag.Content)
+	require.Equal(t, dupeTag.UUID, initialTag.UUID)
+	require.Equal(t, dupeTag.ContentType, initialTag.ContentType)
+	require.Equal(t, dupeTag.Content.GetTitle(), initialTag.Content.GetTitle())
+	require.Equal(t, dupeTag.ContentSize, initialTag.ContentSize)
+	require.Equal(t, dupeTag.CreatedAt, initialTag.CreatedAt)
+	require.Equal(t, dupeTag.UpdatedAt, initialTag.UpdatedAt)
 }
 
 func TestTagComparison(t *testing.T) {
@@ -735,21 +735,21 @@ func TestTagComparison(t *testing.T) {
 	two := NewTag()
 	two.Content = *NewTagContent()
 	two.UUID = xUUID
-	assert.True(t, one.Equals(two))
+	require.True(t, one.Equals(two))
 
 	one.Content.SetTitle("one")
 	two.Content.SetTitle("one")
-	assert.True(t, one.Equals(two))
+	require.True(t, one.Equals(two))
 
 	one.Content.SetTitle("one")
 	two.Content.SetTitle("two")
-	assert.False(t, one.Equals(two))
+	require.False(t, one.Equals(two))
 }
 
 func TestNoteTagging(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
@@ -757,11 +757,11 @@ func TestNoteTagging(t *testing.T) {
 	_, err = Sync(SyncInput{
 		Session: &sOutput.Session,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// create base notes
 	newNotes := genNotes(100, 2)
-	assert.NoError(t, newNotes.Validate())
+	require.NoError(t, newNotes.Validate())
 	eItems, _ := newNotes.Encrypt(sOutput.Session)
 
 	si := SyncInput{
@@ -836,7 +836,7 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, dogNote, cheeseNote, gnuNote)
 	allItems = append(allItems, updatedAnimalTagsOutput.Items...)
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
-	assert.NoError(t, allItems.Validate())
+	require.NoError(t, allItems.Validate())
 	eItems, _ = allItems.Encrypt(sOutput.Session)
 	si = SyncInput{
 		Items:   eItems,
@@ -909,11 +909,11 @@ func TestNoteTagging(t *testing.T) {
 	}
 
 	so, err = Sync(getNotesInput)
-	assert.NoError(t, err, "failed to retrieve notes using regex")
+	require.NoError(t, err, "failed to retrieve notes using regex")
 
 	var notes Items
 	notes, err = so.Items.DecryptAndParse(&sOutput.Session)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	notes.Filter(regexFilters)
 	// check two notes are animal tagged ones
@@ -932,13 +932,13 @@ func TestNoteTagging(t *testing.T) {
 
 func TestSearchNotesByUUID(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session:     &sOutput.Session,
-		Debug:       true,
+		Session: &sOutput.Session,
+		Debug:   true,
 	})
 
 	// create two notes
@@ -950,18 +950,18 @@ func TestSearchNotesByUUID(t *testing.T) {
 
 	var cnO SyncOutput
 	cnO, err = _createNotes(&sOutput.Session, noteInput)
-	assert.NoError(t, err, "failed to create notes")
+	require.NoError(t, err, "failed to create notes")
 
 	var dogFactUUID string
 
 	var di DecryptedItems
 
 	di, err = cnO.SavedItems.Decrypt(&sOutput.Session)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var dis Items
 	dis, err = di.Parse()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, di := range dis {
 		dn := di.(*Note)
@@ -1007,13 +1007,13 @@ func TestSearchNotesByUUID(t *testing.T) {
 func TestSearchNotesByText(t *testing.T) {
 	//SetDebugLogger(log.Println)
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session:     &sOutput.Session,
-		Debug:       true,
+		Session: &sOutput.Session,
+		Debug:   true,
 	})
 
 	// create two notes
@@ -1064,13 +1064,13 @@ func TestSearchNotesByText(t *testing.T) {
 func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 	//SetDebugLogger(log.Println)
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
 	_, err = Sync(SyncInput{
-		Session:     &sOutput.Session,
-		Debug:       true,
+		Session: &sOutput.Session,
+		Debug:   true,
 	})
 
 	// create two notes
@@ -1120,9 +1120,9 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 
 func TestSearchTagsByText(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	cleanup()
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
 
@@ -1169,7 +1169,7 @@ func TestSearchTagsByText(t *testing.T) {
 
 func TestSearchTagsByRegex(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	cleanup()
 
@@ -1215,26 +1215,26 @@ func TestSearchTagsByRegex(t *testing.T) {
 
 func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 	sio, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 	defer cleanup()
 
 	newNotes := genNotes(200, 2)
-	assert.NoError(t, newNotes.Validate())
+	require.NoError(t, newNotes.Validate())
 
 	var so SyncOutput
 
 	so, err = Sync(SyncInput{
 		Session: &sio.Session,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// get items key
 	_, err = so.Items.DecryptAndParseItemsKeys(&sio.Session)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	eItems, err := newNotes.Encrypt(sio.Session)
-	assert.NoError(t, err)
-	assert.NoError(t, eItems.Validate())
+	require.NoError(t, err)
+	require.NoError(t, eItems.Validate())
 
 	si := SyncInput{
 		Session: &sio.Session,
@@ -1259,16 +1259,16 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 			BatchSize:   50,
 			Debug:       true,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var di DecryptedItems
 		di, err = so.Items.Decrypt(&sio.Session)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var items Items
 
 		items, err = di.Parse()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		retrievedNotes = append(retrievedNotes, items...)
 
@@ -1299,13 +1299,13 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 //func TestCreateAndGet301Notes(t *testing.T) {
 //	numNotes := 301
 //	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
+//	require.NoError(t, err, "sign-in failed", err)
 //
 //	cleanup(&sOutput.Session)
 //	defer cleanup(&sOutput.Session)
 //
 //	newNotes := genNotes(numNotes, 10)
-//	assert.NoError(t, newNotes.Validate())
+//	require.NoError(t, newNotes.Validate())
 //	eItems, _ := newNotes.Encrypt("", "", true)
 //	si := SyncInput{
 //		Session: sOutput.Session,
@@ -1314,7 +1314,7 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 //	}
 //
 //	_, err = Sync(si)
-//	assert.NoError(t, err)
+//	require.NoError(t, err)
 //
 //	var retrievedNotes Items
 //

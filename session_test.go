@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type MockKeyRingDodgy struct {
@@ -94,24 +94,24 @@ func TestMakeSessionString(t *testing.T) {
 		RefreshExpiration: 2,
 	}
 	ss := makeSessionString(testSessionEmail, sess)
-	assert.Equal(t, testSession, ss)
+	require.Equal(t, testSession, ss)
 }
 
 func TestWriteSession(t *testing.T) {
 	var kEmpty MockKeyRingDodgy
 
-	assert.Error(t, writeSession("example", kEmpty))
+	require.Error(t, writeSession("example", kEmpty))
 
 	var kDefined MockKeyRingDefined
 
-	assert.NoError(t, SessionExists(kDefined))
+	require.NoError(t, SessionExists(kDefined))
 }
 
 func TestAddSession(t *testing.T) {
 	viper.SetEnvPrefix("sn")
-	assert.NoError(t, viper.BindEnv("email"))
-	assert.NoError(t, viper.BindEnv("password"))
-	assert.NoError(t, viper.BindEnv("server"))
+	require.NoError(t, viper.BindEnv("email"))
+	require.NoError(t, viper.BindEnv("password"))
+	require.NoError(t, viper.BindEnv("server"))
 
 	serverURL := os.Getenv("SN_SERVER")
 	if serverURL == "" {
@@ -119,27 +119,27 @@ func TestAddSession(t *testing.T) {
 	}
 
 	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestSessionExists(t *testing.T) {
 	var kEmpty MockKeyRingUnDefined
 
-	assert.Error(t, SessionExists(kEmpty))
+	require.Error(t, SessionExists(kEmpty))
 
 	var kDefined MockKeyRingDefined
 
-	assert.NoError(t, SessionExists(kDefined))
+	require.NoError(t, SessionExists(kDefined))
 }
 
 func TestRemoveSession(t *testing.T) {
 	var kUndefined MockKeyRingUnDefined
 
-	assert.Contains(t, RemoveSession(kUndefined), "failed")
+	require.Contains(t, RemoveSession(kUndefined), "failed")
 
 	var kDefined MockKeyRingDefined
 
-	assert.Contains(t, RemoveSession(kDefined), "success")
+	require.Contains(t, RemoveSession(kDefined), "success")
 }
 
 func TestSessionStatus(t *testing.T) {
@@ -147,31 +147,31 @@ func TestSessionStatus(t *testing.T) {
 	// be empty and error returned to reflect that
 	var kUndefined MockKeyRingUnDefined
 	s, err := SessionStatus("", kUndefined)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "empty")
-	assert.Empty(t, s)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty")
+	require.Empty(t, s)
 
 	// if Session is not empty but a value is found then
 	// assume Session is not encrypted
 	var kDefined MockKeyRingDefined
 	s, err = SessionStatus("", kDefined)
-	assert.NoError(t, err)
-	assert.Contains(t, s, "Session found: someone@example.com")
+	require.NoError(t, err)
+	require.Contains(t, s, "Session found: someone@example.com")
 
 	// if stored Session value is not immediately valid
 	// then Session is assumed to be encrypted so ensure
 	// a key, if not provided, is flagged
 	var kDodgy MockKeyRingDodgy
 	s, err = SessionStatus("", kDodgy)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "key required")
-	assert.Empty(t, s)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "key required")
+	require.Empty(t, s)
 
 	// if stored Session value is not immediately valid
 	// then Session is assumed to be encrypted so ensure
 	// Session that cannot be encrypted is flagged
 	s, err = SessionStatus("somekey", kDodgy)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "corrupt")
-	assert.Empty(t, s)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "corrupt")
+	require.Empty(t, s)
 }

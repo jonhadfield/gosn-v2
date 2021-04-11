@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/asdine/storm"
 	gosn "github.com/jonhadfield/gosn-v2"
-	"github.com/stretchr/testify/assert"
 )
 
 func gosnSessionToCacheSession(gs gosn.Session) Session {
@@ -35,32 +36,32 @@ func gosnSessionToCacheSession(gs gosn.Session) Session {
 
 func TestSyncWithoutDatabase(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	session := gosnSessionToCacheSession(sOutput.Session)
 	session.CacheDBPath = ""
 	_, err = Sync(SyncInput{Session: &session})
-	assert.EqualError(t, err, "database path is required")
+	require.EqualError(t, err, "database path is required")
 }
 
 func TestSyncWithInvalidSession(t *testing.T) {
 	defer removeDB(tempDBPath)
 
 	_, err := Sync(SyncInput{})
-	assert.EqualError(t, err, "invalid session")
+	require.EqualError(t, err, "invalid session")
 
 	var invalidSession Session
 
 	_, err = Sync(SyncInput{Session: &invalidSession})
 
-	assert.EqualError(t, err, "invalid session")
+	require.EqualError(t, err, "invalid session")
 }
 
 func TestInitialSyncWithItemButNoDB(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
 	session := gosnSessionToCacheSession(sOutput.Session)
 	session.CacheDBPath = tempDBPath
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup(&sOutput.Session)
 
@@ -70,30 +71,30 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 	so, err = Sync(SyncInput{
 		Session: &session,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var syncTokens []SyncToken
 	err = so.DB.All(&syncTokens)
-	assert.NoError(t, err)
-	assert.Len(t, syncTokens, 1)
-	assert.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
-	assert.NoError(t, so.DB.Close())
+	require.NoError(t, err)
+	require.Len(t, syncTokens, 1)
+	require.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
+	require.NoError(t, so.DB.Close())
 }
 
 func TestSyncWithNoItems(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
-	assert.NoError(t, err)
-	assert.NotNil(t, sOutput)
+	require.NoError(t, err)
+	require.NotNil(t, sOutput)
 	s := sOutput.Session
 	session := gosnSessionToCacheSession(s)
 	session.CacheDBPath = tempDBPath
 
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &sOutput.Session,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	defer cleanup(&sOutput.Session)
 
@@ -104,17 +105,17 @@ func TestSyncWithNoItems(t *testing.T) {
 	so, err = Sync(SyncInput{
 		Session: &session,
 	})
-	assert.NoError(t, err)
-	assert.NotNil(t, so)
-	assert.NotNil(t, so.DB)
+	require.NoError(t, err)
+	require.NotNil(t, so)
+	require.NotNil(t, so.DB)
 
 	var syncTokens []SyncToken
-	//assert.NotNil(t, syncTokens)
+	//require.NotNil(t, syncTokens)
 	err = so.DB.All(&syncTokens)
-	assert.NoError(t, err)
-	assert.Len(t, syncTokens, 1)
-	assert.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
-	//assert.Empty(t, so.SavedItems)
+	require.NoError(t, err)
+	require.Len(t, syncTokens, 1)
+	require.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
+	//require.Empty(t, so.SavedItems)
 	so.DB.Close()
 }
 
@@ -144,25 +145,25 @@ func GetCacheDB(path string) (db *storm.DB, err error) {
 // SN should now have that note
 func TestSyncWithNewNote(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 	s := sOutput.Session
 
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	defer cleanup(&s)
 
 	// create new note with random content
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
-	assert.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate())
 
 	var eItems gosn.EncryptedItems
 	eItems, err = dItems.Encrypt(s)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// open database
 	cs := gosnSessionToCacheSession(s)
@@ -172,26 +173,26 @@ func TestSyncWithNewNote(t *testing.T) {
 	so, err = Sync(SyncInput{
 		Session: &cs,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var allPersistedItems []Item
 	// items convert new items to 'persist' items and mark as dirty
 	itp := ToCacheItems(eItems, false)
 	for _, i := range itp {
-		assert.NoError(t, so.DB.Save(&i))
+		require.NoError(t, so.DB.Save(&i))
 		allPersistedItems = append(allPersistedItems, i)
 	}
 
-	assert.Len(t, allPersistedItems, 1)
-	assert.NoError(t, so.DB.Close())
+	require.Len(t, allPersistedItems, 1)
+	require.NoError(t, so.DB.Close())
 
 	so, err = Sync(SyncInput{
 		Session: &cs,
 	})
-	assert.NoError(t, err)
-	assert.NotNil(t, so)
-	assert.NotNil(t, so.DB)
-	assert.NoError(t, so.DB.All(&allPersistedItems))
+	require.NoError(t, err)
+	require.NotNil(t, so)
+	require.NotNil(t, so.DB)
+	require.NoError(t, so.DB.All(&allPersistedItems))
 
 	var foundNonDirtyNote bool
 
@@ -199,21 +200,21 @@ func TestSyncWithNewNote(t *testing.T) {
 		if i.UUID == newNote.UUID {
 			foundNonDirtyNote = true
 
-			assert.False(t, i.Dirty)
-			assert.Zero(t, i.DirtiedDate)
+			require.False(t, i.Dirty)
+			require.Zero(t, i.DirtiedDate)
 		}
 	}
 
-	assert.True(t, foundNonDirtyNote)
+	require.True(t, foundNonDirtyNote)
 
 	// check the item exists in SN
 
 	// get sync token from previous operation
 	var syncTokens []SyncToken
 
-	assert.NoError(t, so.DB.All(&syncTokens))
-	assert.Len(t, syncTokens, 1)
-	assert.NoError(t, so.DB.Close())
+	require.NoError(t, so.DB.All(&syncTokens))
+	require.Len(t, syncTokens, 1)
+	require.NoError(t, so.DB.Close())
 }
 
 // create a note in SN directly
@@ -221,27 +222,27 @@ func TestSyncWithNewNote(t *testing.T) {
 func TestSyncOneExisting(t *testing.T) {
 
 	sOutput, err := gosn.SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	// load items keys into session
 	s := sOutput.Session
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	defer cleanup(&sOutput.Session)
 
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
-	assert.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate())
 
 	var eItems gosn.EncryptedItems
 	eItems, err = dItems.Encrypt(s)
 
-	assert.NoError(t, err)
-	assert.NoError(t, eItems.Validate())
+	require.NoError(t, err)
+	require.NoError(t, eItems.Validate())
 
 	// push to SN
 	var gso gosn.SyncOutput
@@ -250,8 +251,8 @@ func TestSyncOneExisting(t *testing.T) {
 		Items:   eItems,
 	})
 
-	assert.NoError(t, err)
-	assert.Len(t, gso.SavedItems, 1)
+	require.NoError(t, err)
+	require.Len(t, gso.SavedItems, 1)
 
 	cs := gosnSessionToCacheSession(s)
 
@@ -262,7 +263,7 @@ func TestSyncOneExisting(t *testing.T) {
 	so, err = Sync(SyncInput{
 		Session: &cs,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	defer so.DB.Close()
 	defer removeDB(tempDBPath)
@@ -271,15 +272,15 @@ func TestSyncOneExisting(t *testing.T) {
 	var allPersistedItems []Item
 
 	err = so.DB.All(&allPersistedItems)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var syncTokens []SyncToken
 	err = so.DB.All(&syncTokens)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, syncTokens)
+	require.NoError(t, err)
+	require.NotEmpty(t, syncTokens)
 
 	err = so.DB.All(&allPersistedItems)
-	assert.Greater(t, len(allPersistedItems), 0)
+	require.Greater(t, len(allPersistedItems), 0)
 
 	var foundNotes int
 
@@ -289,7 +290,7 @@ func TestSyncOneExisting(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 1, foundNotes)
+	require.Equal(t, 1, foundNotes)
 }
 
 // create a note in SN directly
@@ -297,13 +298,13 @@ func TestSyncOneExisting(t *testing.T) {
 // update new note, sync to SN, then check new content is persisted
 func TestSyncUpdateExisting(t *testing.T) {
 	sOutput, err := gosn.SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	s := sOutput.Session
 	_, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	defer cleanup(&sOutput.Session)
 
@@ -311,11 +312,11 @@ func TestSyncUpdateExisting(t *testing.T) {
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
-	assert.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate())
 
 	var eItems gosn.EncryptedItems
 	eItems, err = dItems.Encrypt(s)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// push new note to SN
 	var gso gosn.SyncOutput
@@ -324,8 +325,8 @@ func TestSyncUpdateExisting(t *testing.T) {
 		Items:   eItems,
 	})
 
-	assert.NoError(t, err)
-	assert.Len(t, gso.SavedItems, 1)
+	require.NoError(t, err)
+	require.Len(t, gso.SavedItems, 1)
 
 	cs = gosnSessionToCacheSession(s)
 
@@ -336,7 +337,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 	so, err = Sync(SyncInput{
 		Session: &cs,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	defer so.DB.Close()
 	defer removeDB(tempDBPath)
@@ -345,15 +346,15 @@ func TestSyncUpdateExisting(t *testing.T) {
 	var allPersistedItems Items
 
 	err = so.DB.All(&allPersistedItems)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var syncTokens []SyncToken
 	err = so.DB.All(&syncTokens)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, syncTokens)
+	require.NoError(t, err)
+	require.NotEmpty(t, syncTokens)
 
 	err = so.DB.All(&allPersistedItems)
-	assert.Greater(t, len(allPersistedItems), 0)
+	require.Greater(t, len(allPersistedItems), 0)
 
 	var foundNotes int
 
@@ -364,7 +365,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 
 	}
 
-	assert.Equal(t, 1, foundNotes)
+	require.Equal(t, 1, foundNotes)
 
 	// *****
 	// Now modify note in db and sync
@@ -372,21 +373,21 @@ func TestSyncUpdateExisting(t *testing.T) {
 
 	var items gosn.Items
 	items, err = allPersistedItems.ToItems(&cs)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, items)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
 	var existingNote gosn.Note
 	for _, item := range items {
 		if item.GetUUID() == newNote.UUID {
 			existingNote = *item.(*gosn.Note)
 		}
 	}
-	assert.NotEmpty(t, existingNote.UUID)
-	assert.NotEmpty(t, existingNote.GetContent())
+	require.NotEmpty(t, existingNote.UUID)
+	require.NotEmpty(t, existingNote.GetContent())
 
 	existingNote.Content.SetTitle("New Title")
 	existingNote.Content.SetText("New Text")
 
-	assert.NoError(t, SaveNotes(&cs, so.DB, gosn.Notes{existingNote}, true))
+	require.NoError(t, SaveNotes(&cs, so.DB, gosn.Notes{existingNote}, true))
 
 	// sync back to SN
 	_, err = Sync(SyncInput{
@@ -398,22 +399,22 @@ func TestSyncUpdateExisting(t *testing.T) {
 	newSO, err = gosn.Sync(gosn.SyncInput{
 		Session: &s,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	var uItem gosn.EncryptedItem
 	for _, i := range newSO.Items {
 		if i.UUID == existingNote.UUID {
 			uItem = i
 		}
 	}
-	assert.NotEmpty(t, uItem.UUID)
+	require.NotEmpty(t, uItem.UUID)
 	newEncItems := gosn.EncryptedItems{uItem}
 	var newDecItems gosn.Items
 	newDecItems, err = newEncItems.DecryptAndParse(&s)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, newDecItems)
+	require.NoError(t, err)
+	require.NotEmpty(t, newDecItems)
 	uNote := *newDecItems[0].(*gosn.Note)
-	assert.Equal(t, "New Title", uNote.Content.GetTitle())
-	assert.Equal(t, "New Text", uNote.Content.GetText())
+	require.Equal(t, "New Title", uNote.Content.GetTitle())
+	require.Equal(t, "New Text", uNote.Content.GetText())
 }
 
 func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
