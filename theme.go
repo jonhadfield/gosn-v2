@@ -9,6 +9,7 @@ import (
 func parseTheme(i DecryptedItem) Item {
 	c := Theme{}
 	c.UUID = i.UUID
+	c.ItemsKeyID = i.ItemsKeyID
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt

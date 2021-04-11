@@ -8,6 +8,7 @@ import (
 func parseUserPreferences(i DecryptedItem) Item {
 	c := UserPreferences{}
 	c.UUID = i.UUID
+	c.ItemsKeyID = i.ItemsKeyID
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt

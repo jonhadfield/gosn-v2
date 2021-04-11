@@ -9,6 +9,7 @@ import (
 func parsePrivileges(i DecryptedItem) Item {
 	c := Privileges{}
 	c.UUID = i.UUID
+	c.ItemsKeyID = i.ItemsKeyID
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt

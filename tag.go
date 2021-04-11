@@ -14,6 +14,7 @@ type Tag struct {
 func parseTag(i DecryptedItem) Item {
 	t := Tag{}
 	t.UUID = i.UUID
+	t.ItemsKeyID = i.ItemsKeyID
 	t.ContentType = i.ContentType
 	t.Deleted = i.Deleted
 	t.UpdatedAt = i.UpdatedAt
