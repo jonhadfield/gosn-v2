@@ -136,7 +136,6 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		if err != nil {
 			return
 		}
-		err = fmt.Errorf(errResp.Error.Message)
 		return
 	case 401:
 		// need mfa token
@@ -148,7 +147,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 	case 403:
 		// server has denied request
 		// unmarshal error response
-		err = json.Unmarshal(body, &errResp)
+		err = fmt.Errorf("server returned 403 Forbidden response")
 		if err != nil {
 			return
 		}
@@ -312,6 +311,8 @@ func processConnectionFailure(i error, reqURL string) error {
 		return fmt.Errorf("failed to connect to %s within %d seconds", reqURL, connectionTimeout)
 	case strings.Contains(i.Error(), "permission denied"):
 		return fmt.Errorf("failed to connect to %s", reqURL)
+	default:
+		return fmt.Errorf("unhandled exception...\n- url: %s\n- error: %+v", reqURL, i.Error())
 	}
 
 	return i

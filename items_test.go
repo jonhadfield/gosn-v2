@@ -519,89 +519,93 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	}
 }
 
-//func TestPutItemsAddSingleComponent(t *testing.T) {
-//	fmt.Println("In TestPutItemsAddSingleComponent")
-//	sOutput, err := SignIn(sInput)
-//	fmt.Printf("sOutput: %+v\n", sOutput)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	defer cleanup()
-//
-//	newComponentContent := ComponentContent{
-//		Name:               "Minimal Markdown Editor",
-//		Area:               "editor-editor",
-//		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
-//		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
-//		OfflineOnly:        "",
-//		ValidUntil:         "2023-08-29T12:15:17.000Z",
-//		AutoUpdateDisabled: "",
-//		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
-//		AssociatedItemIds:  []string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"},
-//		ItemReferences:     nil,
-//		Active:             true,
-//		AppData:            AppDataContent{},
-//	}
-//
-//	newComponentContent.SetUpdateTime(time.Now())
-//
-//	newComponent := NewComponent()
-//	newComponent.Content = newComponentContent
-//
-//	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-//	assert.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-//
-//	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
-//	assert.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
-//
-//	dItems := Items{&newComponent}
-//	assert.NoError(t, dItems.Validate())
-//	eItems, _ := dItems.Encrypt(sOutput.Session)
-//	syncInput := SyncInput{
-//		Items:   eItems,
-//		Session: &sOutput.Session,
-//		Debug:   true,
-//	}
-//
-//	var syncOutput SyncOutput
-//
-//	syncOutput, err = Sync(syncInput)
-//	assert.NoError(t, err, "PutItems Failed", err)
-//	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
-//	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
-//	uuidOfNewItem := syncOutput.SavedItems[0].UUID
-//
-//	syncOutput, err = Sync(SyncInput{
-//		Session: &sOutput.Session,
-//		Debug:   true,
-//	})
-//	if err != nil {
-//		return
-//	}
-//
-//	var di DecryptedItems
-//	di, err = syncOutput.Items.Decrypt(&sOutput.Session)
-//
-//	if err != nil {
-//		return
-//	}
-//
-//	var items Items
-//	items, err = di.Parse()
-//
-//	var foundCreatedItem bool
-//
-//	for i := range items {
-//		if items[i].GetUUID() == uuidOfNewItem {
-//			foundCreatedItem = true
-//
-//			assert.Equal(t, "SN|Component", items[i].GetContentType())
-//			assert.Equal(t, false, items[i].IsDeleted())
-//			assert.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
-//		}
-//	}
-//
-//	assert.True(t, foundCreatedItem, "failed to get created Item by UUID")
-//}
+func TestPutItemsAddSingleComponent(t *testing.T) {
+	sOutput, err := SignIn(sInput)
+	fmt.Printf("sOutput: %+v\n", sOutput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	defer cleanup()
+
+	_, err = Sync(SyncInput{
+		Session:     &sOutput.Session,
+		Debug:       true,
+	})
+
+	newComponentContent := ComponentContent{
+		Name:               "Minimal Markdown Editor",
+		Area:               "editor-editor",
+		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
+		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
+		OfflineOnly:        "",
+		ValidUntil:         "2023-08-29T12:15:17.000Z",
+		AutoUpdateDisabled: "",
+		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
+		AssociatedItemIds:  []string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"},
+		ItemReferences:     nil,
+		Active:             true,
+		AppData:            AppDataContent{},
+	}
+
+	newComponentContent.SetUpdateTime(time.Now())
+
+	newComponent := NewComponent()
+	newComponent.Content = newComponentContent
+
+	newComponent.Content.DisassociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
+	assert.NotContains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+
+	newComponent.Content.AssociateItems([]string{"d7d1dee3-42f6-3d27-871e-d2320bf3214a"})
+	assert.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
+
+	dItems := Items{&newComponent}
+	assert.NoError(t, dItems.Validate())
+	eItems, _ := dItems.Encrypt(sOutput.Session)
+	syncInput := SyncInput{
+		Items:   eItems,
+		Session: &sOutput.Session,
+		Debug:   true,
+	}
+
+	var syncOutput SyncOutput
+
+	syncOutput, err = Sync(syncInput)
+	assert.NoError(t, err, "PutItems Failed", err)
+	assert.Len(t, syncOutput.SavedItems, 1, "expected 1")
+	assert.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
+	uuidOfNewItem := syncOutput.SavedItems[0].UUID
+
+	syncOutput, err = Sync(SyncInput{
+		Session: &sOutput.Session,
+		Debug:   true,
+	})
+	if err != nil {
+		return
+	}
+
+	var di DecryptedItems
+	di, err = syncOutput.Items.Decrypt(&sOutput.Session)
+
+	if err != nil {
+		return
+	}
+
+	var items Items
+	items, err = di.Parse()
+
+	var foundCreatedItem bool
+
+	for i := range items {
+		if items[i].GetUUID() == uuidOfNewItem {
+			foundCreatedItem = true
+
+			assert.Equal(t, "SN|Component", items[i].GetContentType())
+			assert.Equal(t, false, items[i].IsDeleted())
+			assert.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
+		}
+	}
+
+	assert.True(t, foundCreatedItem, "failed to get created Item by UUID")
+}
 
 func TestItemsRemoveDeleted(t *testing.T) {
 	noteContent := NewNoteContent()
@@ -926,183 +930,194 @@ func TestNoteTagging(t *testing.T) {
 	}
 }
 
-// TODO: Test Failing
-//func TestSearchNotesByUUID(t *testing.T) {
-//	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	defer cleanup()
-//
-//	// create two notes
-//	noteInput := map[string]string{
-//		"Cheese Fact": "Cheese is not a vegetable",
-//		"Dog Fact":    "Dogs can't look up",
-//		"GNU":         "Is Not Unix",
-//	}
-//
-//	var cnO SyncOutput
-//	cnO, err = _createNotes(&sOutput.Session, noteInput)
-//	assert.NoError(t, err, "failed to create notes")
-//
-//	var dogFactUUID string
-//
-//	var di DecryptedItems
-//
-//	di, err = cnO.SavedItems.Decrypt(&sOutput.Session)
-//	assert.NoError(t, err)
-//
-//	var dis Items
-//	dis, err = di.Parse()
-//	assert.NoError(t, err)
-//
-//	for _, di := range dis {
-//		dn := di.(*Note)
-//		if dn.Content.Title == "Dog Fact" {
-//			dogFactUUID = dn.UUID
-//		}
-//	}
-//
-//	var foundItems Items
-//
-//	filterOne := Filter{
-//		Type:  "Note",
-//		Key:   "UUID",
-//		Value: dogFactUUID,
-//	}
-//
-//	var itemFilters ItemFilters
-//	itemFilters.Filters = []Filter{filterOne}
-//
-//	foundItems, err = _getItems(&sOutput.Session, itemFilters)
-//	if err != nil {
-//		t.Error(err.Error())
-//	}
-//
-//	// check correct items returned
-//	switch len(foundItems) {
-//	case 0:
-//		t.Errorf("no notes returned")
-//	case 1:
-//		fi := foundItems[0].(*Note)
-//		if fi.Content.Title != "Dog Fact" {
-//			t.Errorf("incorrect note returned (title mismatch)")
-//		}
-//
-//		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
-//			t.Errorf("incorrect note returned (text mismatch)")
-//		}
-//	default:
-//		t.Errorf("expected one note but got: %d", len(foundItems))
-//	}
-//}
-//
-// TODO: TEST FAILING
-//func TestSearchNotesByText(t *testing.T) {
-//	//SetDebugLogger(log.Println)
-//	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	defer cleanup()
-//
-//	// create two notes
-//	noteInput := map[string]string{
-//		"Dog Fact":    "Dogs can't look up",
-//		"Cheese Fact": "Cheese is not a vegetable",
-//	}
-//
-//	if _, err = _createNotes(&sOutput.Session, noteInput); err != nil {
-//		t.Errorf("failed to create notes")
-//	}
-//
-//	fmt.Println("WAITING")
-//	time.Sleep(15 * time.Second)
-//	// find one note by text
-//	var foundItems Items
-//
-//	filterOne := Filter{
-//		Type:       "Note",
-//		Key:        "Text",
-//		Comparison: "contains",
-//		Value:      "Cheese",
-//	}
-//
-//	var itemFilters ItemFilters
-//	itemFilters.Filters = []Filter{filterOne}
-//
-//	foundItems, err = _getItems(&sOutput.Session, itemFilters)
-//	if err != nil {
-//		t.Error(err.Error())
-//	}
-//	// check correct items returned
-//	switch len(foundItems) {
-//	case 0:
-//		t.Errorf("no notes returned")
-//	case 1:
-//		fi := foundItems[0].(*Note)
-//		if fi.Content.Title != "Cheese Fact" {
-//			t.Errorf("incorrect note returned (title mismatch)")
-//		}
-//
-//		if !strings.Contains(fi.Content.Text, "Cheese is not a vegetable") {
-//			t.Errorf("incorrect note returned (text mismatch)")
-//		}
-//	default:
-//		t.Errorf("expected one note but got: %d", len(foundItems))
-//	}
-//}
-//
-//func TestSearchNotesByRegexTitleFilter(t *testing.T) {
-//	//SetDebugLogger(log.Println)
-//	sOutput, err := SignIn(sInput)
-//	assert.NoError(t, err, "sign-in failed", err)
-//
-//	defer cleanup(&sOutput.Session)
-//
-//	// create two notes
-//	noteInput := map[string]string{
-//		"Dog Fact":    "Dogs can't look up",
-//		"Cheese Fact": "Cheese is not a vegetable",
-//	}
-//	if _, err = _createNotes(sOutput.Session, noteInput); err != nil {
-//		t.Errorf("failed to create notes")
-//	}
-//	// find one note by text
-//	var foundItems Items
-//
-//	filterOne := Filter{
-//		Type:       "Note",
-//		Key:        "Title",
-//		Comparison: "~",
-//		Value:      "^Do.*",
-//	}
-//
-//	var itemFilters ItemFilters
-//
-//	itemFilters.Filters = []Filter{filterOne}
-//
-//	foundItems, err = _getItems(sOutput.Session, itemFilters)
-//	if err != nil {
-//		t.Error(err.Error())
-//	}
-//	// check correct items returned
-//	switch len(foundItems) {
-//	case 0:
-//		t.Errorf("no notes returned")
-//	case 1:
-//		fi := foundItems[0].(*Note)
-//
-//		if fi.Content.Title != "Dog Fact" {
-//			t.Errorf("incorrect note returned (title mismatch)")
-//		}
-//
-//		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
-//			t.Errorf("incorrect note returned (text mismatch)")
-//		}
-//	default:
-//		t.Errorf("expected one note but got: %d", len(foundItems))
-//	}
-//}
-//
+func TestSearchNotesByUUID(t *testing.T) {
+	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	defer cleanup()
+
+	_, err = Sync(SyncInput{
+		Session:     &sOutput.Session,
+		Debug:       true,
+	})
+
+	// create two notes
+	noteInput := map[string]string{
+		"Cheese Fact": "Cheese is not a vegetable",
+		"Dog Fact":    "Dogs can't look up",
+		"GNU":         "Is Not Unix",
+	}
+
+	var cnO SyncOutput
+	cnO, err = _createNotes(&sOutput.Session, noteInput)
+	assert.NoError(t, err, "failed to create notes")
+
+	var dogFactUUID string
+
+	var di DecryptedItems
+
+	di, err = cnO.SavedItems.Decrypt(&sOutput.Session)
+	assert.NoError(t, err)
+
+	var dis Items
+	dis, err = di.Parse()
+	assert.NoError(t, err)
+
+	for _, di := range dis {
+		dn := di.(*Note)
+		if dn.Content.Title == "Dog Fact" {
+			dogFactUUID = dn.UUID
+		}
+	}
+
+	var foundItems Items
+
+	filterOne := Filter{
+		Type:  "Note",
+		Key:   "UUID",
+		Value: dogFactUUID,
+	}
+
+	var itemFilters ItemFilters
+	itemFilters.Filters = []Filter{filterOne}
+
+	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// check correct items returned
+	switch len(foundItems) {
+	case 0:
+		t.Errorf("no notes returned")
+	case 1:
+		fi := foundItems[0].(*Note)
+		if fi.Content.Title != "Dog Fact" {
+			t.Errorf("incorrect note returned (title mismatch)")
+		}
+
+		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
+			t.Errorf("incorrect note returned (text mismatch)")
+		}
+	default:
+		t.Errorf("expected one note but got: %d", len(foundItems))
+	}
+}
+
+func TestSearchNotesByText(t *testing.T) {
+	//SetDebugLogger(log.Println)
+	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	defer cleanup()
+
+	_, err = Sync(SyncInput{
+		Session:     &sOutput.Session,
+		Debug:       true,
+	})
+
+	// create two notes
+	noteInput := map[string]string{
+		"Dog Fact":    "Dogs can't look up",
+		"Cheese Fact": "Cheese is not a vegetable",
+	}
+
+	if _, err = _createNotes(&sOutput.Session, noteInput); err != nil {
+		t.Errorf("failed to create notes")
+	}
+
+	// find one note by text
+	var foundItems Items
+
+	filterOne := Filter{
+		Type:       "Note",
+		Key:        "Text",
+		Comparison: "contains",
+		Value:      "Cheese",
+	}
+
+	var itemFilters ItemFilters
+	itemFilters.Filters = []Filter{filterOne}
+
+	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// check correct items returned
+	switch len(foundItems) {
+	case 0:
+		t.Errorf("no notes returned")
+	case 1:
+		fi := foundItems[0].(*Note)
+		if fi.Content.Title != "Cheese Fact" {
+			t.Errorf("incorrect note returned (title mismatch)")
+		}
+
+		if !strings.Contains(fi.Content.Text, "Cheese is not a vegetable") {
+			t.Errorf("incorrect note returned (text mismatch)")
+		}
+	default:
+		t.Errorf("expected one note but got: %d", len(foundItems))
+	}
+}
+
+func TestSearchNotesByRegexTitleFilter(t *testing.T) {
+	//SetDebugLogger(log.Println)
+	sOutput, err := SignIn(sInput)
+	assert.NoError(t, err, "sign-in failed", err)
+
+	defer cleanup()
+
+	_, err = Sync(SyncInput{
+		Session:     &sOutput.Session,
+		Debug:       true,
+	})
+
+	// create two notes
+	noteInput := map[string]string{
+		"Dog Fact":    "Dogs can't look up",
+		"Cheese Fact": "Cheese is not a vegetable",
+	}
+	if _, err = _createNotes(&sOutput.Session, noteInput); err != nil {
+		t.Errorf("failed to create notes")
+	}
+	// find one note by text
+	var foundItems Items
+
+	filterOne := Filter{
+		Type:       "Note",
+		Key:        "Title",
+		Comparison: "~",
+		Value:      "^Do.*",
+	}
+
+	var itemFilters ItemFilters
+
+	itemFilters.Filters = []Filter{filterOne}
+
+	foundItems, err = _getItems(&sOutput.Session, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// check correct items returned
+	switch len(foundItems) {
+	case 0:
+		t.Errorf("no notes returned")
+	case 1:
+		fi := foundItems[0].(*Note)
+
+		if fi.Content.Title != "Dog Fact" {
+			t.Errorf("incorrect note returned (title mismatch)")
+		}
+
+		if !strings.Contains(fi.Content.Text, "Dogs can't look up") {
+			t.Errorf("incorrect note returned (text mismatch)")
+		}
+	default:
+		t.Errorf("expected one note but got: %d", len(foundItems))
+	}
+}
+
 func TestSearchTagsByText(t *testing.T) {
 	sOutput, err := SignIn(sInput)
 	assert.NoError(t, err)
