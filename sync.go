@@ -39,9 +39,11 @@ type SyncOutput struct {
 // Sync retrieves items from the API using optional filters and updates the provided
 // session with the items keys required to encrypt and decrypt items
 func Sync(input SyncInput) (output SyncOutput, err error) {
+	// TODO: Handle initial sync for items keys if items to sync are passed but none in provided session
 	//if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
 	//	panic("In gosn Sync and trying to sync items without default items key")
 	//}
+
 	for _, a := range input.Items {
 		if a.ContentType == "SN|ItemsKey" && a.Deleted {
 			panic("trying to delete SN|ItemsKey")
