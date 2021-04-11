@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"github.com/asdine/storm"
+	"github.com/asdine/storm/v3"
 	gosn "github.com/jonhadfield/gosn-v2"
 )
 

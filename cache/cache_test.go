@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/asdine/storm"
+	"github.com/asdine/storm/v3"
 	gosn "github.com/jonhadfield/gosn-v2"
 )
 
