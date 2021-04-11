@@ -52,26 +52,6 @@ func TestMain(m *testing.M) {
 
 	os.Exit(m.Run())
 }
-//
-//func gosnSessionToCacheSession(gs gosn.Session) Session {
-//	session := Session{
-//		Session: &gosn.Session{
-//			Debug:             gs.Debug,
-//			Server:            gs.Server,
-//			Token:             gs.Token,
-//			MasterKey:         gs.MasterKey,
-//			ItemsKeys:         gs.ItemsKeys,
-//			DefaultItemsKey:   gs.DefaultItemsKey,
-//			AccessToken:       gs.AccessToken,
-//			RefreshToken:      gs.RefreshToken,
-//			AccessExpiration:  gs.AccessExpiration,
-//			RefreshExpiration: gs.RefreshExpiration,
-//		},
-//		CacheDBPath: "",
-//	}
-//
-//	return session
-//}
 
 func TestSyncWithoutDatabase(t *testing.T) {
 	sio, err := gosn.SignIn(sInput)
@@ -140,12 +120,10 @@ func TestSyncWithNoItems(t *testing.T) {
 	require.NotNil(t, so.DB)
 
 	var syncTokens []SyncToken
-	//require.NotNil(t, syncTokens)
 	err = so.DB.All(&syncTokens)
 	require.NoError(t, err)
 	require.Len(t, syncTokens, 1)
 	require.NotEmpty(t, syncTokens[0]) // tells us what time to sync from next time
-	//require.Empty(t, so.SavedItems)
 	require.NoError(t, so.DB.Close())
 }
 
