@@ -34,8 +34,6 @@ type Item struct {
 	DirtiedDate time.Time
 }
 
-//var _ Item = (*Note)(nil)
-
 type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
 }
@@ -123,6 +121,7 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 	return
 }
 
+// SaveItems encrypts, converts to cache items, and then persists to db
 func SaveItems(db *storm.DB, s *Session, items gosn.Items, close, debug bool) error {
 	gs := s.gosn()
 
@@ -136,7 +135,7 @@ func SaveItems(db *storm.DB, s *Session, items gosn.Items, close, debug bool) er
 	return SaveCacheItems(db, cItems, close)
 }
 
-// SaveNotes encrypts and then stores notes into the database
+// SaveNotes encrypts, converts to cache items, and then persists to db
 func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
 	eItems, err := items.Encrypt(*s.gosn())
 	if err != nil {
@@ -148,6 +147,7 @@ func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
 	return SaveCacheItems(db, cItems, close)
 }
 
+// SaveTags encrypts, converts to cache items, and then persists to db
 func SaveTags(db *storm.DB, s *Session, items gosn.Tags, close bool) error {
 	eItems, err := items.Encrypt(*s.gosn())
 	if err != nil {
@@ -159,6 +159,7 @@ func SaveTags(db *storm.DB, s *Session, items gosn.Tags, close bool) error {
 	return SaveCacheItems(db, cItems, close)
 }
 
+// SaveEncryptedItems converts to cache items and persists to db
 func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) error {
 	cItems := ToCacheItems(items, false)
 	return SaveCacheItems(db, cItems, close)
@@ -344,12 +345,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var gSO gosn.SyncOutput
 	gSO, err = gosn.Sync(gSI)
-	// CHECK NO ITEMS KEYS ARE DELETED
-	//for _, savedItem := range gSO.SavedItems {
-	//	if savedItem.ContentType == "SN|ItemsKey" {
-	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
-	//	}
-	//}
 	if err != nil {
 		return
 	}
@@ -365,11 +360,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			debugPrint(si.Debug, fmt.Sprintf("ignoring item %s of type %s", x.UUID, x.ContentType))
 			continue
 		}
-
-		//if x.UUID != components[2] {
-		//	err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
-		//	return
-		//}
 	}
 
 	// check saved items are valid
@@ -396,11 +386,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 				debugPrint(si.Debug, fmt.Sprintf("ignoring unsaved item %s of type %s", x.UUID, x.ContentType))
 				continue
 			}
-
-			//if x.UUID != components[2] {
-			//	err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s - %+v\n", string(x.UUID), components[2], x)
-			//	return
-			//}
 		}
 	}
 
