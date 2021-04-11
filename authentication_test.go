@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testEmailAddr = fmt.Sprintf("testuser-%s@example.com", time.Now().Format("20060102150405"))
@@ -17,7 +17,7 @@ func TestGenerateSalt004(t *testing.T) {
 	identifier := "sn004@lessknown.co.uk"
 	nonce := "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
 	decodedHex64, _ := hex.DecodeString("7129955dbbbfb376fdcac49890ef17bc")
-	assert.Equal(t, decodedHex64, generateSalt(identifier, nonce))
+	require.Equal(t, decodedHex64, generateSalt(identifier, nonce))
 }
 
 func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
@@ -26,9 +26,9 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 	testInput.Identifier = "sn004@lessknown.co.uk"
 	testInput.PasswordNonce = "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
 	masterKey, serverPassword, err := generateMasterKeyAndServerPassword004(testInput)
-	assert.NoError(t, err)
-	assert.Equal(t, "2396d6ac0bc70fe45db1d2bcf3daa522603e9c6fcc88dc933ce1a3a31bbc08ed", masterKey)
-	assert.Equal(t, "a5eb9fbc767eafd6e54fd9d3646b19520e038ba2ccc9cceddf2340b37b788b47", serverPassword)
+	require.NoError(t, err)
+	require.Equal(t, "2396d6ac0bc70fe45db1d2bcf3daa522603e9c6fcc88dc933ce1a3a31bbc08ed", masterKey)
+	require.Equal(t, "a5eb9fbc767eafd6e54fd9d3646b19520e038ba2ccc9cceddf2340b37b788b47", serverPassword)
 }
 
 func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
@@ -40,13 +40,13 @@ func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
 	testInput.Version = "003"
 	testInput.PasswordSalt = ""
 	result, _, _, _ := generateEncryptedPasswordAndKeys(testInput)
-	assert.Equal(t, result, "1312fe421aa49a6444684b58cbd5a43a55638cd5bf77514c78d50c7f3ae9c4e7")
+	require.Equal(t, result, "1312fe421aa49a6444684b58cbd5a43a55638cd5bf77514c78d50c7f3ae9c4e7")
 }
 
 // server required for following tests
 func TestSignIn(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	assert.NoError(t, err, "sign-in failed", err)
+	require.NoError(t, err, "sign-in failed", err)
 
 	if sOutput.Session.AccessToken == "" || sOutput.Session.RefreshToken == "" || sOutput.Session.RefreshExpiration == 0 || sOutput.Session.AccessExpiration == 0 {
 		t.Errorf("SignIn Failed")
@@ -74,7 +74,7 @@ func TestSignIn(t *testing.T) {
 //	// fmt.Printf("rInput: %+v\n", rInput)
 //	_, err := rInput.Register()
 //	// fmt.Println("X token:", token)
-//	assert.NoError(t, err, "registration failed")
+//	require.NoError(t, err, "registration failed")
 //
 //	postRegSignInInput := SignInInput{
 //		APIServer: os.Getenv("SN_SERVER"),
@@ -82,7 +82,7 @@ func TestSignIn(t *testing.T) {
 //		Password:  password,
 //	}
 //	_, err = SignIn(postRegSignInInput)
-//	assert.NoError(t, err, err)
+//	require.NoError(t, err, err)
 //}
 
 func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
@@ -93,9 +93,8 @@ func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
 		APIServer: os.Getenv("SN_SERVER"),
 	}
 	_, err := rInput.Register()
-	assert.Error(t, err, "email is already registered")
+	require.Error(t, err, "email is already registered")
 }
-
 
 func TestSignInWithInvalidEmail(t *testing.T) {
 	password := "secret"
@@ -105,8 +104,8 @@ func TestSignInWithInvalidEmail(t *testing.T) {
 		APIServer: os.Getenv("SN_SERVER"),
 	}
 	_, err := SignIn(sInput)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid email or password")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid email or password")
 }
 
 func TestSignInWithBadPassword(t *testing.T) {
@@ -117,8 +116,8 @@ func TestSignInWithBadPassword(t *testing.T) {
 		APIServer: os.Getenv("SN_SERVER"),
 	}
 	_, err := SignIn(sInput)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid email or password")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid email or password")
 }
 
 func TestSignInWithUnresolvableHost(t *testing.T) {
@@ -129,8 +128,8 @@ func TestSignInWithUnresolvableHost(t *testing.T) {
 		APIServer: "https://standardnotes.example.com:443",
 	}
 	_, err := SignIn(sInput)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "standardnotes.example.com cannot be resolved")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "standardnotes.example.com cannot be resolved")
 }
 
 func TestSignInWithInvalidURL(t *testing.T) {
@@ -141,8 +140,8 @@ func TestSignInWithInvalidURL(t *testing.T) {
 		APIServer: "standardnotes.example.com:443",
 	}
 	_, err := SignIn(sInput)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "protocol is missing from API server URL: standardnotes.example.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "protocol is missing from API server URL: standardnotes.example.com")
 }
 
 //func TestSignInWithServerActivelyRefusing(t *testing.T) {
@@ -153,9 +152,9 @@ func TestSignInWithInvalidURL(t *testing.T) {
 //		APIServer: "https://255.255.255.255:443",
 //	}
 //	_, err := SignIn(sInput)
-//	assert.Error(t, err)
+//	require.Error(t, err)
 //	fmt.Println(err)
-//	assert.Equal(t, fmt.Sprintf("failed to connect to https://255.255.255.255:443/auth/params"), err.Error())
+//	require.Equal(t, fmt.Sprintf("failed to connect to https://255.255.255.255:443/auth/params"), err.Error())
 //}
 
 func TestSignInWithUnavailableServer(t *testing.T) {
@@ -166,7 +165,7 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 		APIServer: "https://10.10.10.10:6000",
 	}
 	_, err := SignIn(sInput)
-	assert.Error(t, err)
-	assert.Equal(t, err.Error(), fmt.Sprintf("failed to connect to %s within %d seconds",
+	require.Error(t, err)
+	require.Equal(t, err.Error(), fmt.Sprintf("failed to connect to %s within %d seconds",
 		"https://10.10.10.10:6000/auth/params", connectionTimeout))
 }
