@@ -148,9 +148,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		// server has denied request
 		// unmarshal error response
 		err = fmt.Errorf("server returned 403 Forbidden response")
-		if err != nil {
-			return
-		}
+		return
 	default:
 		err = fmt.Errorf("unhandled: %+v", response)
 		return
