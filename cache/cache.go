@@ -234,7 +234,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-
 	// get sync token from previous operation
 	var syncTokens []SyncToken
 
@@ -245,7 +244,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 		return
 	}
-
 
 	// load items keys from previous operation
 	var ciks []Item
@@ -339,7 +337,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-	if ! gSI.Session.Valid() {
+	if !gSI.Session.Valid() {
 		fmt.Println("Invalid Session")
 	}
 
@@ -441,7 +439,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			CreatedAt:   i.CreatedAt,
 			UpdatedAt:   i.UpdatedAt,
 		}
-
 
 		err = db.Save(&item)
 		if err != nil {

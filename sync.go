@@ -106,7 +106,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
 	//	}
 	//}
-	if err = output.Items.Validate() ; err != nil {
+	if err = output.Items.Validate(); err != nil {
 		panic(err)
 	}
 

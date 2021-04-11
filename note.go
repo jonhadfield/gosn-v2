@@ -55,7 +55,6 @@ func parseNote(i DecryptedItem) Item {
 	return &n
 }
 
-
 func (i Items) Notes() (n Notes) {
 	for _, x := range i {
 		if x.GetContentType() == "Note" {
@@ -120,7 +119,6 @@ func NewNoteContent() *NoteContent {
 }
 
 type Notes []Note
-
 
 func (n Notes) Validate() error {
 	var updatedTime time.Time

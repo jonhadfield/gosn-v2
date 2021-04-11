@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 func parseExtension(i DecryptedItem) Item {
 	c := Extension{}
 	c.UUID = i.UUID

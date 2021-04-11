@@ -34,6 +34,7 @@ func (k MockKeyRingDefined) Set(user, service, password string) error {
 func (k MockKeyRingDefined) Get(service, user string) (r string, err error) {
 	return "someone@example.com;https://sync.standardnotes.org;eyJhbGciOiJKUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c;8f0f5166841ca4dee2975c74cc7e0a4345ce24b54d7b215677a3d540303aa203;1;6d5ffc6f8e337e6e3ae6d0c3201d9e2d00ffee64672bc4fe1886ad31770c19f1;2", nil
 }
+
 //testSession = fmt.Sprintf("%s;%s;%s;%s;%d;%s;%d", testSessionEmail, testSessionServer, testSessionMasterKey,
 //testSessionAccessToken, testSessionAccessExpiration, testSessionRefreshToken, testSessionRefreshExpiration)
 

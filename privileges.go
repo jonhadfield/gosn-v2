@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 func parsePrivileges(i DecryptedItem) Item {
 	c := Privileges{}
 	c.UUID = i.UUID

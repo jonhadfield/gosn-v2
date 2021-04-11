@@ -55,6 +55,7 @@ func parseFileSafeFileMetadata(i DecryptedItem) Item {
 
 	return &c
 }
+
 type FileSafeFileMetaData struct {
 	ItemCommon
 	Content FileSafeFileMetaDataContent

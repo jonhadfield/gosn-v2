@@ -55,7 +55,6 @@ func parseSNTime(s string) (t time.Time, err error) {
 
 }
 
-
 type UserPreferencesContent struct {
 	ItemReferences     ItemReferences `json:"references"`
 	AppData            AppDataContent `json:"appData"`

@@ -47,7 +47,6 @@ func parseFileSafeIntegration(i DecryptedItem) Item {
 	return &c
 }
 
-
 type FileSafeIntegrationContent struct {
 	ItemReferences     ItemReferences `json:"references"`
 	AppData            AppDataContent `json:"appData"`
