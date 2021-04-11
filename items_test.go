@@ -481,6 +481,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 		t.Errorf("failed to get created Item by UUID")
 	}
 }
+
 //
 //func TestPutItemsAddSingleComponent(t *testing.T) {
 //	newComponentContent := ComponentContent{
