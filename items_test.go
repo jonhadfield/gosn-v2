@@ -521,7 +521,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 
 func TestPutItemsAddSingleComponent(t *testing.T) {
 	sOutput, err := SignIn(sInput)
-	fmt.Printf("sOutput: %+v\n", sOutput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	defer cleanup()
