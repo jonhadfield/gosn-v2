@@ -220,7 +220,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 
 		if si.Close {
-			defer db.Close()
+			defer func(db *storm.DB) {
+				if err = db.Close() ; err != nil {
+					panic(err)
+				}
+			}(db)
 		}
 	}
 

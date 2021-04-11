@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/asdine/storm/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/asdine/storm/v3"
 	gosn "github.com/jonhadfield/gosn-v2"
 )
 
