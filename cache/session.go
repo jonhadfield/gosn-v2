@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"github.com/asdine/storm/v3"
 	gosn "github.com/jonhadfield/gosn-v2"
 )
@@ -9,6 +10,36 @@ type Session struct {
 	*gosn.Session
 	CacheDB     *storm.DB
 	CacheDBPath string
+}
+
+// ImportSession creates a new Session from an existing gosn.Session instance
+// with the option of specifying a path for the db other than the home folder
+func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
+	s = &Session{}
+
+	if gs.Server != "" {
+		if !gs.Valid() {
+			return s, fmt.Errorf("invalid session")
+		}
+
+		s.Session = gs
+
+		if path == "" {
+			var dbPath string
+			dbPath, err = GenCacheDBPath(*s, dbPath, libName)
+			if err != nil {
+				return
+			}
+			s.CacheDBPath = dbPath
+
+			return
+		}
+
+		s.CacheDBPath = path
+	}
+
+	return s, err
+
 }
 
 func GetSession(loadSession bool, sessionKey, server string) (s Session, email string, err error) {
