@@ -24,8 +24,8 @@ const (
 	numRawSessionTokens = 7
 
 	// LOGGING
-	libName       = "gosn" // name of library used in logging
-	maxDebugChars = 120    // number of characters to display when logging API response body
+	LibName       = "gosn-v2" // name of library used in logging
+	maxDebugChars = 120       // number of characters to display when logging API response body
 
 	// HTTP
 	maxIdleConnections = 100 // HTTP transport limit
@@ -64,7 +64,7 @@ func debugPrint(show bool, msg string) {
 			msg = msg[:maxDebugChars] + "..."
 		}
 
-		log.Println(libName, "|", msg)
+		log.Println(LibName, "|", msg)
 	}
 }
 

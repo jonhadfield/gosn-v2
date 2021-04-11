@@ -14,6 +14,40 @@ import (
 	gosn "github.com/jonhadfield/gosn-v2"
 )
 
+var gTestSession *gosn.Session
+var testSession *Session
+
+func TestMain(m *testing.M) {
+	gs, err := gosn.CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"))
+	if err != nil {
+		panic(err)
+	}
+
+	gTestSession = &gs
+
+	cTestSession := gosnSessionToCacheSession(*gTestSession)
+	testSession = &cTestSession
+
+	var path string
+	path, err = GenCacheDBPath(*testSession, "", gosn.LibName)
+
+	testSession.CacheDBPath = path
+
+	_, err = Sync(SyncInput{
+		Session: testSession,
+		Debug:   true,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	if testSession.DefaultItemsKey.ItemsKey == "" {
+		panic("failed in TestMain due to empty default items key")
+	}
+
+	os.Exit(m.Run())
+}
+
 func gosnSessionToCacheSession(gs gosn.Session) Session {
 	session := Session{
 		Session: &gosn.Session{
@@ -59,11 +93,12 @@ func TestSyncWithInvalidSession(t *testing.T) {
 
 func TestInitialSyncWithItemButNoDB(t *testing.T) {
 	sio, err := gosn.SignIn(sInput)
+	require.NoError(t, err)
 	session := gosnSessionToCacheSession(sio.Session)
 	session.CacheDBPath = tempDBPath
 	require.NoError(t, err, "sign-in failed", err)
 
-	defer cleanup(&sio.Session)
+	defer cleanup(testSession.Session)
 
 	defer removeDB(tempDBPath)
 
@@ -82,28 +117,12 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 }
 
 func TestSyncWithNoItems(t *testing.T) {
-	sio, err := gosn.SignIn(sInput)
-	require.NoError(t, err)
-	require.NotNil(t, sio)
-	s := sio.Session
-	session := gosnSessionToCacheSession(s)
-	session.CacheDBPath = tempDBPath
-
-	require.NoError(t, err, "sign-in failed", err)
-
-	_, err = gosn.Sync(gosn.SyncInput{
-		Session: &sio.Session,
-	})
-	require.NoError(t, err)
-
-	defer cleanup(&sio.Session)
+	defer cleanup(testSession.Session)
 
 	defer removeDB(tempDBPath)
-
-	var so SyncOutput
-
-	so, err = Sync(SyncInput{
-		Session: &session,
+	
+	so, err := Sync(SyncInput{
+		Session: testSession,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, so)
@@ -144,29 +163,19 @@ func GetCacheDB(path string) (db *storm.DB, err error) {
 // the returned DB should have the note returned as not dirty
 // SN should now have that note
 func TestSyncWithNewNote(t *testing.T) {
-	sio, err := gosn.SignIn(sInput)
-	require.NoError(t, err, "sign-in failed", err)
-	s := sio.Session
-
-	_, err = gosn.Sync(gosn.SyncInput{
-		Session: &s,
-	})
-	require.NoError(t, err)
-
-	defer cleanup(&s)
+	defer cleanup(testSession.Session)
 
 	// create new note with random content
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	var eItems gosn.EncryptedItems
-	eItems, err = dItems.Encrypt(s)
+	eItems, err := dItems.Encrypt(*testSession.Session)
 
 	require.NoError(t, err)
 
 	// open database
-	cs := gosnSessionToCacheSession(s)
+	cs := gosnSessionToCacheSession(*gTestSession)
 	cs.CacheDBPath = tempDBPath
 
 	var so SyncOutput
@@ -220,26 +229,14 @@ func TestSyncWithNewNote(t *testing.T) {
 // create a note in SN directly
 // call persist Sync and check DB contains the note
 func TestSyncOneExisting(t *testing.T) {
-
-	sio, err := gosn.SignIn(sInput)
-	require.NoError(t, err, "sign-in failed", err)
-
-	// load items keys into session
-	s := sio.Session
-	_, err = gosn.Sync(gosn.SyncInput{
-		Session: &s,
-	})
-	require.NoError(t, err)
-
-	defer cleanup(&sio.Session)
+	defer cleanup(testSession.Session)
 
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	var eItems gosn.EncryptedItems
-	eItems, err = dItems.Encrypt(s)
+	eItems, err := dItems.Encrypt(*testSession.Session)
 
 	require.NoError(t, err)
 	require.NoError(t, eItems.Validate())
@@ -247,14 +244,14 @@ func TestSyncOneExisting(t *testing.T) {
 	// push to SN
 	var gso gosn.SyncOutput
 	gso, err = gosn.Sync(gosn.SyncInput{
-		Session: &s,
+		Session: gTestSession,
 		Items:   eItems,
 	})
 
 	require.NoError(t, err)
 	require.Len(t, gso.SavedItems, 1)
 
-	cs := gosnSessionToCacheSession(s)
+	cs := gosnSessionToCacheSession(*gTestSession)
 
 	// call sync
 	var so SyncOutput
@@ -297,38 +294,28 @@ func TestSyncOneExisting(t *testing.T) {
 // call persist, Sync, and check DB contains the note
 // update new note, sync to SN, then check new content is persisted
 func TestSyncUpdateExisting(t *testing.T) {
-	sio, err := gosn.SignIn(sInput)
-	require.NoError(t, err, "sign-in failed", err)
+	defer cleanup(testSession.Session)
 
-	s := sio.Session
-	_, err = gosn.Sync(gosn.SyncInput{
-		Session: &s,
-	})
-	require.NoError(t, err)
-
-	defer cleanup(&sio.Session)
-
-	cs := gosnSessionToCacheSession(sio.Session)
+	cs := gosnSessionToCacheSession(*gTestSession)
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	var eItems gosn.EncryptedItems
-	eItems, err = dItems.Encrypt(s)
+	eItems, err := dItems.Encrypt(*gTestSession)
 	require.NoError(t, err)
 
 	// push new note to SN
 	var gso gosn.SyncOutput
 	gso, err = gosn.Sync(gosn.SyncInput{
-		Session: &s,
+		Session: gTestSession,
 		Items:   eItems,
 	})
 
 	require.NoError(t, err)
 	require.Len(t, gso.SavedItems, 1)
 
-	cs = gosnSessionToCacheSession(s)
+	cs = gosnSessionToCacheSession(*gTestSession)
 
 	// call cache sync
 	var so SyncOutput
@@ -397,7 +384,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 	// now do a gosn sync and check item has updates
 	var newSO gosn.SyncOutput
 	newSO, err = gosn.Sync(gosn.SyncInput{
-		Session: &s,
+		Session: gTestSession,
 	})
 	require.NoError(t, err)
 	var uItem gosn.EncryptedItem
@@ -409,7 +396,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 	require.NotEmpty(t, uItem.UUID)
 	newEncItems := gosn.EncryptedItems{uItem}
 	var newDecItems gosn.Items
-	newDecItems, err = newEncItems.DecryptAndParse(&s)
+	newDecItems, err = newEncItems.DecryptAndParse(gTestSession)
 	require.NoError(t, err)
 	require.NotEmpty(t, newDecItems)
 	uNote := *newDecItems[0].(*gosn.Note)
