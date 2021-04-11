@@ -25,8 +25,12 @@ func TestMain(m *testing.M) {
 
 	gTestSession = &gs
 
-	cTestSession := gosnSessionToCacheSession(*gTestSession)
-	testSession = &cTestSession
+	var cTestSession *Session
+	cTestSession, err = ImportSession(gTestSession, "")
+	if err != nil {
+		return
+	}
+	testSession = cTestSession
 
 	var path string
 	path, err = GenCacheDBPath(*testSession, "", gosn.LibName)
@@ -48,34 +52,37 @@ func TestMain(m *testing.M) {
 
 	os.Exit(m.Run())
 }
-
-func gosnSessionToCacheSession(gs gosn.Session) Session {
-	session := Session{
-		Session: &gosn.Session{
-			Debug:             gs.Debug,
-			Server:            gs.Server,
-			Token:             gs.Token,
-			MasterKey:         gs.MasterKey,
-			ItemsKeys:         gs.ItemsKeys,
-			DefaultItemsKey:   gs.DefaultItemsKey,
-			AccessToken:       gs.AccessToken,
-			RefreshToken:      gs.RefreshToken,
-			AccessExpiration:  gs.AccessExpiration,
-			RefreshExpiration: gs.RefreshExpiration,
-		},
-		CacheDBPath: "",
-	}
-
-	return session
-}
+//
+//func gosnSessionToCacheSession(gs gosn.Session) Session {
+//	session := Session{
+//		Session: &gosn.Session{
+//			Debug:             gs.Debug,
+//			Server:            gs.Server,
+//			Token:             gs.Token,
+//			MasterKey:         gs.MasterKey,
+//			ItemsKeys:         gs.ItemsKeys,
+//			DefaultItemsKey:   gs.DefaultItemsKey,
+//			AccessToken:       gs.AccessToken,
+//			RefreshToken:      gs.RefreshToken,
+//			AccessExpiration:  gs.AccessExpiration,
+//			RefreshExpiration: gs.RefreshExpiration,
+//		},
+//		CacheDBPath: "",
+//	}
+//
+//	return session
+//}
 
 func TestSyncWithoutDatabase(t *testing.T) {
 	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
-	session := gosnSessionToCacheSession(sio.Session)
+	session, err := ImportSession(&sio.Session, "")
+	if err != nil {
+		return
+	}
 	session.CacheDBPath = ""
-	_, err = Sync(SyncInput{Session: &session})
+	_, err = Sync(SyncInput{Session: session})
 	require.EqualError(t, err, "database path is required")
 }
 
@@ -95,7 +102,10 @@ func TestSyncWithInvalidSession(t *testing.T) {
 func TestInitialSyncWithItemButNoDB(t *testing.T) {
 	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err)
-	session := gosnSessionToCacheSession(sio.Session)
+	session, err := ImportSession(&sio.Session, tempDBPath)
+	if err != nil {
+		return
+	}
 	session.CacheDBPath = tempDBPath
 	require.NoError(t, err, "sign-in failed", err)
 
@@ -105,7 +115,7 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 
 	var so SyncOutput
 	so, err = Sync(SyncInput{
-		Session: &session,
+		Session: session,
 	})
 	require.NoError(t, err)
 
@@ -175,13 +185,9 @@ func TestSyncWithNewNote(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// open database
-	cs := gosnSessionToCacheSession(*gTestSession)
-	cs.CacheDBPath = tempDBPath
-
 	var so SyncOutput
 	so, err = Sync(SyncInput{
-		Session: &cs,
+		Session: testSession,
 	})
 	require.NoError(t, err)
 
@@ -197,7 +203,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	require.NoError(t, so.DB.Close())
 
 	so, err = Sync(SyncInput{
-		Session: &cs,
+		Session: testSession,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, so)
@@ -252,14 +258,11 @@ func TestSyncOneExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, gso.SavedItems, 1)
 
-	cs := gosnSessionToCacheSession(*gTestSession)
-
 	// call sync
 	var so SyncOutput
 
-	cs.CacheDBPath = tempDBPath
 	so, err = Sync(SyncInput{
-		Session: &cs,
+		Session: testSession,
 	})
 	require.NoError(t, err)
 
@@ -297,7 +300,6 @@ func TestSyncOneExisting(t *testing.T) {
 func TestSyncUpdateExisting(t *testing.T) {
 	defer cleanup(testSession.Session)
 
-	cs := gosnSessionToCacheSession(*gTestSession)
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
@@ -316,14 +318,11 @@ func TestSyncUpdateExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, gso.SavedItems, 1)
 
-	cs = gosnSessionToCacheSession(*gTestSession)
-
 	// call cache sync
 	var so SyncOutput
 
-	cs.CacheDBPath = tempDBPath
 	so, err = Sync(SyncInput{
-		Session: &cs,
+		Session: testSession,
 	})
 	require.NoError(t, err)
 
@@ -360,7 +359,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 	// *****
 
 	var items gosn.Items
-	items, err = allPersistedItems.ToItems(&cs)
+	items, err = allPersistedItems.ToItems(testSession)
 	require.NoError(t, err)
 	require.NotEmpty(t, items)
 	var existingNote gosn.Note
@@ -375,11 +374,11 @@ func TestSyncUpdateExisting(t *testing.T) {
 	existingNote.Content.SetTitle("New Title")
 	existingNote.Content.SetText("New Text")
 
-	require.NoError(t, SaveNotes(&cs, so.DB, gosn.Notes{existingNote}, true))
+	require.NoError(t, SaveNotes(testSession, so.DB, gosn.Notes{existingNote}, true))
 
 	// sync back to SN
 	_, err = Sync(SyncInput{
-		Session: &cs,
+		Session: testSession,
 	})
 
 	// now do a gosn sync and check item has updates
