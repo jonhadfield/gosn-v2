@@ -1,86 +1,66 @@
 # gosn-v2
-[![Build Status](https://www.travis-ci.org/jonhadfield/gosn-v2.svg?branch=master)](https://www.travis-ci.org/jonhadfield/gosn-v2) [![CircleCI](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master.svg?style=svg)](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master) [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jonhadfield/gosn-v2/) [![Go Report Card](https://goreportcard.com/badge/github.com/jonhadfield/gosn-v2)](https://goreportcard.com/report/github.com/jonhadfield/gosn-v2) 
 
-# about
-<a href="https://standardnotes.org/" target="_blank">Standard Notes</a> is a service and application for the secure management and storage of notes.  
+[![Build Status](https://www.travis-ci.org/jonhadfield/gosn-v2.svg?branch=master)](https://www.travis-ci.org/jonhadfield/gosn-v2) [![CircleCI](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master.svg?style=svg)](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master) [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jonhadfield/gosn-v2/) [![Go Report Card](https://goreportcard.com/badge/github.com/jonhadfield/gosn-v2)](https://goreportcard.com/report/github.com/jonhadfield/gosn-v2)
 
-gosn-v2 is a library to help develop your own application to manage notes on the official, or your self-hosted, Standard Notes server.
+This release adds support for version 004 of encryption (introduced Nov 2020) and removes support for 003.  
 
-***Note: This release adds support for version 004 of encryption (introduced Nov 2020) and removes support for 003.***
+####Note: This is an early release with significant changes. Please take a backup before using with any real data and report any issues you find. 
 
-# installation
+## about
+<a href="https://standardnotes.org/" target="_blank">Standard Notes</a> is a service and application for the secure
+management and storage of notes.
 
-```go get github.com/jonhadfield/gosn-v2```
+gosn-v2 is a library to help develop your own application to manage notes on the official, or your self-hosted, Standard
+Notes server.
 
-# documentation
+
+## documentation
 
 - [guides](docs/index.md)
 - [go docs](https://pkg.go.dev/github.com/jonhadfield/gosn-v2)
 
-# basic usage
-## authenticating
+## basic usage
 
-To interact with Standard Notes you first need to sign in:
+The following example shows how to use this library to interact with the SN API directly. To prevent a full download of all items on every sync, use the provided [cache package](cache/README.md) to persist an encrypted copy to disk, only syncing deltas on subsequent calls.
 
-```golang
-si := gosn.SignInInput{
-    Email:     "someone@example.com",
-    Password:  "mysecret,
-}
+## installation
 
-so, _ := gosn.SignIn(si)
+```bash
+GO111MODULE=on go get -u github.com/jonhadfield/gosn-v2
 ```
 
-This will return a session containing the necessary secrets and information to make requests to get or put data.
+## importing
 
-## getting items
-
-```golang
-input := gosn.SyncInput{
-    Session: so.Session,
-}
-
-gio, _ := gosn.Sync(input)
+```go
+import "github.com/jonhadfield/gosn-v2"
 ```
 
-## decrypt and parse items
-```golang
-di, _ := gio.Items.DecryptAndParse(so.Session.Mk, itemsKey, false)
-```
+## basic usage
 
-## output items
-```golang
-for _, tag := range di.Tags() {
-    fmt.Println(tag.Content.Title)
-}
+### authenticating
 
-for _, note := range di.Notes() {
-    fmt.Println(note.Content.Title, note.Content.Text)
-}
-```
+Sign-in to obtain your session
 
-## creating a note
-
-```golang
-// create note content
-content := gosn.NoteContent{
-    Title: "Note Title",
-    Text:  "Note Text",
-}
-
-// create note
-note := gosn.NewNote()
-note.Content = content
-
-// encrypt
-notes := gosn.Notes{note}
-en, _ := notes.Encrypt(so.Session.Mk, so.Session.Ak, false)
-    
-// sync
-gosn.Sync(gosn.SyncInput{
-	Session: so.Session,
-	Items:   en,
+```go
+sio, _ := gosn.SignIn(gosn.SignInInput{
+    Email:    "user@example.com",
+    Password: "topsecret",
 })
 ```
 
+### initial sync
+
+An initial sync is required to retrieve your items, as well as your Items Keys that are then added to your session
+
+```go
+so, _ := gosn.Sync(gosn.SyncInput{
+    Session: &sio.Session,
+})
+```
+
+### decrypt and parse items
+
+```go
+items, _ := so.Items.DecryptAndParse(&sio.Session)
+```
 
