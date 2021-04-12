@@ -773,12 +773,11 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
 	require.NoError(t, allItems.Validate())
 	eItems, _ = allItems.Encrypt(*testSession)
-	si = SyncInput{
+
+	_, err = Sync(SyncInput{
 		Items:   eItems,
 		Session: testSession,
-	}
-
-	_, err = Sync(si)
+	})
 	if err != nil {
 		t.Errorf("failed to put items: %+v", err)
 	}
