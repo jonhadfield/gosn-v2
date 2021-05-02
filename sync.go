@@ -28,12 +28,18 @@ type SyncInput struct {
 // It contains slices of items based on their state
 // see: https://standardfile.org/ for state details
 type SyncOutput struct {
-	Items      EncryptedItems // items new or modified since last sync
-	SavedItems EncryptedItems // dirty items needing resolution
-	Unsaved    EncryptedItems // items not saved during sync
+	Items      EncryptedItems  // items new or modified since last sync
+	SavedItems EncryptedItems  // dirty items needing resolution
+	Unsaved    EncryptedItems  // items not saved during sync TODO: No longer needed? Replaced by Conflicts?
+	Conflicts  ConflictedItems // items not saved during sync due to significant difference in updated_time values. can be triggered by import where the server item has been updated since export.
 	SyncToken  string
 
 	Cursor string
+}
+
+type ConflictedItem struct {
+	ServerItem EncryptedItem `json:"server_item"`
+	Type       string
 }
 
 // Sync retrieves items from the API using optional filters and updates the provided
@@ -96,6 +102,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	output.Unsaved.DeDupe()
 	output.SavedItems = sResp.SavedItems
 	output.SavedItems.DeDupe()
+	output.Conflicts = sResp.Conflicts
+	output.Conflicts.DeDupe()
 	output.Cursor = sResp.CursorToken
 	output.SyncToken = sResp.SyncToken
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
@@ -108,6 +116,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
 	//	}
 	//}
+	if err = output.Conflicts.Validate(); err != nil {
+		panic(err)
+	}
+
 	if err = output.Items.Validate(); err != nil {
 		panic(err)
 	}
@@ -123,6 +135,39 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// END DEBUG
 
 	return output, err
+}
+
+type ConflictedItems []ConflictedItem
+
+func (cis *ConflictedItems) DeDupe() {
+	var encountered []string
+
+	var deDuped ConflictedItems
+
+	for _, ci := range *cis {
+		if !stringInSlice(ci.ServerItem.UUID, encountered, true) {
+			deDuped = append(deDuped, ci)
+		}
+
+		encountered = append(encountered, ci.ServerItem.UUID)
+	}
+
+	*cis = deDuped
+}
+
+func (cis ConflictedItems) Validate() error {
+	for _, ci := range cis {
+		switch ci.Type {
+		case "sync_conflict":
+			continue
+		case "uuid_conflict":
+			return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
+		default:
+			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2", ci.Type)
+		}
+	}
+
+	return nil
 }
 
 func lesserOf(first, second int) int {
@@ -265,9 +310,11 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
 	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Unsaved %d items", len(out.Unsaved)))
+	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Conflict %d items", len(out.Conflicts)))
 	out.Unsaved = bodyContent.Unsaved
 	out.SyncToken = bodyContent.SyncToken
 	out.CursorToken = bodyContent.CursorToken
+	out.Conflicts = bodyContent.Conflicts
 	out.LastItemPut = finalItem
 
 	if input.BatchSize > 0 {
@@ -299,8 +346,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		}
 
 		out.Items = append(out.Items, newOutput.Items...)
-		out.SavedItems = append(out.Items, newOutput.SavedItems...)
-		out.Unsaved = append(out.Items, newOutput.Unsaved...)
+		out.SavedItems = append(out.SavedItems, newOutput.SavedItems...)
+		out.Unsaved = append(out.Unsaved, newOutput.Unsaved...)
+		out.Conflicts = append(out.Conflicts)
 
 		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
 		out.LastItemPut = finalItem

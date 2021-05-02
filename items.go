@@ -11,14 +11,14 @@ import (
 )
 
 type syncResponse struct {
-	Items        EncryptedItems `json:"retrieved_items"`
-	SavedItems   EncryptedItems `json:"saved_items"`
-	Unsaved      EncryptedItems `json:"unsaved"`
-	Conflicts    EncryptedItems `json:"conflicts"`
-	SyncToken    string         `json:"sync_token"`
-	CursorToken  string         `json:"cursor_token"`
-	LastItemPut  int            // the last item successfully put
-	PutLimitUsed int            // the put limit used
+	Items        EncryptedItems  `json:"retrieved_items"`
+	SavedItems   EncryptedItems  `json:"saved_items"`
+	Unsaved      EncryptedItems  `json:"unsaved"`
+	Conflicts    ConflictedItems `json:"conflicts"`
+	SyncToken    string          `json:"sync_token"`
+	CursorToken  string          `json:"cursor_token"`
+	LastItemPut  int             // the last item successfully put
+	PutLimitUsed int             // the put limit used
 }
 
 // AppTagConfig defines expected configuration structure for making Tag related operations
@@ -133,6 +133,7 @@ type EncryptedItem struct {
 	Deleted     bool   `json:"deleted"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
+	DuplicateOf string `json:"duplicate_of"`
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
