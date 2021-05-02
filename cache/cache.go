@@ -30,6 +30,7 @@ type Item struct {
 	Deleted     bool
 	CreatedAt   string
 	UpdatedAt   string
+	DuplicateOf string
 	Dirty       bool
 	DirtiedDate time.Time
 }
@@ -78,6 +79,7 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 			Deleted:     ei.Deleted,
 			CreatedAt:   ei.CreatedAt,
 			UpdatedAt:   ei.UpdatedAt,
+			DuplicateOf: ei.DuplicateOf,
 		})
 	}
 
@@ -115,6 +117,7 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 		cItem.Deleted = i.Deleted
 		cItem.CreatedAt = i.CreatedAt
 		cItem.UpdatedAt = i.UpdatedAt
+		cItem.DuplicateOf = i.DuplicateOf
 		pitems = append(pitems, cItem)
 	}
 
@@ -195,6 +198,7 @@ func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
 	return nil
 }
 
+// TODO: do I need to return SyncOutput with DB as SyncInput has a session with DB pointer already?
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
@@ -221,12 +225,15 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 		if si.Close {
 			defer func(db *storm.DB) {
-				if err = db.Close() ; err != nil {
+				if err = db.Close(); err != nil {
 					panic(err)
 				}
 			}(db)
 		}
 	}
+
+	var all []Item
+	err = db.All(&all)
 
 	// look for dirty items to save with the gosn sync
 	var dirty []Item
@@ -270,6 +277,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			Deleted:     cik.Deleted,
 			CreatedAt:   cik.CreatedAt,
 			UpdatedAt:   cik.UpdatedAt,
+			DuplicateOf: cik.DuplicateOf,
 		})
 	}
 
@@ -320,6 +328,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			Deleted:     d.Deleted,
 			CreatedAt:   d.CreatedAt,
 			UpdatedAt:   d.UpdatedAt,
+			DuplicateOf: d.DuplicateOf,
 		})
 	}
 
@@ -380,6 +389,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
+	// TODO: Remove as unsaved items no longer part of SN, replaced with conflicts returned on sync
 	// check unsaved items are valid
 	for _, x := range gSO.Unsaved {
 		if !x.Deleted {
@@ -403,12 +413,12 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
+
 	// put new Items in db
 	for _, i := range gSO.Items {
 		if i.ContentType == "SN|ItemsKey" && i.Deleted {
 			continue
 		}
-
 		item := Item{
 			UUID:        i.UUID,
 			Content:     i.Content,
@@ -418,6 +428,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			Deleted:     i.Deleted,
 			CreatedAt:   i.CreatedAt,
 			UpdatedAt:   i.UpdatedAt,
+			DuplicateOf: i.DuplicateOf,
 		}
 
 		err = db.Save(&item)
@@ -425,6 +436,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			return
 		}
 	}
+
+	err = db.All(&all)
 
 	// updated db with saved items
 	// put new Items in db
@@ -435,6 +448,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 		item := Item{
 			UUID:        i.UUID,
+			DuplicateOf: i.DuplicateOf,
 			Content:     i.Content,
 			ContentType: i.ContentType,
 			ItemsKeyID:  i.ItemsKeyID,
@@ -461,6 +475,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		return
 	}
 
+	err = db.All(&all)
+
 	if len(gSO.Items) > 0 {
 		_, err = gSO.Items.DecryptAndParseItemsKeys(si.Session.Session)
 	}
@@ -476,6 +492,78 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	si.Session.RefreshExpiration = gs.RefreshExpiration
 	si.Session.Token = gs.Token
 	si.Session.Server = gs.Server
+
+	err = db.All(&all)
+
+	// check for conflicts and call sync again
+	var resync bool
+	if len(gSO.Conflicts) > 0 {
+		resync = true
+	}
+
+	var sItems gosn.EncryptedItems
+	for _, x := range gSO.Conflicts {
+		sItems = append(sItems, x.ServerItem)
+
+		conflictedItem := x.ServerItem
+
+		serverItemUUID := x.ServerItem.UUID
+		var myDupes []Item
+		err = db.Find("UUID", serverItemUUID, &myDupes)
+		if err != nil {
+			return
+		}
+		if len(myDupes) == 0 {
+			err = fmt.Errorf("didn't find item in DB with serverItemUUID: %s", serverItemUUID)
+			return
+		}
+
+		if len(myDupes) > 1 {
+			err = fmt.Errorf("found multiple items with same serverItemUUID: %s %+v", serverItemUUID, myDupes)
+			return
+		}
+		myDupe := myDupes[0]
+
+
+		newUUID := gosn.GenUUID()
+		now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+		item := Item{
+			UUID:        newUUID,
+			DuplicateOf: serverItemUUID,
+			Content:     myDupe.Content,
+			ContentType: myDupe.ContentType,
+			ItemsKeyID:  myDupe.ItemsKeyID,
+			EncItemKey:  myDupe.EncItemKey,
+			Deleted:     myDupe.Deleted,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			DirtiedDate: time.Now(),
+			Dirty:       true,
+
+		}
+		conflictedCacheItem := ToCacheItems(gosn.EncryptedItems{conflictedItem},true)
+		err = db.Save(&conflictedCacheItem[0])
+		if err != nil {
+			return
+		}
+		if err := db.Save(&item) ; err != nil {
+			return so, err
+		}
+
+		db.Close()
+		//if !x.Deleted {
+		//	components := strings.Split(x.EncItemKey, ":")
+		//	if len(components) <= 1 {
+		//		debugPrint(si.Debug, fmt.Sprintf("ignoring conflicted item %s of type %s", x.UUID, x.ContentType))
+		//		continue
+		//	}
+		//
+		//}
+	}
+	if resync {
+		resync = false
+		return Sync(si)
+	}
 
 	return
 }
