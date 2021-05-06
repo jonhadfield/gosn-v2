@@ -40,7 +40,6 @@ func TestMain(m *testing.M) {
 	_, err = Sync(SyncInput{
 		Session: testSession,
 		Close:   true,
-		Debug:   true,
 	})
 	if err != nil {
 		panic(err)
@@ -398,7 +397,6 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	}
 	si := gosn.SyncInput{
 		Session: session,
-		Debug:   true,
 	}
 
 	var so gosn.SyncOutput

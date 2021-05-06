@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -71,16 +72,28 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 	return
 }
 
+func isEncryptedType(ct string) bool {
+	switch {
+	case strings.HasPrefix(ct, "SF"):
+		return false
+	case ct == "SN|ItemsKey":
+		return false
+	default:
+		return true
+	}
+}
+
 func (ei *EncryptedItems) Validate() error {
 	var err error
 	for _, i := range *ei {
+		enc := isEncryptedType(i.ContentType)
 		switch {
 		case i.IsDeleted():
 			continue
-		case i.ContentType != "SN|ItemsKey" && i.ItemsKeyID == "":
+		case enc && i.ItemsKeyID == "":
 			err = fmt.Errorf("validation failed for \"%s\" due to missing ItemsKeyID: \"%s\"",
 				i.ContentType, i.UUID)
-		case i.ContentType != "SN|ItemsKey" && i.EncItemKey == "":
+		case enc && i.EncItemKey == "":
 			err = fmt.Errorf("validation failed for \"%s\" due to missing encrypted item key: \"%s\"",
 				i.ContentType, i.UUID)
 		}
@@ -248,7 +261,6 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 
 	responseBody, err = ioutil.ReadAll(response.Body)
 	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
-
 	if err != nil {
 		return
 	}

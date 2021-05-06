@@ -252,7 +252,7 @@ func GetSessionFromUser(server string) (Session, string, error) {
 	return sess, email, err
 }
 
-func GetSession(loadSession bool, sessionKey, server string) (session Session, email string, err error) {
+func GetSession(loadSession bool, sessionKey, server string, debug bool) (session Session, email string, err error) {
 	if loadSession {
 		var rawSess string
 
@@ -295,6 +295,8 @@ func GetSession(loadSession bool, sessionKey, server string) (session Session, e
 			return
 		}
 	}
+
+	session.Debug = debug
 
 	return session, email, err
 }

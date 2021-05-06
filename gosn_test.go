@@ -27,7 +27,6 @@ func TestMain(m *testing.M) {
 
 	_, err = Sync(SyncInput{
 		Session: testSession,
-		Debug:   true,
 	})
 
 	if testSession.DefaultItemsKey.ItemsKey == "" {

@@ -43,10 +43,10 @@ func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
 
 }
 
-func GetSession(loadSession bool, sessionKey, server string) (s Session, email string, err error) {
+func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
 	var gs gosn.Session
 
-	gs, _, err = gosn.GetSession(loadSession, sessionKey, server)
+	gs, _, err = gosn.GetSession(loadSession, sessionKey, server, debug)
 	if err != nil {
 		return
 	}
