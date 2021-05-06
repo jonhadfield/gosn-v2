@@ -104,7 +104,7 @@ func NewSFExtension() SFExtension {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewSFExtensionContent returns an empty Tag content instance
 func NewSFExtensionContent() *SFExtensionContent {
 	c := &SFExtensionContent{}
 	c.SetUpdateTime(time.Now().UTC())

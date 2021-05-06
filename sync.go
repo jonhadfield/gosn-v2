@@ -21,7 +21,6 @@ type SyncInput struct {
 	OutType     string
 	BatchSize   int // number of items to retrieve
 	PageSize    int // override default number of items to request with each sync call
-	Debug       bool
 }
 
 // SyncOutput defines the output from retrieving items
@@ -45,6 +44,7 @@ type ConflictedItem struct {
 // Sync retrieves items from the API using optional filters and updates the provided
 // session with the items keys required to encrypt and decrypt items
 func Sync(input SyncInput) (output SyncOutput, err error) {
+	debug := input.Session.Debug
 	// if items have been passed but no default items key exists then return error
 	if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
 		err = fmt.Errorf("missing default items key in session")
@@ -58,7 +58,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	giStart := time.Now()
 	defer func() {
-		debugPrint(input.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
+		debugPrint(debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
 	}()
 
 	if !input.Session.Valid() {
@@ -68,20 +68,20 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	var sResp syncResponse
 
-	debugPrint(input.Debug, fmt.Sprintf("Sync | PageSize %d", input.PageSize))
+	debugPrint(debug, fmt.Sprintf("Sync | PageSize %d", input.PageSize))
 	// retry logic is to handle responses that are too large
 	// so we can reduce number we retrieve with each sync request
 	start := time.Now()
 	rErr := try.Do(func(attempt int) (bool, error) {
-		debugPrint(input.Debug, fmt.Sprintf("Sync | attempt %d", attempt))
+		debugPrint(debug, fmt.Sprintf("Sync | attempt %d", attempt))
 		var rErr error
 
 		sResp, rErr = syncItemsViaAPI(input)
 		if rErr != nil && strings.Contains(strings.ToLower(rErr.Error()), "too large") {
-			debugPrint(input.Debug, fmt.Sprintf("Sync | %s", rErr.Error()))
+			debugPrint(debug, fmt.Sprintf("Sync | %s", rErr.Error()))
 			input.NextItem = sResp.LastItemPut
 			resizeForRetry2(&input)
-			debugPrint(input.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+			debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 				"at a time so reducing to %d", sResp.PutLimitUsed, input.PageSize))
 		}
 		return attempt < 3, rErr
@@ -93,7 +93,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	elapsed := time.Since(start)
 
-	debugPrint(input.Debug, fmt.Sprintf("Sync | took %v to get all items", elapsed))
+	debugPrint(debug, fmt.Sprintf("Sync | took %v to get all items", elapsed))
 
 	postStart := time.Now()
 	output.Items = sResp.Items
@@ -108,8 +108,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	output.SyncToken = sResp.SyncToken
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
 	postElapsed := time.Since(postStart)
-	debugPrint(input.Debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
-	debugPrint(input.Debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
+	debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
+	debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
 	// CHECK NO ITEMS KEYS ARE DELETED
 	//for _, savedItem := range output.SavedItems {
 	//	if savedItem.ContentType == "SN|ItemsKey" {
@@ -187,7 +187,8 @@ func lesserOf(first, second int) int {
 }
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
+	debug := input.Session.Debug
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
 	// determine how many items to retrieve with each call
 	var limit int
 
@@ -206,14 +207,14 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	switch {
 	case input.BatchSize > 0:
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | input.BatchSize: %d", input.BatchSize))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.BatchSize: %d", input.BatchSize))
 		// batch size must be lower than or equal to page size
 		limit = input.BatchSize
 	case input.PageSize > 0:
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize))
 		limit = input.PageSize
 	default:
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", PageSize))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", PageSize))
 		limit = PageSize
 	}
 
@@ -227,7 +228,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	if len(input.Items) > 0 {
 		finalItem = lesserOf(len(input.Items)-1, input.NextItem+limit-1)
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem, finalItem))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem, finalItem))
 
 		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem : finalItem+1])
 		if err != nil {
@@ -237,12 +238,12 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var requestBody []byte
 	// generate request body
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
 	newST := stripLineBreak(input.SyncToken) + `\n`
 
 	switch {
 	case input.CursorToken == "":
-		debugPrint(input.Debug, "syncItemsViaAPI | cursor is empty")
+		debugPrint(debug, "syncItemsViaAPI | cursor is empty")
 
 		if len(input.Items) == 0 {
 
@@ -261,7 +262,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		}
 
 	case input.CursorToken == "null":
-		debugPrint(input.Debug, "syncItemsViaAPI | cursor is null")
+		debugPrint(debug, "syncItemsViaAPI | cursor is null")
 
 		if input.SyncToken == "" {
 			requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) +
@@ -272,7 +273,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		}
 
 	case input.CursorToken != "":
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | got cursor %s", stripLineBreak(input.CursorToken)))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | got cursor %s", stripLineBreak(input.CursorToken)))
 
 		rawST := input.SyncToken
 
@@ -283,14 +284,14 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	// make the request
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
 
 	msrStart := time.Now()
 
 	var responseBody []byte
-	responseBody, err = makeSyncRequest(*input.Session, requestBody, input.Debug)
+	responseBody, err = makeSyncRequest(*input.Session, requestBody, debug)
 	msrEnd := time.Since(msrStart)
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 
 	if err != nil {
 		return
@@ -307,10 +308,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems
 
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Unsaved %d items", len(out.Unsaved)))
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | Conflict %d items", len(out.Conflicts)))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Unsaved %d items", len(out.Unsaved)))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Conflict %d items", len(out.Conflicts)))
 	out.Unsaved = bodyContent.Unsaved
 	out.SyncToken = bodyContent.SyncToken
 	out.CursorToken = bodyContent.CursorToken
@@ -321,21 +322,21 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		return
 	}
 
-	debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
 
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse
 
 		input.SyncToken = out.SyncToken
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
 
 		input.CursorToken = out.CursorToken
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
 
 		input.PageSize = limit
 		// sync was successful so set new item
 		if finalItem > 0 {
-			debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | sync successful so setting new item to finalItem+1: %d", finalItem+1))
+			debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | sync successful so setting new item to finalItem+1: %d", finalItem+1))
 			input.NextItem = finalItem + 1
 		}
 
@@ -350,7 +351,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		out.Unsaved = append(out.Unsaved, newOutput.Unsaved...)
 		out.Conflicts = append(out.Conflicts)
 
-		debugPrint(input.Debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
 		out.LastItemPut = finalItem
 	} else {
 		return out, err

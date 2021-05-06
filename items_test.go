@@ -142,7 +142,6 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 	}
 	si := SyncInput{
 		Session: s,
-		Debug:   true,
 	}
 
 	var so SyncOutput
@@ -182,7 +181,7 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 		case "SN|Component":
 			components++
 		default:
-			debugPrint(si.Debug, fmt.Sprintf("ignoring %s", x.ContentType))
+			debugPrint(si.Session.Debug, fmt.Sprintf("ignoring %s", x.ContentType))
 		}
 	}
 
@@ -279,7 +278,6 @@ func createTag(title, uuid string) *Tag {
 func cleanup() {
 	_, err := Sync(SyncInput{
 		Session: testSession,
-		Debug:   true,
 	})
 
 	if err != nil {
@@ -300,7 +298,6 @@ func TestDecryptItemsKeys(t *testing.T) {
 
 	syncInput := SyncInput{
 		Session: s,
-		Debug:   true,
 	}
 
 	_, err := Sync(syncInput)
@@ -516,7 +513,6 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	syncInput := SyncInput{
 		Items:   eItems,
 		Session: testSession,
-		Debug:   true,
 	}
 
 	syncOutput, err := Sync(syncInput)
@@ -525,9 +521,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	require.Equal(t, syncInput.Items[0].UUID, syncOutput.SavedItems[0].UUID, "expected 1")
 	uuidOfNewItem := syncOutput.SavedItems[0].UUID
 
-	syncOutput, err = Sync(SyncInput{
-		Debug:   true,
-	})
+	syncOutput, err = Sync(SyncInput{Session: testSession})
 	if err != nil {
 		return
 	}
@@ -934,7 +928,6 @@ func TestSearchNotesByText(t *testing.T) {
 
 	_, err := Sync(SyncInput{
 		Session: testSession,
-		Debug:   true,
 	})
 
 	// create two notes
@@ -987,7 +980,6 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 
 	_, err := Sync(SyncInput{
 		Session: testSession,
-		Debug:   true,
 	})
 
 	// create two notes
@@ -1040,7 +1032,6 @@ func TestSearchTagsByText(t *testing.T) {
 
 	_, err := Sync(SyncInput{
 		Session: testSession,
-		Debug:   true,
 	})
 
 	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
@@ -1130,7 +1121,6 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 	si := SyncInput{
 		Session: testSession,
 		Items:   eItems,
-		Debug:   true,
 	}
 
 	_, err = Sync(si)
@@ -1148,7 +1138,6 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 			Session:     testSession,
 			CursorToken: cursorToken,
 			BatchSize:   50,
-			Debug:       true,
 		})
 		require.NoError(t, err)
 

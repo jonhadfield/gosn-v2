@@ -49,7 +49,6 @@ func DeleteContent(session *Session) (err error) {
 	}
 	si := SyncInput{
 		Session: session,
-		Debug:   true,
 	}
 
 	var so SyncOutput

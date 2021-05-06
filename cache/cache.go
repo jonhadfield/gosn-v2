@@ -42,7 +42,6 @@ type SyncToken struct {
 type SyncInput struct {
 	*Session
 	Close bool
-	Debug bool
 }
 
 type SyncOutput struct {
