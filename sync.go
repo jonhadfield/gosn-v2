@@ -248,15 +248,15 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		if len(input.Items) == 0 {
 
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `}`)
+				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) + `}`)
 			} else {
-				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
+				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
 			}
 		} else {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
+				requestBody = []byte(`{"api":"20200115","compute_integrity":true,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
 			} else {
-				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
+				requestBody = []byte(`{"api":"20200115","compute_integrity":true,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 					`,"sync_token":"` + newST + `"}`)
 			}
 		}
@@ -265,10 +265,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		debugPrint(debug, "syncItemsViaAPI | cursor is null")
 
 		if input.SyncToken == "" {
-			requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) +
 				`,"items":[],"cursor_token":null}`)
 		} else {
-			requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) +
 				`,"items":[],"sync_token":"` + newST + `","cursor_token":null}`)
 		}
 
@@ -280,7 +280,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		input.SyncToken = stripLineBreak(rawST)
 
 		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
+			`,"items":[],"compute_integrity":true,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}
 
 	// make the request
