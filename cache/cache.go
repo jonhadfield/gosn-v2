@@ -4,21 +4,26 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/asdine/storm/v3"
+	"github.com/briandowns/spinner"
+	"github.com/fatih/color"
+	"github.com/jonhadfield/gosn-v2"
+	"github.com/mitchellh/go-homedir"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/asdine/storm/v3"
-	"github.com/jonhadfield/gosn-v2"
-	"github.com/mitchellh/go-homedir"
 )
 
 const (
 	// LOGGING
 	libName       = "gosn-v2 cache" // name of library used in logging
 	maxDebugChars = 120             // number of characters to display when logging API response body
+)
+
+var (
+	HiWhite = color.New(color.FgHiWhite).SprintFunc()
 )
 
 type Item struct {
@@ -213,9 +218,17 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var db *storm.DB
 
+	// check db exists
+	var dbIsNew bool
+
 	// open DB if path provided
 	if si.Session.CacheDBPath != "" {
 		debugPrint(si.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath))
+
+		_, err = os.Stat(si.Session.CacheDBPath)
+		if os.IsNotExist(err) {
+			dbIsNew = true
+		}
 
 		db, err = storm.Open(si.Session.CacheDBPath)
 		if err != nil {
@@ -354,7 +367,25 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	var gSO gosn.SyncOutput
-	gSO, err = gosn.Sync(gSI)
+
+	if si.ShowProgress && !si.Debug {
+		prefix := HiWhite("syncing ")
+		// check if cache db exists
+		if dbIsNew {
+			prefix = HiWhite("initialising ")
+		}
+
+		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Build our new spinner
+		s.Prefix = prefix
+		s.Start()
+
+		gSO, err = gosn.Sync(gSI)
+
+		s.Stop()
+	} else {
+		gSO, err = gosn.Sync(gSI)
+	}
+
 	if err != nil {
 		return
 	}
@@ -411,7 +442,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			return
 		}
 	}
-
 
 	// put new Items in db
 	for _, i := range gSO.Items {
@@ -523,7 +553,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 		myDupe := myDupes[0]
 
-
 		newUUID := gosn.GenUUID()
 		now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 		item := Item{
@@ -538,14 +567,13 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			UpdatedAt:   now,
 			DirtiedDate: time.Now(),
 			Dirty:       true,
-
 		}
-		conflictedCacheItem := ToCacheItems(gosn.EncryptedItems{conflictedItem},true)
+		conflictedCacheItem := ToCacheItems(gosn.EncryptedItems{conflictedItem}, true)
 		err = db.Save(&conflictedCacheItem[0])
 		if err != nil {
 			return
 		}
-		if err := db.Save(&item) ; err != nil {
+		if err := db.Save(&item); err != nil {
 			return so, err
 		}
 
