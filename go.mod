@@ -4,7 +4,9 @@ go 1.15
 
 require (
 	github.com/asdine/storm/v3 v3.2.1
+	github.com/briandowns/spinner v1.12.0
 	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+	github.com/fatih/color v1.7.0
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
 	github.com/google/uuid v1.2.0

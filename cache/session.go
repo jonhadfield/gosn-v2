@@ -9,8 +9,9 @@ import (
 
 type Session struct {
 	*gosn.Session
-	CacheDB     *storm.DB
-	CacheDBPath string
+	CacheDB      *storm.DB
+	CacheDBPath  string
+	ShowProgress bool
 }
 
 // ImportSession creates a new Session from an existing gosn.Session instance
@@ -43,7 +44,7 @@ func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
 
 }
 
-func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
+func GetSession(loadSession bool, sessionKey, server string, debug, showProgress bool) (s Session, email string, err error) {
 	var gs gosn.Session
 
 	gs, _, err = gosn.GetSession(loadSession, sessionKey, server, debug)
@@ -66,6 +67,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 		},
 		CacheDB:     nil,
 		CacheDBPath: "",
+		ShowProgress: showProgress,
 	}, email, err
 }
 
