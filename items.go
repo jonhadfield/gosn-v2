@@ -211,7 +211,7 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 	}
 }
 
-func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody []byte, err error) {
+func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err error) {
 	var request *http.Request
 	request, err = http.NewRequest(http.MethodPost, session.Server+syncPath, bytes.NewBuffer(reqBody))
 	if err != nil {
@@ -228,7 +228,7 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	response, err = httpClient.Do(request)
 	elapsed := time.Since(start)
 
-	debugPrint(debug, fmt.Sprintf("makeSyncRequest | request took: %v", elapsed))
+	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v", elapsed))
 
 	if err != nil {
 		return
@@ -236,10 +236,10 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 
 	defer func() {
 		if err := response.Body.Close(); err != nil {
-			debugPrint(debug, "makeSyncRequest | failed to close body closed")
+			debugPrint(session.Debug, "makeSyncRequest | failed to close body closed")
 		}
 
-		debugPrint(debug, "makeSyncRequest | response body closed")
+		debugPrint(session.Debug, "makeSyncRequest | response body closed")
 	}()
 
 	switch response.StatusCode {
@@ -249,23 +249,23 @@ func makeSyncRequest(session Session, reqBody []byte, debug bool) (responseBody 
 	}
 
 	if response.StatusCode > 400 {
-		debugPrint(debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status))
+		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status))
 		return
 	}
 
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
-		debugPrint(debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status))
+		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status))
 	}
 
 	readStart := time.Now()
 
 	responseBody, err = ioutil.ReadAll(response.Body)
-	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
+	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
 	if err != nil {
 		return
 	}
 
-	debugPrint(debug, fmt.Sprintf("makeSyncRequest | response size %d bytes", len(responseBody)))
+	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response size %d bytes", len(responseBody)))
 	return responseBody, err
 }
 

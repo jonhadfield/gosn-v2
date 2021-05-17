@@ -289,7 +289,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	msrStart := time.Now()
 
 	var responseBody []byte
-	responseBody, err = makeSyncRequest(*input.Session, requestBody, debug)
+	responseBody, err = makeSyncRequest(*input.Session, requestBody)
 	msrEnd := time.Since(msrStart)
 	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 
