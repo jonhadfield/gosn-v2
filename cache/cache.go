@@ -368,7 +368,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var gSO gosn.SyncOutput
 
-	if si.ShowProgress && !si.Debug {
+	if !si.Debug {
 		prefix := HiWhite("syncing ")
 		// check if cache db exists
 		if dbIsNew {
