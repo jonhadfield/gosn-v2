@@ -102,7 +102,7 @@ func NewExtension() Extension {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewExtensionContent returns an empty Tag content instance
 func NewExtensionContent() *ExtensionContent {
 	c := &ExtensionContent{}
 	c.SetUpdateTime(time.Now().UTC())
