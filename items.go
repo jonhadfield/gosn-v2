@@ -279,6 +279,7 @@ type ItemReference struct {
 
 type OrgStandardNotesSNDetail struct {
 	ClientUpdatedAt string `json:"client_updated_at"`
+	PrefersPlainEditor bool `json:"prefersPlainEditor"`
 }
 
 type AppDataContent struct {

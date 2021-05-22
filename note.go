@@ -224,7 +224,10 @@ type NoteContent struct {
 	Text           string         `json:"text"`
 	ItemReferences ItemReferences `json:"references"`
 	AppData        AppDataContent `json:"appData"`
+	PreviewPlain   string         `json:"preview_plain"`
+	PreviewHtml    string         `json:"preview_html"`
 }
+
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
 	if noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
@@ -236,6 +239,14 @@ func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
 
 func (noteContent *NoteContent) SetUpdateTime(uTime time.Time) {
 	noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt = uTime.Format(timeLayout)
+}
+
+func (noteContent *NoteContent) SetPrefersPlainEditor(p bool) {
+	noteContent.AppData.OrgStandardNotesSN.PrefersPlainEditor = p
+}
+
+func (noteContent NoteContent) GetPrefersPlainEditor() bool {
+	return noteContent.AppData.OrgStandardNotesSN.PrefersPlainEditor
 }
 
 func (noteContent NoteContent) GetTitle() string {
