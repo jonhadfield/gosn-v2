@@ -70,10 +70,9 @@ func TestEncryptDecryptString(t *testing.T) {
 	tempExpectedCipherText := "B+8vUwmSTGZCba6mU2gMSMl55fpt38Wv/yWxAF4pEveX0sjqSYgjT5PA8/yy7LKotF+kjmuiHNvYtH7hB7BaqJrG8Q4G5Sj15tIu8PtlWECJWHnPxHkeiJW1MiS1ypR0t3y+Uc7cRpGPwnQIqJDr/Yl1vp2tZXlaSy0zYtGYlw5GwUnLxXtQBQC1Ml3rzZDpaIT9zIr9Qluv7Q7JXOJ7rAbj95MtsV2CJD4RwjhhJ11fpI3N8+uXqp4="
 
 	nonce := "6045eaf9774a877203b68bb12159f9c5c0c3d19df4949e40"
-	authData := "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
 	plainText := "{\"text\":\"Note Text\",\"title\":\"Note Title\",\"references\":[],\"appData\":{\"org.standardnotes.sn\":{\"client_updated_at\":\"2021-03-20T12:59:46.734Z\"}},\"preview_plain\":\"Note Text\"}"
 	uuid := "7eacf350-f4ce-44dd-8525-2457b19047dd"
-	authData = "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
+	authData := "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
 	newCipherText, err := encryptString(plainText, rawKey, nonce, authData)
 	require.NotEmpty(t, newCipherText)
 	require.Equal(t, tempExpectedCipherText, newCipherText)

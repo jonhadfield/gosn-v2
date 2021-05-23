@@ -242,8 +242,7 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 		debugPrint(session.Debug, "makeSyncRequest | response body closed")
 	}()
 
-	switch response.StatusCode {
-	case 413:
+	if response.StatusCode == 413 {
 		err = errors.New("payload too large")
 		return
 	}
@@ -278,8 +277,8 @@ type ItemReference struct {
 }
 
 type OrgStandardNotesSNDetail struct {
-	ClientUpdatedAt string `json:"client_updated_at"`
-	PrefersPlainEditor bool `json:"prefersPlainEditor"`
+	ClientUpdatedAt    string `json:"client_updated_at"`
+	PrefersPlainEditor bool   `json:"prefersPlainEditor"`
 }
 
 type AppDataContent struct {

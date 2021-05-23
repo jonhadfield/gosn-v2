@@ -133,12 +133,6 @@ func (n Notes) Validate() error {
 				return err
 			}
 			switch {
-			//case item.ItemsKeyID == "":
-			//	err = fmt.Errorf("failed to create \"%s\" due to missing ItemsKeyID: \"%s\"",
-			//		item.ContentType, item.UUID)
-			//case item.EncryptedItemKey == "":
-			//	err = fmt.Errorf("failed to create \"%s\" due to missing EncryptedItemKey: \"%s\"",
-			//		item.ContentType, item.UUID)
 			case item.Content.GetTitle() == "":
 				err = fmt.Errorf("failed to create \"%s\" due to missing title: \"%s\"",
 					item.ContentType, item.UUID)
@@ -227,7 +221,6 @@ type NoteContent struct {
 	PreviewPlain   string         `json:"preview_plain"`
 	PreviewHtml    string         `json:"preview_html"`
 }
-
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
 	if noteContent.AppData.OrgStandardNotesSN.ClientUpdatedAt == "" {
@@ -343,11 +336,12 @@ func (n Note) Equals(e Note) bool {
 }
 
 func (noteContent NoteContent) Copy() NoteContent {
-	res := *new(NoteContent)
-	res.Title = noteContent.Title
-	res.Text = noteContent.Text
-	res.AppData = noteContent.AppData
-	res.ItemReferences = noteContent.ItemReferences
+	res := NoteContent{
+		Title:          noteContent.Title,
+		Text:           noteContent.Text,
+		ItemReferences: noteContent.ItemReferences,
+		AppData:        noteContent.AppData,
+	}
 
 	return res
 }

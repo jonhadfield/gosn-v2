@@ -9,8 +9,8 @@ import (
 
 type Session struct {
 	*gosn.Session
-	CacheDB      *storm.DB
-	CacheDBPath  string
+	CacheDB     *storm.DB
+	CacheDBPath string
 }
 
 // ImportSession creates a new Session from an existing gosn.Session instance
