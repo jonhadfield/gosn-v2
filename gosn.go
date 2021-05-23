@@ -1,7 +1,6 @@
 package gosn
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -10,7 +9,7 @@ import (
 
 const (
 	// API
-	apiServer        = "https://sync.standardnotes.org"
+	apiServer = "https://sync.standardnotes.org"
 	// apiServer     = "https://syncing-server-js-prod.standardnotes.org" // currently beta
 	authParamsPath   = "/auth/params"  // remote path for getting auth parameters
 	authRegisterPath = "/auth"         // remote path for registering user
@@ -66,14 +65,5 @@ func debugPrint(show bool, msg string) {
 		}
 
 		log.Println(LibName, "|", msg)
-	}
-}
-
-func show(msg string, item interface{}) {
-	fmt.Printf("%s: %+v\n", msg, item)
-}
-func showlist(msg string, items []interface{}) {
-	for x, item := range items {
-		fmt.Printf("%s %d: %+v\n", msg, x, item)
 	}
 }

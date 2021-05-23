@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -335,79 +337,6 @@ func TestEncryptDecryptItem(t *testing.T) {
 
 }
 
-//func TestDecryptItems(t *testing.T) {
-//	sio, err := SignIn(sInput)
-//	require.NoError(t, err, "sign-in failed", err)
-//
-//	defer func() {
-//		cleanup(&testSession)
-//	}()
-//
-//	syncInput := SyncInput{
-//		Session: testSession,
-//		Debug:   true,
-//	}
-//
-//	var syncOutput SyncOutput
-//
-//	syncOutput, err = Sync(syncInput)
-//	require.NoError(t, err, "Sync Failed", err)
-//
-//	items, err := decryptItems(testSession.MasterKey, syncOutput.Items, nil)
-//	require.NoError(t, err)
-//	require.NotEmpty(t, items)
-//}
-//
-//func getItemsKey(masterKey, uuid string, keys *[]itemsKey, items EncryptedItems) (ik ItemsKey, err error) {
-//	// instanciate key slice if nil pointer passed
-//	if keys == nil {
-//		keys = &[]itemsKey{}
-//	}
-//
-//	// return previously obtained items key
-//	for _, k := range *keys {
-//		if uuid == k.uuid {
-//			return k, nil
-//		}
-//	}
-//
-//	// search items for items key
-//	for _, k := range items {
-//		if k.UUID == uuid {
-//			var ks []itemsKey
-//			ks, err = decryptItemKeys(masterKey, EncryptedItems{k})
-//			if err != nil {
-//				return itemsKey{}, err
-//			}
-//			*keys = append(*keys, ks[0])
-//			return ks[0], err
-//		}
-//	}
-//
-//	err = fmt.Errorf("items key with uuid: %s could not be found", uuid)
-//
-//	return itemsKey{}, err
-//}
-
-//func (ei *EncryptedItems) GetItemsKeys(s *Session) (iks []ItemsKey, err error) {
-//	var encItemKeys EncryptedItems
-//
-//	for _, i := range *ei {
-//		if i.ContentType == "SN|ItemsKey" && strings.HasPrefix(i.Content, "004") {
-//			encItemKeys = append(encItemKeys, i)
-//		}
-//	}
-//
-//	if encItemKeys == nil {
-//		return nil, fmt.Errorf("no ItemsKeys found")
-//	}
-//
-//	iks, err = encItemKeys.DecryptAndParseItemsKeys(s)
-//
-//	return iks, err
-//}
-
-//
 func TestPutItemsAddSingleNote(t *testing.T) {
 	// SetDebugLogger(log.Println)
 	randPara := "TestText"
@@ -478,7 +407,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 		t.Errorf("failed to get created Item by UUID")
 	}
 }
-
 
 func TestPutItemsAddSingleComponent(t *testing.T) {
 	newComponentContent := ComponentContent{
@@ -929,6 +857,7 @@ func TestSearchNotesByText(t *testing.T) {
 	_, err := Sync(SyncInput{
 		Session: testSession,
 	})
+	assert.NoError(t, err)
 
 	// create two notes
 	noteInput := map[string]string{
@@ -1176,7 +1105,7 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 	}
 }
 
-//func TestCreateAndGet301Notes(t *testing.T) {
+//  func TestCreateAndGet301Notes(t *testing.T) {
 //	numNotes := 301
 //	sio, err := SignIn(sInput)
 //	require.NoError(t, err, "sign-in failed", err)
@@ -1254,7 +1183,7 @@ func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
 //			t.Errorf("incorrect note returned")
 //		}
 //	}
-//}
+//  }
 
 func genRandomText(paragraphs int) string {
 	var strBuilder strings.Builder

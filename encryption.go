@@ -50,15 +50,15 @@ const (
 
 // Encryption - Specifics
 //
-//An encrypted payload consists of:
+// An encrypted payload consists of:
 //
-//items_key_id: The UUID of the itemsKey used to encrypt enc_item_key.
-//enc_item_key: An encrypted protocol string joined by colons : of the following components:
+// items_key_id: The UUID of the itemsKey used to encrypt enc_item_key.
+// enc_item_key: An encrypted protocol string joined by colons : of the following components:
 // - protocol version
 // - encryption nonce
 // - ciphertext
 // - authenticated_data
-//content: An encrypted protocol string joined by colons : of the following components:
+// content: An encrypted protocol string joined by colons : of the following components:
 // - protocol version
 // - encryption nonce
 // - ciphertext
@@ -147,7 +147,7 @@ func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
 // and returns a list of items keys uuid (string) and key (bytes)
 func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
 	for _, ei := range eis {
-		if ! isEncryptedType(ei.ContentType) || ei.Deleted {
+		if !isEncryptedType(ei.ContentType) || ei.Deleted {
 			continue
 		}
 
@@ -166,7 +166,7 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 
 		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
 		if version != "004" {
-			err = errors.New(fmt.Sprintf("your account contains items encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app"))
+			err = errors.New("your account contains items encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app")
 			return
 		}
 		var itemKey []byte

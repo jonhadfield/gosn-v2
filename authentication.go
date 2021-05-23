@@ -590,18 +590,16 @@ func (s *Session) Valid() bool {
 		return false
 	}
 	switch {
-	//case s.RefreshToken == "":
-	//	fmt.Println("ref empty")
-	//	return false
-	//case s.AccessToken == "":
-	//	fmt.Println("at empty")
-	//	return false
+	case s.RefreshToken == "":
+		return false
+	case s.AccessToken == "":
+		return false
 	case s.MasterKey == "":
 		return false
-		//case s.AccessExpiration == 0:
-		//	return false
-		//case s.RefreshExpiration == 0:
-		//	return false
+	case s.AccessExpiration == 0:
+		return false
+	case s.RefreshExpiration == 0:
+		return false
 	}
 
 	return true

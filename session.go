@@ -13,6 +13,8 @@ import (
 	"syscall"
 
 	keyring "github.com/zalando/go-keyring"
+	// TODO: Replace terminal with term
+	//  "golang.org/x/term"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/spf13/viper"
@@ -302,16 +304,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 }
 
 func isUnencryptedSession(in string) bool {
-	//re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-	//if len(strings.Split(in, ";")) == 5 && re.MatchString(strings.Split(in, ";")[0]) {
-	//	return true
-	//}
-
-	if len(strings.Split(in, ";")) == 7 {
-		return true
-	}
-
-	return false
+	return len(strings.Split(in, ";")) == 7
 }
 
 func ParseSessionString(in string) (email string, session Session, err error) {

@@ -110,12 +110,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postElapsed := time.Since(postStart)
 	debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
-	// CHECK NO ITEMS KEYS ARE DELETED
-	//for _, savedItem := range output.SavedItems {
-	//	if savedItem.ContentType == "SN|ItemsKey" {
-	//		panic(fmt.Sprintf("ItemsKeys deleted, including: %v", savedItem))
-	//	}
-	//}
 	if err = output.Conflicts.Validate(); err != nil {
 		panic(err)
 	}
@@ -127,12 +121,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	if len(output.Items) > 0 {
 		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
 	}
-
-	// START DEBUG
-	if input.Session.DefaultItemsKey.ItemsKey == "" {
-		//panic("input.Session.DefaultItemsKey.ItemsKey is empty")
-	}
-	// END DEBUG
 
 	return output, err
 }
@@ -349,7 +337,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		out.Items = append(out.Items, newOutput.Items...)
 		out.SavedItems = append(out.SavedItems, newOutput.SavedItems...)
 		out.Unsaved = append(out.Unsaved, newOutput.Unsaved...)
-		out.Conflicts = append(out.Conflicts)
+		out.Conflicts = append(out.Conflicts, newOutput.Conflicts...)
 
 		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
 		out.LastItemPut = finalItem
