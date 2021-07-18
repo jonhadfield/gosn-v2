@@ -247,6 +247,11 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 		return
 	}
 
+	if response.StatusCode == 498 {
+		err = errors.New("session token is invalid or has expired")
+		return
+	}
+
 	if response.StatusCode > 400 {
 		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status))
 		return
