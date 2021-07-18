@@ -16,7 +16,7 @@ const (
 	signInPath       = "/auth/sign_in" // remote path for authenticating
 	syncPath         = "/items/sync"   // remote path for making sync calls
 	// PageSize is the maximum number of items to return with each call
-	PageSize            = 300
+	PageSize            = 150
 	timeLayout          = "2006-01-02T15:04:05.000Z"
 	timeLayout2         = "2006-01-02T15:04:05.000000Z"
 	defaultSNVersion    = "004"
