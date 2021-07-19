@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/asdine/storm/v3"
-	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
 	"github.com/jonhadfield/gosn-v2"
 	"github.com/mitchellh/go-homedir"
@@ -218,17 +217,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var db *storm.DB
 
-	// check db exists
-	var dbIsNew bool
-
 	// open DB if path provided
 	if si.Session.CacheDBPath != "" {
 		debugPrint(si.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath))
-
-		_, err = os.Stat(si.Session.CacheDBPath)
-		if os.IsNotExist(err) {
-			dbIsNew = true
-		}
 
 		db, err = storm.Open(si.Session.CacheDBPath)
 		if err != nil {
@@ -368,23 +359,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var gSO gosn.SyncOutput
 
-	if !si.Debug {
-		prefix := HiWhite("syncing ")
-		// check if cache db exists
-		if dbIsNew {
-			prefix = HiWhite("initialising ")
-		}
-
-		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Build our new spinner
-		s.Prefix = prefix
-		s.Start()
-
-		gSO, err = gosn.Sync(gSI)
-
-		s.Stop()
-	} else {
-		gSO, err = gosn.Sync(gSI)
-	}
+	gSO, err = gosn.Sync(gSI)
 
 	if err != nil {
 		return
