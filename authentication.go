@@ -55,20 +55,25 @@ type authParamsOutput struct {
 	TokenName     string
 }
 
-func requestToken(client *http.Client, input signInInput) (signInSuccess signInResponse, signInFailure errorResponse, err error) {
+func requestToken(input signInInput) (signInSuccess signInResponse, signInFailure errorResponse, err error) {
 	var reqBodyBytes []byte
 
 	var reqBody string
+
+	apiVer := "20200115"
+
 	if input.tokenName != "" {
-		reqBody = `{"api":"20200115","password":"` + input.encPassword + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
+		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
+		debugPrint(input.debug, fmt.Sprintf("requesting session token api: %s encPassword len: %d email: %s tokenName: %s tokenValue: %s", apiVer, len(input.encPassword), input.email, input.tokenName, input.tokenValue))
 	} else {
-		reqBody = `{"api":"20200115","password":"` + input.encPassword + `","email":"` + input.email + `"}`
+		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + input.email + `"}`
+		debugPrint(input.debug, fmt.Sprintf("requesting session token api: %s encPassword len: %d email: %s", apiVer, len(input.encPassword), input.email))
 	}
 
 	reqBodyBytes = []byte(reqBody)
 
 	var signInURLReq *http.Request
-
+	debugPrint(input.debug, fmt.Sprintf("sign-in url: %s", input.signInURL))
 	signInURLReq, err = http.NewRequest(http.MethodPost, input.signInURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return
@@ -136,6 +141,8 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		if err != nil {
 			return
 		}
+
+		debugPrint(debug, fmt.Sprintf("status 404 %+v", errResp))
 		return
 	case 400:
 		// most likely authentication missing or SN API has changed
@@ -143,6 +150,8 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		if err != nil {
 			return
 		}
+
+		debugPrint(debug, fmt.Sprintf("status 400 %+v", errResp))
 	case 401:
 		// need mfa token
 		// unmarshal error response
@@ -150,6 +159,8 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		if err != nil {
 			return
 		}
+
+		debugPrint(debug, fmt.Sprintf("status 401 %+v", errResp))
 	case 403:
 		// server has denied request
 		// unmarshal error response
@@ -342,6 +353,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 
 	getAuthParamsOutput, err = getAuthParams(getAuthParamsInput)
 	if err != nil {
+		debugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err))
 		err = processConnectionFailure(err, getAuthParamsInput.authParamsURL)
 		return
 	}
@@ -358,8 +370,6 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	}
 
 	// generate encrypted password 004
-	// var encPassword string
-
 	var genEncPasswordInput generateEncryptedPasswordInput
 
 	genEncPasswordInput.userPassword = input.Password
@@ -379,15 +389,18 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	var tokenResp signInResponse
 
 	var requestTokenFailure errorResponse
-	tokenResp, requestTokenFailure, err = requestToken(httpClient, signInInput{
+	tokenResp, requestTokenFailure, err = requestToken(signInInput{
 		email:       input.Email,
 		encPassword: sp,
 		tokenName:   input.TokenName,
 		tokenValue:  input.TokenVal,
 		signInURL:   input.APIServer + signInPath,
+		debug:       input.Debug,
 	})
 
 	if err != nil {
+		debugPrint(input.Debug, fmt.Sprintf("requestToken failure: %+v error: %+v", requestTokenFailure, err))
+
 		return
 	}
 
@@ -427,6 +440,9 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 		return
 	}
 
+	var errResp errorResponse
+	_ = json.Unmarshal(body, &errResp)
+
 	switch response.StatusCode {
 	case 200:
 		var output registerResponse
@@ -439,24 +455,17 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 
 		token = output.Token
 	case 404:
+		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Error.Message))
 		// email address not recognised
-		var errResp errorResponse
-
-		err = json.Unmarshal(body, &errResp)
-		if err != nil {
-			err = fmt.Errorf("email address not recognised")
-			return
-		}
+		err = fmt.Errorf("email address not recognised")
 	case 401:
-		// unmarshal error response
-		var errResp errorResponse
-
-		err = json.Unmarshal(body, &errResp)
+		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Error.Message))
 		if errResp.Error.Message != "" {
 			err = fmt.Errorf("email is already registered")
 			return
 		}
 	default:
+		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Error.Message))
 		err = fmt.Errorf("unhandled: %+v", response)
 		return
 	}
@@ -527,9 +536,7 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 	masterKey, serverPassword, err = generateMasterKeyAndServerPassword004(generateEncryptedPasswordInput{
 		userPassword: password,
 		authParamsOutput: authParamsOutput{
-			Identifier: email,
-			// PasswordSalt: pwNonce,
-			// PasswordCost:  0,
+			Identifier:    email,
 			PasswordNonce: pwNonce,
 			Version:       "",
 			TokenName:     "",
@@ -541,11 +548,12 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 
 // CliSignIn takes the server URL and credentials and sends them to the API to get a response including
 // an authentication token plus the keys required to encrypt and decrypt SN items
-func CliSignIn(email, password, apiServer string) (session Session, err error) {
+func CliSignIn(email, password, apiServer string, debug bool) (session Session, err error) {
 	sInput := SignInInput{
 		Email:     email,
 		Password:  password,
 		APIServer: apiServer,
+		Debug:     debug,
 	}
 
 	// attempt sign-in without MFA
@@ -598,8 +606,8 @@ func (s *Session) Valid() bool {
 		return false
 	case s.AccessExpiration == 0:
 		return false
-	//case s.RefreshExpiration == 0:
-	//	return false
+		// case s.RefreshExpiration == 0:
+		//	return false
 	}
 
 	return true
