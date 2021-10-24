@@ -158,7 +158,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring) (res string, err erro
 
 	var email string
 
-	session, email, err = GetSessionFromUser(snServer)
+	session, email, err = GetSessionFromUser(snServer, false)
 	if err != nil {
 		return fmt.Sprint("failed to get Session: ", err), err
 	}
@@ -228,7 +228,7 @@ func MakeSessionString(email string, session Session) string {
 	return fmt.Sprintf("%s;%s;%s;%d;%s;%d", email, session.MasterKey, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
 }
 
-func GetSessionFromUser(server string) (Session, string, error) {
+func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 	var sess Session
 
 	var err error
@@ -246,8 +246,10 @@ func GetSessionFromUser(server string) (Session, string, error) {
 		return sess, email, err
 	}
 
-	sess, err = CliSignIn(email, password, apiServer)
+	debugPrint(debug, fmt.Sprintf("attempting cli sign-in with email: '%s' %d char password and server '%s'", email, len(password), apiServer))
+	sess, err = CliSignIn(email, password, apiServer, debug)
 	if err != nil {
+		debugPrint(debug, fmt.Sprintf("CliSignIn failed with: %+v", err))
 		return sess, email, err
 	}
 
@@ -292,7 +294,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 			return
 		}
 	} else {
-		session, email, err = GetSessionFromUser(server)
+		session, email, err = GetSessionFromUser(server, debug)
 		if err != nil {
 			return
 		}
