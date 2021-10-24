@@ -9,8 +9,7 @@ import (
 
 const (
 	// API
-	apiServer = "https://sync.standardnotes.org"
-	// apiServer     = "https://syncing-server-js-prod.standardnotes.org" // currently beta
+	apiServer = "https://api.standardnotes.com"
 	authParamsPath   = "/auth/params"  // remote path for getting auth parameters
 	authRegisterPath = "/auth"         // remote path for registering user
 	signInPath       = "/auth/sign_in" // remote path for authenticating
