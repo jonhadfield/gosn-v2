@@ -118,7 +118,7 @@ func TestAddSession(t *testing.T) {
 		serverURL = SNServerURL
 	}
 
-	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{})
+	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{}, true)
 	require.NoError(t, err)
 }
 
