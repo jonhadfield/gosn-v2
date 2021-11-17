@@ -33,7 +33,7 @@ func (s cryptoSource) Uint64() (v uint64) {
 }
 
 type doAuthRequestOutput struct {
-	authParamsOutput
+	Data   authParamsOutput `json:"data"`
 	mfaKEY string
 }
 
@@ -58,16 +58,16 @@ type authParamsOutput struct {
 func requestToken(input signInInput) (signInSuccess signInResponse, signInFailure errorResponse, err error) {
 	var reqBodyBytes []byte
 
+	e := url.PathEscape(input.email)
 	var reqBody string
 
 	apiVer := "20200115"
 
 	if input.tokenName != "" {
-		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
-		debugPrint(input.debug, fmt.Sprintf("requesting session token api: %s encPassword len: %d email: %s tokenName: %s tokenValue: %s", apiVer, len(input.encPassword), input.email, input.tokenName, input.tokenValue))
+		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
 	} else {
-		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + input.email + `"}`
-		debugPrint(input.debug, fmt.Sprintf("requesting session token api: %s encPassword len: %d email: %s", apiVer, len(input.encPassword), input.email))
+		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `"}`
+
 	}
 
 	reqBodyBytes = []byte(reqBody)
@@ -112,6 +112,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	if err != nil {
 		return
 	}
+
 	// unmarshal failure
 	err = json.Unmarshal(signInRespBody, &signInFailure)
 	if err != nil {
@@ -174,7 +175,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 	return
 }
 
-type errorResponse struct {
+type errorResponseData struct {
 	Error struct {
 		Tag     string `json:"tag"`
 		Message string `json:"message"`
@@ -184,17 +185,22 @@ type errorResponse struct {
 	}
 }
 
+type errorResponse struct {
+	Meta signInResponseMeta `json:"meta"`
+	Data errorResponseData  `json:"data"`
+}
+
 // HTTP request bit
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
 	// make initial params request without mfa token
 	var reqURL string
-	// https://syncing-server-dev.standardnotes.org/auth/params?email=gosn-v2%40lessknown.co.uk&api=20200115
+	e := url.QueryEscape(input.email)
 	if input.tokenName == "" {
 		// initial request
-		reqURL = input.authParamsURL + "?email=" + input.email + "&api=20200115"
+		reqURL = input.authParamsURL + "?email=" + e + "&api=20200115"
 	} else {
 		// request with mfa
-		reqURL = input.authParamsURL + "?email=" + input.email + "&" + input.tokenName + "=" + input.tokenValue
+		reqURL = input.authParamsURL + "?email=" + e + "&" + input.tokenName + "=" + input.tokenValue
 	}
 	var req *http.Request
 
@@ -223,12 +229,12 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		return
 	}
 
-	output.Identifier = requestOutput.Identifier
-	output.Version = requestOutput.Version
-	output.PasswordCost = requestOutput.PasswordCost
-	output.PasswordNonce = requestOutput.PasswordNonce
-	output.PasswordSalt = requestOutput.PasswordSalt
-	output.mfaKEY = errResp.Error.Payload.MFAKey
+	output.Data.Identifier = requestOutput.Data.Identifier
+	output.Data.Version = requestOutput.Data.Version
+	output.Data.PasswordCost = requestOutput.Data.PasswordCost
+	output.Data.PasswordNonce = requestOutput.Data.PasswordNonce
+	output.Data.PasswordSalt = requestOutput.Data.PasswordSalt
+	output.mfaKEY = errResp.Data.Error.Payload.MFAKey
 
 	return output, err
 }
@@ -241,9 +247,9 @@ func getAuthParams(input authParamsInput) (output authParamsOutput, err error) {
 		return
 	}
 
-	output.Identifier = authRequestOutput.Identifier
-	output.PasswordNonce = authRequestOutput.PasswordNonce
-	output.Version = authRequestOutput.Version
+	output.Identifier = authRequestOutput.Data.Identifier
+	output.PasswordNonce = authRequestOutput.Data.PasswordNonce
+	output.Version = authRequestOutput.Data.Version
 	output.TokenName = authRequestOutput.mfaKEY
 
 	return
@@ -252,6 +258,7 @@ func getAuthParams(input authParamsInput) (output authParamsOutput, err error) {
 type generateEncryptedPasswordInput struct {
 	userPassword string
 	authParamsOutput
+	debug bool
 }
 
 type signInInput struct {
@@ -276,11 +283,19 @@ type user struct {
 	Email string `json:"email"`
 }
 
-type signInResponse struct {
+type signInResponseData struct {
 	Session   Session   `json:"Session"`
 	KeyParams keyParams `json:"key_params"`
 	User      user      `json:"user"`
-	Token     string    `json:"token"`
+}
+
+type signInResponseMeta struct {
+	Auth interface{} `json:"auth"`
+}
+
+type signInResponse struct {
+	Meta signInResponseMeta `json:"meta"`
+	Data signInResponseData `json:"data"`
 }
 
 type registerResponse struct {
@@ -346,6 +361,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		tokenValue:    input.TokenVal,
 		tokenName:     input.TokenName,
 		authParamsURL: input.APIServer + authParamsPath,
+		debug:         input.Debug,
 	}
 
 	// request authentication parameters
@@ -373,10 +389,11 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	var genEncPasswordInput generateEncryptedPasswordInput
 
 	genEncPasswordInput.userPassword = input.Password
-	genEncPasswordInput.Identifier = input.Email
+	genEncPasswordInput.Identifier = getAuthParamsOutput.Identifier
 	genEncPasswordInput.TokenName = input.TokenName
 	genEncPasswordInput.PasswordNonce = getAuthParamsOutput.PasswordNonce
 	genEncPasswordInput.Version = getAuthParamsOutput.Version
+	genEncPasswordInput.debug = input.Debug
 
 	var _, sp string
 	var mk string
@@ -404,17 +421,17 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		return
 	}
 
-	if requestTokenFailure.Error.Message != "" {
-		err = fmt.Errorf(strings.ToLower(requestTokenFailure.Error.Message))
+	if requestTokenFailure.Data.Error.Message != "" {
+		err = fmt.Errorf(strings.ToLower(requestTokenFailure.Data.Error.Message))
 		return
 	}
 
-	output.Session = tokenResp.Session
-	output.KeyParams = tokenResp.KeyParams
-	output.User = tokenResp.User
+	output.Session = tokenResp.Data.Session
+	output.KeyParams = tokenResp.Data.KeyParams
+	output.User = tokenResp.Data.User
 	output.Session.MasterKey = mk
 	output.Session.Debug = input.Debug
-	output.Session.Token = tokenResp.Token
+	output.Session.Token = tokenResp.Data.Session.Token
 	output.Session.Server = input.APIServer
 	return output, err
 }
@@ -455,17 +472,20 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 
 		token = output.Token
 	case 404:
-		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Error.Message))
+		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message))
 		// email address not recognised
 		err = fmt.Errorf("email address not recognised")
 	case 401:
-		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Error.Message))
-		if errResp.Error.Message != "" {
+		// unmarshal error response
+		var errResp errorResponse
+
+		err = json.Unmarshal(body, &errResp)
+		if errResp.Data.Error.Message != "" {
 			err = fmt.Errorf("email is already registered")
 			return
 		}
 	default:
-		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Error.Message))
+		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message))
 		err = fmt.Errorf("unhandled: %+v", response)
 		return
 	}
@@ -606,8 +626,8 @@ func (s *Session) Valid() bool {
 		return false
 	case s.AccessExpiration == 0:
 		return false
-		// case s.RefreshExpiration == 0:
-		//	return false
+	case s.RefreshExpiration == 0:
+		return false
 	}
 
 	return true

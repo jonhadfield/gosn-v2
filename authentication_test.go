@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 )
 
 var testEmailAddr = fmt.Sprintf("testuser-%s@example.com", time.Now().Format("20060102150405"))
+var testEmailAddrWithPlus = fmt.Sprintf("test+user-%s@example.com", time.Now().Format("20060102150405"))
 
 // ### server not required for following tests
 func TestGenerateSalt004(t *testing.T) {
@@ -53,47 +55,59 @@ func TestSignIn(t *testing.T) {
 	}
 }
 
-//
-//func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
-//	emailAddr := testEmailAddr
-//	password := "secretsanta"
-//
-//	rInput := RegisterInput{
-//		Password:   password,
-//		Email:      emailAddr,
-//		Identifier: emailAddr,
-//		// PWNonce:     "",
-//		Version: defaultSNVersion,
-//		// Origination: "",
-//		// Created:     0,
-//		// API:         "",
-//		APIServer: os.Getenv("SN_SERVER"),
-//		Debug:     true,
-//	}
-//
-//	// fmt.Printf("rInput: %+v\n", rInput)
-//	_, err := rInput.Register()
-//	// fmt.Println("X token:", token)
-//	require.NoError(t, err, "registration failed")
-//
-//	postRegSignInInput := SignInInput{
-//		APIServer: os.Getenv("SN_SERVER"),
-//		Email:     emailAddr,
-//		Password:  password,
-//	}
-//	_, err = SignIn(postRegSignInInput)
-//	require.NoError(t, err, err)
-//}
+func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
+	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+		emailAddr := testEmailAddr
+		password := "secretsanta"
+
+		rInput := RegisterInput{
+			Password:   password,
+			Email:      emailAddr,
+			Identifier: emailAddr,
+			Version:    defaultSNVersion,
+			APIServer:  os.Getenv("SN_SERVER"),
+			Debug:      true,
+		}
+
+		_, err := rInput.Register()
+		require.NoError(t, err, "registration failed")
+
+		postRegSignInInput := SignInInput{
+			APIServer: os.Getenv("SN_SERVER"),
+			Email:     emailAddr,
+			Password:  password,
+		}
+		_, err = SignIn(postRegSignInInput)
+		require.NoError(t, err, err)
+	}
+}
 
 func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
-	password := "secret"
-	rInput := RegisterInput{
-		Email:     testEmailAddr,
-		Password:  password,
-		APIServer: os.Getenv("SN_SERVER"),
+	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+		password := "secret"
+		rInput := RegisterInput{
+			Email:     testEmailAddr,
+			Password:  password,
+			APIServer: os.Getenv("SN_SERVER"),
+		}
+		_, err := rInput.Register()
+		require.Error(t, err, "email is already registered")
 	}
-	_, err := rInput.Register()
-	require.Error(t, err, "email is already registered")
+}
+
+func TestRegistrationAndSignInWithEmailWithPlusSign(t *testing.T) {
+	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+		password := "secret"
+		sInput := SignInInput{
+			Email:     testEmailAddrWithPlus,
+			Password:  password,
+			APIServer: os.Getenv("SN_SERVER"),
+			Debug:     true,
+		}
+		_, err := SignIn(sInput)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid email or password")
+	}
 }
 
 func TestSignInWithInvalidEmail(t *testing.T) {
@@ -102,6 +116,7 @@ func TestSignInWithInvalidEmail(t *testing.T) {
 		Email:     "invalid@example.com",
 		Password:  password,
 		APIServer: os.Getenv("SN_SERVER"),
+		Debug:     true,
 	}
 	_, err := SignIn(sInput)
 	require.Error(t, err)
@@ -114,6 +129,7 @@ func TestSignInWithBadPassword(t *testing.T) {
 		Email:     "sn@lessknown.co.uk",
 		Password:  password,
 		APIServer: os.Getenv("SN_SERVER"),
+		Debug:     true,
 	}
 	_, err := SignIn(sInput)
 	require.Error(t, err)
@@ -126,6 +142,7 @@ func TestSignInWithUnresolvableHost(t *testing.T) {
 		Email:     "sn@lessknown.co.uk",
 		Password:  password,
 		APIServer: "https://standardnotes.example.com:443",
+		Debug:     true,
 	}
 	_, err := SignIn(sInput)
 	require.Error(t, err)
@@ -138,6 +155,7 @@ func TestSignInWithInvalidURL(t *testing.T) {
 		Email:     "sn@lessknown.co.uk",
 		Password:  password,
 		APIServer: "standardnotes.example.com:443",
+		Debug:     true,
 	}
 	_, err := SignIn(sInput)
 	require.Error(t, err)
@@ -149,12 +167,11 @@ func TestSignInWithInvalidURL(t *testing.T) {
 //	sInput := SignInInput{
 //		Email:     "sn@lessknown.co.uk",
 //		Password:  password,
-//		APIServer: "https://255.255.255.255:443",
+//		APIServer: "http://255.255.255.255",
 //	}
 //	_, err := SignIn(sInput)
 //	require.Error(t, err)
-//	fmt.Println(err)
-//	require.Equal(t, fmt.Sprintf("failed to connect to https://255.255.255.255:443/auth/params"), err.Error())
+//	require.Equal(t, fmt.Sprintf("failed to connect to http://255.255.255.255/v1/login-params"), err.Error())
 //}
 
 func TestSignInWithUnavailableServer(t *testing.T) {
@@ -163,9 +180,10 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 		Email:     "sn@lessknown.co.uk",
 		Password:  password,
 		APIServer: "https://10.10.10.10:6000",
+		Debug:     true,
 	}
 	_, err := SignIn(sInput)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), fmt.Sprintf("failed to connect to %s within %d seconds",
-		"https://10.10.10.10:6000/auth/params", connectionTimeout))
+	require.Equal(t, fmt.Sprintf("failed to connect to %s within %d seconds",
+		"https://10.10.10.10:6000/v1/login-params", connectionTimeout), err.Error())
 }

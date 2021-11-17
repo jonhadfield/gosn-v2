@@ -9,11 +9,11 @@ import (
 
 const (
 	// API
-	apiServer = "https://api.standardnotes.com"
-	authParamsPath   = "/auth/params"  // remote path for getting auth parameters
-	authRegisterPath = "/auth"         // remote path for registering user
-	signInPath       = "/auth/sign_in" // remote path for authenticating
-	syncPath         = "/items/sync"   // remote path for making sync calls
+	apiServer        = "https://api.standardnotes.com"
+	authParamsPath   = "/v1/login-params" // remote path for getting auth parameters
+	authRegisterPath = "/auth"            // remote path for registering user
+	signInPath       = "/v1/login"        // remote path for authenticating
+	syncPath         = "/items/sync"      // remote path for making sync calls
 	// PageSize is the maximum number of items to return with each call
 	PageSize            = 150
 	timeLayout          = "2006-01-02T15:04:05.000Z"

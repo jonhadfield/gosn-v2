@@ -19,6 +19,7 @@ var (
 		Email:     os.Getenv("SN_EMAIL"),
 		Password:  os.Getenv("SN_PASSWORD"),
 		APIServer: os.Getenv("SN_SERVER"),
+		Debug:     true,
 	}
 	testParas = []string{
 		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut venenatis est sit amet lectus aliquam, ac rutrum nibh vulputate. Etiam vel nulla dapibus, lacinia neque et, porttitor elit. Nulla scelerisque elit sem, ac posuere est gravida dignissim. Fusce laoreet, enim gravida vehicula aliquam, tellus sem iaculis lorem, rutrum congue ex lectus ut quam. Cras sollicitudin turpis magna, et tempor elit dignissim eu. Etiam sed auctor leo. Sed semper consectetur purus, nec vehicula tellus tristique ac. Cras a quam et magna posuere varius vitae posuere sapien. Morbi tincidunt tellus eu metus laoreet, quis pulvinar sapien consectetur. Fusce nec viverra lectus, sit amet ullamcorper elit. Vestibulum vestibulum augue sem, vitae egestas ipsum fringilla sit amet. Nulla eget ante sit amet velit placerat gravida.",
@@ -294,6 +295,8 @@ func cleanup() {
 func TestDecryptItemsKeys(t *testing.T) {
 	s := testSession
 
+	cleanup()
+
 	defer func() {
 		cleanup()
 	}()
@@ -306,7 +309,6 @@ func TestDecryptItemsKeys(t *testing.T) {
 	require.NoError(t, err, "Sync Failed", err)
 	require.NotEmpty(t, s.ItemsKeys)
 	require.NotEmpty(t, s.DefaultItemsKey)
-
 }
 
 func TestEncryptDecryptItem(t *testing.T) {
@@ -1038,6 +1040,8 @@ func TestSearchTagsByRegex(t *testing.T) {
 }
 
 func TestCreateAndGet200NotesInBatchesOf50(t *testing.T) {
+	cleanup()
+
 	defer cleanup()
 
 	newNotes := genNotes(200, 2)

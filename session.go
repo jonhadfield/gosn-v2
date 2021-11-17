@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	SNServerURL              = "https://sync.standardnotes.org"
+	SNServerURL              = "https://api.standardnotes.com"
 	KeyringApplicationName   = "Session"
 	KeyringService           = "StandardNotesCLI"
 	MsgSessionRemovalSuccess = "Session removed successfully"
@@ -118,7 +118,7 @@ func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
 	return k.Get(KeyringService, KeyringApplicationName)
 }
 
-func AddSession(snServer, inKey string, k keyring.Keyring) (res string, err error) {
+func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res string, err error) {
 	// check if Session exists in keyring
 	var s string
 	s, err = GetSessionFromKeyring(k)
@@ -158,7 +158,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring) (res string, err erro
 
 	var email string
 
-	session, email, err = GetSessionFromUser(snServer, false)
+	session, email, err = GetSessionFromUser(snServer, debug)
 	if err != nil {
 		return fmt.Sprint("failed to get Session: ", err), err
 	}
