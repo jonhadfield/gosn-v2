@@ -331,12 +331,16 @@ func processConnectionFailure(i error, reqURL string) error {
 		}
 
 		return fmt.Errorf("failed to connect to %s as %s cannot be resolved", reqURL, urlBits.Hostname())
+	case strings.Contains(i.Error(), "StatusCode:503"):
+		return fmt.Errorf("API server returned status 503: 'Service Unavailable'")
+	case strings.Contains(i.Error(), "EOF"):
+		return fmt.Errorf("API server returned an empty response")
 	case strings.Contains(i.Error(), "unsupported protocol scheme"):
 		if len(reqURL) > 0 {
 			return fmt.Errorf("protocol is missing from API server URL: %s", reqURL)
 		}
 
-		return fmt.Errorf("API Server URL is undefined")
+		return fmt.Errorf("API server URL is undefined")
 	case strings.Contains(i.Error(), "i/o timeout"):
 		return fmt.Errorf("failed to connect to %s within %d seconds", reqURL, connectionTimeout)
 	case strings.Contains(i.Error(), "permission denied"):
@@ -371,6 +375,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	if err != nil {
 		debugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err))
 		err = processConnectionFailure(err, getAuthParamsInput.authParamsURL)
+
 		return
 	}
 
