@@ -19,7 +19,6 @@ type SyncInput struct {
 	Items       EncryptedItems
 	NextItem    int // the next item to put
 	OutType     string
-	BatchSize   int // number of items to retrieve
 	PageSize    int // override default number of items to request with each sync call
 }
 
@@ -68,21 +67,39 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	var sResp syncResponse
 
-	debugPrint(debug, fmt.Sprintf("Sync | PageSize %d", input.PageSize))
 	// retry logic is to handle responses that are too large
 	// so we can reduce number we retrieve with each sync request
 	start := time.Now()
 	rErr := try.Do(func(attempt int) (bool, error) {
-		debugPrint(debug, fmt.Sprintf("Sync | attempt %d", attempt))
+		ps := PageSize
+		if input.PageSize > 0 {
+			ps = input.PageSize
+		}
+		debugPrint(debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps))
 		var rErr error
 
 		sResp, rErr = syncItemsViaAPI(input)
-		if rErr != nil && strings.Contains(strings.ToLower(rErr.Error()), "too large") {
+		if rErr != nil {
 			debugPrint(debug, fmt.Sprintf("Sync | %s", rErr.Error()))
-			input.NextItem = sResp.LastItemPut
-			resizeForRetry2(&input)
-			debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-				"at a time so reducing to %d", sResp.PutLimitUsed, input.PageSize))
+			switch {
+			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
+				input.NextItem = sResp.LastItemPut
+				resizeForRetry(&input)
+				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+					"at a time as the request was too large so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
+			case strings.Contains(strings.ToLower(rErr.Error()), "timeout"):
+				input.NextItem = sResp.LastItemPut
+				resizeForRetry(&input)
+				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
+			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
+				input.NextItem = sResp.LastItemPut
+				resizeForRetry(&input)
+				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+					"at a time due to EOF so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
+			default:
+				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
+			}
 		}
 		return attempt < 3, rErr
 	})
@@ -110,7 +127,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postElapsed := time.Since(postStart)
 	debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
-	if err = output.Conflicts.Validate(); err != nil {
+	if err = output.Conflicts.Validate(debug); err != nil {
 		panic(err)
 	}
 
@@ -143,12 +160,13 @@ func (cis *ConflictedItems) DeDupe() {
 	*cis = deDuped
 }
 
-func (cis ConflictedItems) Validate() error {
+func (cis ConflictedItems) Validate(debug bool) error {
 	for _, ci := range cis {
 		switch ci.Type {
 		case "sync_conflict":
 			continue
 		case "uuid_conflict":
+			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
 			return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
 		default:
 			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2", ci.Type)
@@ -194,10 +212,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	// DEBUG END
 
 	switch {
-	case input.BatchSize > 0:
-		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.BatchSize: %d", input.BatchSize))
-		// batch size must be lower than or equal to page size
-		limit = input.BatchSize
 	case input.PageSize > 0:
 		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize))
 		limit = input.PageSize
@@ -306,10 +320,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.Conflicts = bodyContent.Conflicts
 	out.LastItemPut = finalItem
 
-	if input.BatchSize > 0 {
-		return
-	}
-
 	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
 
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
@@ -350,13 +360,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	return out, err
 }
 
-func resizeForRetry2(in *SyncInput) {
-	switch {
-	case in.BatchSize != 0:
-		in.BatchSize = int(math.Ceil(float64(in.BatchSize) * retryScaleFactor))
-	case in.PageSize != 0:
+func resizeForRetry(in *SyncInput) {
+	if in.PageSize != 0 {
 		in.PageSize = int(math.Ceil(float64(in.PageSize) * retryScaleFactor))
-	default:
+	} else {
 		in.PageSize = int(math.Ceil(float64(PageSize) * retryScaleFactor))
 	}
 }
