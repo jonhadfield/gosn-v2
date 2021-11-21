@@ -126,6 +126,9 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
 		return
 	}
+	if err != nil {
+		return
+	}
 
 	if inKey == "." {
 		var byteKey []byte
@@ -147,7 +150,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 
 		var resp string
 
-		_, err := fmt.Scanln(&resp)
+		_, err = fmt.Scanln(&resp)
 		if err != nil || strings.ToLower(resp) != "y" {
 			// do nothing
 			return "", nil
@@ -288,7 +291,6 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 				return
 			}
 		}
-
 		email, session, err = ParseSessionString(rawSess)
 		if err != nil {
 			return
@@ -321,7 +323,7 @@ func ParseSessionString(in string) (email string, session Session, err error) {
 	if err != nil {
 		return
 	}
-	ae, err = strconv.Atoi(parts[6])
+	re, err = strconv.Atoi(parts[6])
 	if err != nil {
 		return
 	}
