@@ -160,8 +160,11 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 
 		ik := getMatchingItem(ei.ItemsKeyID, s.ItemsKeys)
 		if ik.UUID == "" {
-			err = errors.New("wrong items key passed for decrypting item key")
-			return
+			debugPrint(s.Debug, fmt.Sprintf("ignoring item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, ei.ItemsKeyID))
+
+			continue
+			//err = fmt.Errorf("item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, ei.ItemsKeyID)
+			//return
 		}
 
 		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
