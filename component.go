@@ -52,7 +52,7 @@ type ComponentContent struct {
 	HostedURL          string         `json:"hosted_url"`
 	LocalURL           string         `json:"local_url"`
 	ValidUntil         string         `json:"valid_until"`
-	OfflineOnly        string         `json:"offlineOnly"`
+	OfflineOnly        bool           `json:"offlineOnly"`
 	Name               string         `json:"name"`
 	Area               string         `json:"area"`
 	PackageInfo        interface{}    `json:"package_info"`
