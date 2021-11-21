@@ -416,7 +416,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 		Area:               "editor-editor",
 		LocalURL:           "sn://Extensions/org.standardnotes.plus-editor/index.html",
 		HostedURL:          "https://extensions.standardnotes.org/e6d4d59ac829ed7ec24e2c139e7d8b21b625dff2d7f98bb7b907291242d31fcd/components/plus-editor",
-		OfflineOnly:        "",
+		OfflineOnly:        false,
 		ValidUntil:         "2023-08-29T12:15:17.000Z",
 		AutoUpdateDisabled: "",
 		DissociatedItemIds: []string{"e9d4daf5-52e6-4d67-975e-a1620bf5217c"},
