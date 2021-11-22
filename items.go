@@ -253,6 +253,13 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 		return
 	}
 
+	if response.StatusCode == 401 {
+		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status))
+		err = errors.New("server returned 401 unauthorized during sync request so most likely throttling due to excessive number of requests")
+
+		return
+	}
+
 	if response.StatusCode > 400 {
 		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status))
 		return
