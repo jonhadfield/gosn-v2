@@ -92,6 +92,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 				resizeForRetry(&input)
 				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
+			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
+				input.NextItem = sResp.LastItemPut
+				debugPrint(debug, fmt.Sprintf("Sync | failed with '401 Unauthorized' which is most likely due to throttling"))
+				panic("failed to complete sync due to server throttling. please wait five minutes before retrying.")
 			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
 				input.NextItem = sResp.LastItemPut
 				resizeForRetry(&input)
