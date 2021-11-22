@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,13 +14,14 @@ import (
 
 // SyncInput defines the input for retrieving items
 type SyncInput struct {
-	Session     *Session
-	SyncToken   string
-	CursorToken string
-	Items       EncryptedItems
-	NextItem    int // the next item to put
-	OutType     string
-	PageSize    int // override default number of items to request with each sync call
+	Session              *Session
+	SyncToken            string
+	CursorToken          string
+	Items                EncryptedItems
+	NextItem             int // the next item to put
+	OutType              string
+	PageSize             int   // override default number of items to request with each sync call
+	PostSyncRequestDelay int64 // milliseconds to sleep after sync request
 }
 
 // SyncOutput defines the output from retrieving items
@@ -66,6 +68,19 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	}
 
 	var sResp syncResponse
+
+	// check if we need to add a post sync request delay
+	psrd := os.Getenv("SN_POST_SYNC_REQUEST_DELAY")
+	if psrd != "" {
+		input.PostSyncRequestDelay, err = strconv.ParseInt(psrd, 10, 64)
+		if err != nil {
+			err = fmt.Errorf("invalid SN_POST_SYNC_REQUEST_DELAY value: %v", err)
+			return
+		}
+
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
+			input.PostSyncRequestDelay))
+	}
 
 	// retry logic is to handle responses that are too large
 	// so we can reduce number we retrieve with each sync request
@@ -296,6 +311,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
+	if input.PostSyncRequestDelay > 0 {
+		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
+	}
 	msrEnd := time.Since(msrStart)
 	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 
