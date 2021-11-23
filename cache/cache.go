@@ -18,7 +18,7 @@ import (
 const (
 	// LOGGING
 	libName       = "gosn-v2 | cache" // name of library used in logging
-	maxDebugChars = 120             // number of characters to display when logging API response body
+	maxDebugChars = 120               // number of characters to display when logging API response body
 )
 
 var (
