@@ -25,28 +25,28 @@ func (i *Items) Filter(f ItemFilters) {
 
 	// produce list of tags to be used in filters
 	for _, item := range *i {
-		switch item.(type) {
+		switch t := item.(type) {
 		case *Tag:
-			tag := item.(*Tag)
+			tag := t
 			tags = append(tags, *tag)
 		}
 	}
 
 	for _, item := range *i {
-		switch item.(type) {
+		switch t := item.(type) {
 		case *Note:
 			note := item.(*Note)
-			if found := applyNoteFilters(*note, f, tags); found {
+			if found := applyNoteFilters(*t, f, tags); found {
 				filtered = append(filtered, note)
 			}
 		case *Tag:
 			tag := item.(*Tag)
-			if found := applyTagFilters(*tag, f); found {
+			if found := applyTagFilters(*t, f); found {
 				filtered = append(filtered, tag)
 			}
 		case *Component:
 			component := item.(*Component)
-			if found := applyComponentFilters(*component, f); found {
+			if found := applyComponentFilters(*t, f); found {
 				filtered = append(filtered, component)
 			}
 		}

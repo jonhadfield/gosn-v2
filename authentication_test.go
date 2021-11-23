@@ -162,17 +162,18 @@ func TestSignInWithInvalidURL(t *testing.T) {
 	require.Contains(t, err.Error(), "protocol is missing from API server URL: standardnotes.example.com")
 }
 
-//func TestSignInWithServerActivelyRefusing(t *testing.T) {
-//	password := "invalid"
-//	sInput := SignInInput{
-//		Email:     "sn@lessknown.co.uk",
+// Need to revise this test as different test platforms respond differently to the request
+//  func TestSignInWithServerActivelyRefusing(t *testing.T) {
+//	  password := "invalid"
+//	  sInput := SignInInput{
+// 		Email:     "sn@lessknown.co.uk",
 //		Password:  password,
 //		APIServer: "http://255.255.255.255",
-//	}
-//	_, err := SignIn(sInput)
-//	require.Error(t, err)
-//	require.Equal(t, fmt.Sprintf("failed to connect to http://255.255.255.255/v1/login-params"), err.Error())
-//}
+//    }
+//	  _, err := SignIn(sInput)
+//	  require.Error(t, err)
+//	  require.Equal(t, fmt.Sprintf("failed to connect to http://255.255.255.255/v1/login-params"), err.Error())
+//   }
 
 func TestSignInWithUnavailableServer(t *testing.T) {
 	password := "invalid"

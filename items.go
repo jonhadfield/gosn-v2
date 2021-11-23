@@ -92,8 +92,8 @@ func (ei *EncryptedItems) Validate() error {
 			continue
 		case enc && i.ItemsKeyID == "":
 			// ignore item in this scenario as the official app does so
-			//err = fmt.Errorf("validation failed for \"%s\" with uuid: \"%s\" due to missing ItemsKeyID",
-			//	i.ContentType, i.UUID)
+			// err = fmt.Errorf("validation failed for \"%s\" with uuid: \"%s\" due to missing ItemsKeyID",
+			//   i.ContentType, i.UUID)
 		case enc && i.EncItemKey == "":
 			err = fmt.Errorf("validation failed for \"%s\" due to missing encrypted item key: \"%s\"",
 				i.ContentType, i.UUID)

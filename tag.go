@@ -296,12 +296,11 @@ func (tagContent TagContent) Equals(e TagContent) bool {
 }
 
 func (tagContent TagContent) Copy() TagContent {
-	res := *new(TagContent)
-	res.Title = tagContent.Title
-	res.AppData = tagContent.AppData
-	res.ItemReferences = tagContent.ItemReferences
-
-	return res
+	return TagContent{
+		Title: tagContent.Title,
+		AppData: tagContent.AppData,
+		ItemReferences: tagContent.ItemReferences,
+	}
 }
 
 func (t Tag) Copy() Tag {

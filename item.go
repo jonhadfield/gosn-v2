@@ -39,15 +39,15 @@ func (i Items) Validate() error {
 	var err error
 
 	for _, item := range i {
-		switch item.(type) {
+		switch v := item.(type) {
 		case *Tag:
-			t := item.(*Tag)
+			t := v
 			err = Tags{*t}.Validate()
 		case *Note:
-			n := item.(*Note)
+			n := v
 			err = Notes{*n}.Validate()
 		case *Component:
-			c := item.(*Component)
+			c := v
 			err = Components{*c}.Validate()
 		}
 
