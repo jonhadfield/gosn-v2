@@ -13,7 +13,7 @@ func (bit *Bool) UnmarshalJSON(b []byte) error {
 type ItemsKey struct {
 	ItemCommon
 	ItemsKey string `json:"itemsKey"`
-	//IsDefault      bool           `json:"isDefault"`
+	// IsDefault      bool           `json:"isDefault"`
 	Version        string         `json:"version"`
 	ItemReferences ItemReferences `json:"references"`
 	AppData        AppDataContent `json:"appData"`

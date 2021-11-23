@@ -26,7 +26,7 @@ BUILD_SHA := $(shell git rev-parse --short HEAD)
 BUILD_DATE := $(shell date -u '+%Y/%m/%d:%H:%M:%S')
 
 critic:
-	gocritic check-project .
+	gocritic check
 
 find-updates:
 	go list -u -m -json all | go-mod-outdated -update -direct

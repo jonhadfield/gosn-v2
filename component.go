@@ -75,15 +75,15 @@ func (i *Items) Append(x []interface{}) {
 	var all Items
 
 	for _, y := range x {
-		switch y.(type) {
+		switch t := y.(type) {
 		case Note:
-			it := y.(Note)
+			it := t
 			all = append(all, &it)
 		case Tag:
-			it := y.(Tag)
+			it := t
 			all = append(all, &it)
 		case Component:
-			it := y.(Component)
+			it := t
 			all = append(all, &it)
 		}
 	}

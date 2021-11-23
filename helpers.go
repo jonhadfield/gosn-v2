@@ -59,9 +59,6 @@ func DeleteContent(session *Session) (err error) {
 	}
 
 	var items Items
-	//for _, i := range items {
-	//	eIt
-	//}
 
 	items, err = so.Items.DecryptAndParse(session)
 	if err != nil {

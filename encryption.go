@@ -162,8 +162,6 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 			debugPrint(s.Debug, fmt.Sprintf("ignoring item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, ei.ItemsKeyID))
 
 			continue
-			//err = fmt.Errorf("item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, ei.ItemsKeyID)
-			//return
 		}
 
 		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
