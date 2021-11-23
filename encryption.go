@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -169,7 +168,7 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 
 		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
 		if version != "004" {
-			err = errors.New("your account contains items encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app")
+			err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", ei.UUID, ei.ContentType, version)
 			return
 		}
 		var itemKey []byte
