@@ -397,21 +397,21 @@ func TestFilterNoteTextByRegex(t *testing.T) {
 	require.True(t, res, "failed to match note by text regex")
 }
 
-//func TestFilterNoteTitleByRegex(t *testing.T) {
-//	gnuNote := createNote("GNU", "Is not Unix", "")
-//	filter := Filter{
-//		Type:       "Tag",
-//		Key:        "Title",
-//		Comparison: "~",
-//		Value:      "^.N.$",
-//	}
-//	itemFilters := ItemFilters{
-//		Filters:  []Filter{filter},
-//		MatchAny: true,
-//	}
-//	res := applyTagFilters(gnuNote, itemFilters)
-//	require.True(t, res, "failed to match note by title text regex")
-//}
+func TestFilterNoteTitleByRegex(t *testing.T) {
+	gnuNote := createNote("GNU", "Is not Unix", "")
+	filter := Filter{
+		Type:       "Note",
+		Key:        "Title",
+		Comparison: "~",
+		Value:      "^.N.$",
+	}
+	itemFilters := ItemFilters{
+		Filters:  []Filter{filter},
+		MatchAny: true,
+	}
+	res := applyNoteFilters(*gnuNote, itemFilters, nil)
+	require.True(t, res, "failed to match note by title text regex")
+}
 
 func TestFilterTagTitle(t *testing.T) {
 	gnuTag := createTag("GNU", "")
