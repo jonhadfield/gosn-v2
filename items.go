@@ -22,7 +22,7 @@ type syncResponse struct {
 	PutLimitUsed int             // the put limit used
 }
 
-// AppTagConfig defines expected configuration structure for making Tag related operations
+// AppTagConfig defines expected configuration structure for making Tag related operations.
 type AppTagConfig struct {
 	Email    string
 	Token    string
@@ -48,8 +48,10 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
 
 	var eiks EncryptedItems
+
 	for _, e := range ei {
 		if e.ContentType == "SN|ItemsKey" {
+			debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | got encrypted item key: %s deleted: %t", e.UUID, e.Deleted))
 			eiks = append(eiks, e)
 		}
 	}
@@ -90,7 +92,7 @@ func (ei *EncryptedItems) Validate() error {
 		switch {
 		case i.IsDeleted():
 			continue
-		case enc && i.ItemsKeyID == "":
+		case enc && i.ItemsKeyID == nil:
 			// ignore item in this scenario as the official app does so
 			// err = fmt.Errorf("validation failed for \"%s\" with uuid: \"%s\" due to missing ItemsKeyID",
 			//   i.ContentType, i.UUID)
@@ -112,6 +114,7 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
 
 	var di DecryptedItems
+
 	di, err = ei.Decrypt(s)
 	if err != nil {
 		return
@@ -127,6 +130,7 @@ func (i *Items) Encrypt(s Session) (e EncryptedItems, err error) {
 	if len(*i) == 0 {
 		return
 	}
+
 	e, err = encryptItems(s, i)
 	if err != nil {
 		return
@@ -139,19 +143,21 @@ func (i *Items) Encrypt(s Session) (e EncryptedItems, err error) {
 }
 
 type EncryptedItem struct {
-	UUID        string `json:"uuid"`
-	ItemsKeyID  string `json:"items_key_id"`
-	Content     string `json:"content"`
-	ContentType string `json:"content_type"`
-	EncItemKey  string `json:"enc_item_key"`
-	Deleted     bool   `json:"deleted"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	DuplicateOf string `json:"duplicate_of"`
+	UUID               string  `json:"uuid"`
+	ItemsKeyID         *string `json:"items_key_id,omitempty"`
+	Content            string  `json:"content"`
+	ContentType        string  `json:"content_type"`
+	EncItemKey         string  `json:"enc_item_key"`
+	Deleted            bool    `json:"deleted"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
+	CreatedAtTimestamp int64   `json:"created_at_timestamp"`
+	UpdatedAtTimestamp int64   `json:"updated_at_timestamp"`
+	DuplicateOf        *string `json:"duplicate_of,omitempty"`
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
-	return ei.ItemsKeyID
+	return *ei.ItemsKeyID
 }
 
 func (ei EncryptedItem) IsDeleted() bool {
@@ -159,13 +165,15 @@ func (ei EncryptedItem) IsDeleted() bool {
 }
 
 type DecryptedItem struct {
-	UUID        string `json:"uuid"`
-	ItemsKeyID  string `json:"items_key_id"`
-	Content     string `json:"content"`
-	ContentType string `json:"content_type"`
-	Deleted     bool   `json:"deleted"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	UUID               string `json:"uuid"`
+	ItemsKeyID         string `json:"items_key_id"`
+	Content            string `json:"content"`
+	ContentType        string `json:"content_type"`
+	Deleted            bool   `json:"deleted"`
+	CreatedAt          string `json:"created_at"`
+	UpdatedAt          string `json:"updated_at"`
+	CreatedAtTimestamp int64  `json:"created_at_timestamp"`
+	UpdatedAtTimestamp int64  `json:"updated_at_timestamp"`
 }
 
 type DecryptedItems []DecryptedItem
@@ -214,6 +222,7 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 
 func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err error) {
 	var request *http.Request
+
 	request, err = http.NewRequest(http.MethodPost, session.Server+syncPath, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return
@@ -239,8 +248,6 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 		if err := response.Body.Close(); err != nil {
 			debugPrint(session.Debug, "makeSyncRequest | failed to close body closed")
 		}
-
-		debugPrint(session.Debug, "makeSyncRequest | response body closed")
 	}()
 
 	if response.StatusCode == 413 {
@@ -255,6 +262,7 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 
 	if response.StatusCode == 401 {
 		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status))
+
 		err = errors.New("server returned 401 unauthorized during sync request so most likely throttling due to excessive number of requests")
 
 		return
@@ -272,16 +280,13 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 	readStart := time.Now()
 
 	responseBody, err = ioutil.ReadAll(response.Body)
-	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
-	if err != nil {
-		return
-	}
 
-	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response size %d bytes", len(responseBody)))
+	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
+
 	return responseBody, err
 }
 
-// ItemReference defines a reference from one item to another
+// ItemReference defines a reference from one item to another.
 type ItemReference struct {
 	// unique identifier of the item being referenced
 	UUID string `json:"uuid"`
