@@ -13,6 +13,8 @@ func parseExtensionRepo(i DecryptedItem) Item {
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt
 	c.CreatedAt = i.CreatedAt
+	c.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+	c.CreatedAtTimestamp = i.CreatedAtTimestamp
 	c.ContentSize = len(i.Content)
 
 	var err error
@@ -88,7 +90,7 @@ func (c *ExtensionRepos) DeDupe() {
 	*c = deDuped
 }
 
-// NewExtensionRepo returns an Item of type ExtensionRepo without content
+// NewExtensionRepo returns an Item of type ExtensionRepo without content.
 func NewExtensionRepo() ExtensionRepo {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -96,13 +98,14 @@ func NewExtensionRepo() ExtensionRepo {
 
 	c.ContentType = "ExtensionRepo"
 	c.CreatedAt = now
-	c.UpdatedAt = now
+	//c.UpdatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
 }
 
-// NewExtensionRepoContent returns an empty Tag content instance
+// NewExtensionRepoContent returns an empty Tag content instance.
 func NewExtensionRepoContent() *ExtensionRepoContent {
 	c := &ExtensionRepoContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +195,22 @@ func (c ExtensionRepo) GetUpdatedAt() string {
 
 func (c *ExtensionRepo) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c ExtensionRepo) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *ExtensionRepo) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c ExtensionRepo) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *ExtensionRepo) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *ExtensionRepo) SetContentType(ct string) {

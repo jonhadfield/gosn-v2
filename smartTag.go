@@ -88,7 +88,7 @@ func (c *SmartTags) DeDupe() {
 	*c = deDuped
 }
 
-// NewSmartTag returns an Item of type SmartTag without content
+// NewSmartTag returns an Item of type SmartTag without content.
 func NewSmartTag() SmartTag {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +102,7 @@ func NewSmartTag() SmartTag {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewSmartTagContent() *SmartTagContent {
 	c := &SmartTagContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +192,22 @@ func (c SmartTag) GetUpdatedAt() string {
 
 func (c *SmartTag) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c SmartTag) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *SmartTag) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c SmartTag) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *SmartTag) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *SmartTag) SetContentType(ct string) {
