@@ -20,6 +20,8 @@ func parseNote(i DecryptedItem) Item {
 	n.Deleted = i.Deleted
 	n.UpdatedAt = i.UpdatedAt
 	n.CreatedAt = i.CreatedAt
+	n.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+	n.CreatedAtTimestamp = i.CreatedAtTimestamp
 	n.ContentSize = len(i.Content)
 
 	var err error
@@ -98,19 +100,20 @@ func (n *Notes) Encrypt(s Session) (e EncryptedItems, err error) {
 	return
 }
 
-// NewNote returns an Item of type Note without content
+// NewNote returns an Item of type Note without content.
 func NewNote() Note {
 	now := time.Now().UTC().Format(timeLayout)
 
 	var note Note
 	note.ContentType = "Note"
 	note.CreatedAt = now
-	note.UpdatedAt = now
+	note.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	note.UUID = GenUUID()
+
 	return note
 }
 
-// NewNoteContent returns an empty Note content instance
+// NewNoteContent returns an empty Note content instance.
 func NewNoteContent() *NoteContent {
 	c := &NoteContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -205,6 +208,22 @@ func (n *Note) SetUpdatedAt(ca string) {
 	n.UpdatedAt = ca
 }
 
+func (n Note) GetCreatedAtTimestamp() int64 {
+	return n.CreatedAtTimestamp
+}
+
+func (n *Note) SetCreatedAtTimestamp(ca int64) {
+	n.CreatedAtTimestamp = ca
+}
+
+func (n Note) GetUpdatedAtTimestamp() int64 {
+	return n.UpdatedAtTimestamp
+}
+
+func (n *Note) SetUpdatedAtTimestamp(ca int64) {
+	n.UpdatedAtTimestamp = ca
+}
+
 func (n Note) GetContentSize() int {
 	return n.ContentSize
 }
@@ -296,19 +315,15 @@ func (noteContent *NoteContent) GetItemDisassociations() []string {
 }
 
 func (noteContent *NoteContent) AssociateItems(newItems []string) {
-
 }
 
 func (tagContent *TagContent) AssociateItems(newItems []string) {
-
 }
 
 func (noteContent *NoteContent) DisassociateItems(newItems []string) {
-
 }
 
 func (tagContent *TagContent) DisassociateItems(newItems []string) {
-
 }
 
 func (n Note) Equals(e Note) bool {
