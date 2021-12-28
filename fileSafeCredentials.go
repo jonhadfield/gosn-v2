@@ -88,7 +88,7 @@ func (c *FileSafeCredentialss) DeDupe() {
 	*c = deDuped
 }
 
-// NewFileSafeCredentials returns an Item of type FileSafeCredentials without content
+// NewFileSafeCredentials returns an Item of type FileSafeCredentials without content.
 func NewFileSafeCredentials() FileSafeCredentials {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +102,7 @@ func NewFileSafeCredentials() FileSafeCredentials {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewFileSafeCredentialsContent() *FileSafeCredentialsContent {
 	c := &FileSafeCredentialsContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +192,22 @@ func (c FileSafeCredentials) GetUpdatedAt() string {
 
 func (c *FileSafeCredentials) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c FileSafeCredentials) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *FileSafeCredentials) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c FileSafeCredentials) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *FileSafeCredentials) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *FileSafeCredentials) SetContentType(ct string) {

@@ -88,7 +88,7 @@ func (c *FileSafeFileMetaDatas) DeDupe() {
 	*c = deDuped
 }
 
-// NewFileSafeFileMetaData returns an Item of type FileSafeFileMetaData without content
+// NewFileSafeFileMetaData returns an Item of type FileSafeFileMetaData without content.
 func NewFileSafeFileMetaData() FileSafeFileMetaData {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +102,7 @@ func NewFileSafeFileMetaData() FileSafeFileMetaData {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewFileSafeFileMetaDataContent() *FileSafeFileMetaDataContent {
 	c := &FileSafeFileMetaDataContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +192,22 @@ func (c FileSafeFileMetaData) GetUpdatedAt() string {
 
 func (c *FileSafeFileMetaData) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c FileSafeFileMetaData) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *FileSafeFileMetaData) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c FileSafeFileMetaData) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *FileSafeFileMetaData) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *FileSafeFileMetaData) SetContentType(ct string) {

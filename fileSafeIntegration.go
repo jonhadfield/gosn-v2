@@ -88,7 +88,7 @@ func (c *FileSafeIntegrations) DeDupe() {
 	*c = deDuped
 }
 
-// NewFileSafeIntegration returns an Item of type FileSafeIntegration without content
+// NewFileSafeIntegration returns an Item of type FileSafeIntegration without content.
 func NewFileSafeIntegration() FileSafeIntegration {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +102,7 @@ func NewFileSafeIntegration() FileSafeIntegration {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewFileSafeIntegrationContent() *FileSafeIntegrationContent {
 	c := &FileSafeIntegrationContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +192,22 @@ func (c FileSafeIntegration) GetUpdatedAt() string {
 
 func (c *FileSafeIntegration) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c FileSafeIntegration) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *FileSafeIntegration) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c FileSafeIntegration) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *FileSafeIntegration) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *FileSafeIntegration) SetContentType(ct string) {
