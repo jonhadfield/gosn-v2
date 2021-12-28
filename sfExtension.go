@@ -90,7 +90,7 @@ func (c *SFExtensions) DeDupe() {
 	*c = deDuped
 }
 
-// NewSFExtension returns an Item of type SFExtension without content
+// NewSFExtension returns an Item of type SFExtension without content.
 func NewSFExtension() SFExtension {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -104,7 +104,7 @@ func NewSFExtension() SFExtension {
 	return c
 }
 
-// NewSFExtensionContent returns an empty Tag content instance
+// NewSFExtensionContent returns an empty Tag content instance.
 func NewSFExtensionContent() *SFExtensionContent {
 	c := &SFExtensionContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -194,6 +194,22 @@ func (c SFExtension) GetUpdatedAt() string {
 
 func (c *SFExtension) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c SFExtension) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *SFExtension) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c SFExtension) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *SFExtension) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *SFExtension) SetContentType(ct string) {

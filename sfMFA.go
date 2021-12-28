@@ -90,7 +90,7 @@ func (c *SFMFAs) DeDupe() {
 	*c = deDuped
 }
 
-// NewSFMFA returns an Item of type SFMFA without content
+// NewSFMFA returns an Item of type SFMFA without content.
 func NewSFMFA() SFMFA {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -104,7 +104,7 @@ func NewSFMFA() SFMFA {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewSFMFAContent() *SFMFAContent {
 	c := &SFMFAContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -194,6 +194,22 @@ func (c SFMFA) GetUpdatedAt() string {
 
 func (c *SFMFA) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c SFMFA) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *SFMFA) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c SFMFA) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *SFMFA) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *SFMFA) SetContentType(ct string) {
