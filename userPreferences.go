@@ -13,6 +13,8 @@ func parseUserPreferences(i DecryptedItem) Item {
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt
 	c.CreatedAt = i.CreatedAt
+	c.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+	c.CreatedAtTimestamp = i.CreatedAtTimestamp
 
 	var err error
 
@@ -47,12 +49,17 @@ func parseUserPreferences(i DecryptedItem) Item {
 }
 
 func parseSNTime(s string) (t time.Time, err error) {
+	// if no time specified, then return zero time
+	if s == "" {
+		return
+	}
+
 	t, err = time.Parse(timeLayout, s)
 	if err == nil {
 		return
 	}
-	return time.Parse(timeLayout2, s)
 
+	return time.Parse(timeLayout2, s)
 }
 
 type UserPreferencesContent struct {
@@ -96,7 +103,7 @@ func (c *UserPreferencess) DeDupe() {
 	*c = deDuped
 }
 
-// NewUserPreferences returns an Item of type UserPreferences without content
+// NewUserPreferences returns an Item of type UserPreferences without content.
 func NewUserPreferences() UserPreferences {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -104,13 +111,14 @@ func NewUserPreferences() UserPreferences {
 
 	c.ContentType = "UserPreferences"
 	c.CreatedAt = now
-	c.UpdatedAt = now
+	//c.UpdatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
 }
 
-// NewUserPreferencesContent returns an empty Tag content instance
+// NewUserPreferencesContent returns an empty Tag content instance.
 func NewUserPreferencesContent() *UserPreferencesContent {
 	c := &UserPreferencesContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -200,6 +208,22 @@ func (c UserPreferences) GetUpdatedAt() string {
 
 func (c *UserPreferences) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c UserPreferences) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *UserPreferences) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c UserPreferences) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *UserPreferences) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *UserPreferences) SetContentType(ct string) {

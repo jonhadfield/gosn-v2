@@ -88,7 +88,7 @@ func (c *Themes) DeDupe() {
 	*c = deDuped
 }
 
-// NewTheme returns an Item of type Theme without content
+// NewTheme returns an Item of type Theme without content.
 func NewTheme() Theme {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +102,7 @@ func NewTheme() Theme {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewThemeContent() *ThemeContent {
 	c := &ThemeContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -196,6 +196,22 @@ func (c *Theme) SetUpdatedAt(ca string) {
 
 func (c *Theme) SetContentType(ct string) {
 	c.ContentType = ct
+}
+
+func (c Theme) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *Theme) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c Theme) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *Theme) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c Theme) GetContentSize() int {

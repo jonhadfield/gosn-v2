@@ -88,7 +88,7 @@ func (c *PrivilegesN) DeDupe() {
 	*c = deDuped
 }
 
-// NewPrivileges returns an Item of type Privileges without content
+// NewPrivileges returns an Item of type Privileges without content.
 func NewPrivileges() Privileges {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +102,7 @@ func NewPrivileges() Privileges {
 	return c
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewPrivilegesContent() *PrivilegesContent {
 	c := &PrivilegesContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +192,22 @@ func (c Privileges) GetUpdatedAt() string {
 
 func (c *Privileges) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c Privileges) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *Privileges) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c Privileges) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *Privileges) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *Privileges) SetContentType(ct string) {
