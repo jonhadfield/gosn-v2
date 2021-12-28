@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockKeyRingDodgy struct {
-}
+type MockKeyRingDodgy struct{}
 
 func (k MockKeyRingDodgy) Set(user, service, password string) error {
 	return fmt.Errorf("failed to set Session")
@@ -24,8 +23,7 @@ func (k MockKeyRingDodgy) Delete(service, user string) error {
 	return nil
 }
 
-type MockKeyRingDefined struct {
-}
+type MockKeyRingDefined struct{}
 
 func (k MockKeyRingDefined) Set(user, service, password string) error {
 	return nil
@@ -39,8 +37,7 @@ func (k MockKeyRingDefined) Delete(service, user string) error {
 	return nil
 }
 
-type MockKeyRingUnDefined struct {
-}
+type MockKeyRingUnDefined struct{}
 
 func (k MockKeyRingUnDefined) Set(user, service, password string) error {
 	return nil
