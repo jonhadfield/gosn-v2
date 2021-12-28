@@ -11,10 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testEmailAddr = fmt.Sprintf("testuser-%s@example.com", time.Now().Format("20060102150405"))
-var testEmailAddrWithPlus = fmt.Sprintf("test+user-%s@example.com", time.Now().Format("20060102150405"))
+var (
+	testEmailAddr         = fmt.Sprintf("testuser-%s@example.com", time.Now().Format("20060102150405"))
+	testEmailAddrWithPlus = fmt.Sprintf("test+user-%s@example.com", time.Now().Format("20060102150405"))
+)
 
-// ### server not required for following tests
+// ### server not required for following tests.
 func TestGenerateSalt004(t *testing.T) {
 	identifier := "sn004@lessknown.co.uk"
 	nonce := "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
@@ -45,7 +47,7 @@ func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
 	require.Equal(t, result, "1312fe421aa49a6444684b58cbd5a43a55638cd5bf77514c78d50c7f3ae9c4e7")
 }
 
-// server required for following tests
+// server required for following tests.
 func TestSignIn(t *testing.T) {
 	_, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
