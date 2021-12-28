@@ -12,12 +12,11 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/spf13/viper"
 	keyring "github.com/zalando/go-keyring"
-	// TODO: Replace terminal with term
+
 	//  "golang.org/x/term"
 	"golang.org/x/crypto/ssh/terminal"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -29,7 +28,7 @@ const (
 )
 
 // Session holds authentication and encryption parameters required
-// to communicate with the API and process transferred data
+// to communicate with the API and process transferred data.
 type Session struct {
 	Debug             bool
 	Server            string
@@ -37,10 +36,12 @@ type Session struct {
 	MasterKey         string
 	ItemsKeys         []ItemsKey
 	DefaultItemsKey   ItemsKey
-	AccessToken       string `json:"access_token"`
-	RefreshToken      string `json:"refresh_token"`
-	AccessExpiration  int64  `json:"access_expiration"`
-	RefreshExpiration int64  `json:"refresh_expiration"`
+	KeyParams         KeyParams `json:"keyParams"`
+	AccessToken       string    `json:"access_token"`
+	RefreshToken      string    `json:"refresh_token"`
+	AccessExpiration  int64     `json:"access_expiration"`
+	RefreshExpiration int64     `json:"refresh_expiration"`
+	PasswordNonce     string
 }
 
 func GetCredentials(inServer string) (email, password, apiServer, errMsg string) {
@@ -86,7 +87,7 @@ func GetCredentials(inServer string) (email, password, apiServer, errMsg string)
 	return email, password, apiServer, errMsg
 }
 
-// Encrypt string to base64 crypto using AES
+// Encrypt string to base64 crypto using AES.
 func Encrypt(key []byte, text string) string {
 	key = padToAESBlockSize(key)
 	plaintext := []byte(text)
@@ -126,6 +127,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
 		return
 	}
+	
 	if err != nil {
 		return
 	}
@@ -207,7 +209,7 @@ func SessionExists(k keyring.Keyring) error {
 	return nil
 }
 
-// RemoveSession removes the SN Session from the keyring
+// RemoveSession removes the SN Session from the keyring.
 func RemoveSession(k keyring.Keyring) string {
 	var err error
 	if err = SessionExists(k); err != nil {
@@ -228,7 +230,7 @@ func RemoveSession(k keyring.Keyring) string {
 }
 
 func MakeSessionString(email string, session Session) string {
-	return fmt.Sprintf("%s;%s;%s;%d;%s;%d", email, session.MasterKey, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
+	return fmt.Sprintf("%s;%s;%s;%d;%s;%d;%s", email, session.MasterKey, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration, session.PasswordNonce)
 }
 
 func GetSessionFromUser(server string, debug bool) (Session, string, error) {
@@ -250,9 +252,11 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 	}
 
 	debugPrint(debug, fmt.Sprintf("attempting cli sign-in with email: '%s' %d char password and server '%s'", email, len(password), apiServer))
+
 	sess, err = CliSignIn(email, password, apiServer, debug)
 	if err != nil {
 		debugPrint(debug, fmt.Sprintf("CliSignIn failed with: %+v", err))
+
 		return sess, email, err
 	}
 
@@ -271,7 +275,9 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 		if !isUnencryptedSession(rawSess) {
 			if sessionKey == "" {
 				var byteKey []byte
+
 				fmt.Print("Session key: ")
+
 				byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
 				if err != nil {
 					return
@@ -292,6 +298,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 			}
 		}
 		email, session, err = ParseSessionString(rawSess)
+
 		if err != nil {
 			return
 		}
@@ -308,7 +315,12 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 }
 
 func isUnencryptedSession(in string) bool {
-	return len(strings.Split(in, ";")) == 7
+	// legacy session format has 7 items
+	if len(strings.Split(in, ";")) == 7 {
+		return true
+	}
+
+	return len(strings.Split(in, ";")) == 8
 }
 
 func ParseSessionString(in string) (email string, session Session, err error) {
@@ -316,17 +328,27 @@ func ParseSessionString(in string) (email string, session Session, err error) {
 		err = errors.New("session invalid, or encrypted and key was not provided")
 		return
 	}
+
 	parts := strings.Split(in, ";")
 	email = parts[0]
+
 	var ae, re int
+
 	ae, err = strconv.Atoi(parts[4])
 	if err != nil {
 		return
 	}
+
 	re, err = strconv.Atoi(parts[6])
 	if err != nil {
 		return
 	}
+
+	pNonce := ""
+	if len(parts) == 8 {
+		pNonce = parts[7]
+	}
+
 	session = Session{
 		Server:            parts[1],
 		MasterKey:         parts[2],
@@ -334,12 +356,13 @@ func ParseSessionString(in string) (email string, session Session, err error) {
 		AccessExpiration:  int64(ae),
 		RefreshToken:      parts[5],
 		RefreshExpiration: int64(re),
+		PasswordNonce:     pNonce,
 	}
 
 	return
 }
 
-// Decrypt from base64 to decrypted string
+// Decrypt from base64 to decrypted string.
 func Decrypt(key []byte, cryptoText string) (pt string, err error) {
 	var ciphertext []byte
 
@@ -374,7 +397,6 @@ func getSessionContent(key, rawSession string) (session string, err error) {
 	// check if Session is encrypted
 	if len(strings.Split(rawSession, ";")) != numRawSessionTokens {
 		if key == "" {
-
 			var byteKey []byte
 			byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
 
