@@ -129,7 +129,6 @@ func NewComponent() Component {
 	c.ContentType = "SN|Component"
 	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.CreatedAt = now
-	//c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

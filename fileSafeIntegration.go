@@ -96,7 +96,6 @@ func NewFileSafeIntegration() FileSafeIntegration {
 
 	c.ContentType = "FileSafeIntegration"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

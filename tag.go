@@ -102,7 +102,7 @@ func NewTag() Tag {
 	var tag Tag
 	tag.ContentType = "Tag"
 	tag.CreatedAt = now
-	//tag.UpdatedAt = now
+	// tag.UpdatedAt = now
 	tag.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	tag.UUID = GenUUID()
 
@@ -220,6 +220,7 @@ func (t *Tag) SetCreatedAtTimestamp(ca int64) {
 func (t Tag) GetUpdatedAt() string {
 	return t.UpdatedAt
 }
+
 func (t Tag) GetUpdatedAtTimestamp() int64 {
 	return t.UpdatedAtTimestamp
 }

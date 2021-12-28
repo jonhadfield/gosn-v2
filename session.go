@@ -127,7 +127,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
 		return
 	}
-	
+
 	if err != nil {
 		return
 	}

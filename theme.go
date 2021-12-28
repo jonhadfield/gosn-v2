@@ -96,7 +96,6 @@ func NewTheme() Theme {
 
 	c.ContentType = "SN|Theme"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

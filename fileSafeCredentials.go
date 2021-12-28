@@ -96,7 +96,6 @@ func NewFileSafeCredentials() FileSafeCredentials {
 
 	c.ContentType = "FileSafeCredentials"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

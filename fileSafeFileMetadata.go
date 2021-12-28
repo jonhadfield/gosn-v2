@@ -96,7 +96,6 @@ func NewFileSafeFileMetaData() FileSafeFileMetaData {
 
 	c.ContentType = "FileSafeFileMetaData"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

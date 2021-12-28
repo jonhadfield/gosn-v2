@@ -98,7 +98,6 @@ func NewExtensionRepo() ExtensionRepo {
 
 	c.ContentType = "ExtensionRepo"
 	c.CreatedAt = now
-	//c.UpdatedAt = now
 	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 

@@ -98,7 +98,6 @@ func NewSFMFA() SFMFA {
 
 	c.ContentType = "SFMFA"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c
