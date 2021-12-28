@@ -3,6 +3,7 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 	"github.com/matryer/try"
 )
 
-// SyncInput defines the input for retrieving items
+// SyncInput defines the input for retrieving items.
 type SyncInput struct {
 	Session              *Session
 	SyncToken            string
@@ -38,13 +39,20 @@ type SyncOutput struct {
 }
 
 type ConflictedItem struct {
-	ServerItem EncryptedItem `json:"server_item"`
-	Type       string
+	ServerItem  EncryptedItem `json:"server_item"`
+	UnsavedItem EncryptedItem `json:"unsaved_item"`
+	Type        string
 }
 
 // Sync retrieves items from the API using optional filters and updates the provided
-// session with the items keys required to encrypt and decrypt items
+// session with the items keys required to encrypt and decrypt items.
 func Sync(input SyncInput) (output SyncOutput, err error) {
+	for _, item := range input.Items {
+		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
+			log.Fatal("Attempting to sync items key UUID:", item.UUID, " to SN database with an ItemsKeyID:", *item.ItemsKeyID)
+		}
+	}
+
 	debug := input.Session.Debug
 	// if items have been passed but no default items key exists then return error
 	if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
@@ -109,7 +117,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
 			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
 				input.NextItem = sResp.LastItemPut
-				debugPrint(debug, fmt.Sprintf("Sync | failed with '401 Unauthorized' which is most likely due to throttling"))
+				debugPrint(debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling")
 				panic("failed to complete sync due to server throttling. please wait five minutes before retrying.")
 			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
 				input.NextItem = sResp.LastItemPut
@@ -120,6 +128,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
 			}
 		}
+
 		return attempt < 3, rErr
 	})
 
@@ -138,6 +147,11 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	output.Unsaved.DeDupe()
 	output.SavedItems = sResp.SavedItems
 	output.SavedItems.DeDupe()
+
+	for _, si := range output.SavedItems {
+		debugPrint(debug, fmt.Sprintf("Sync | saved item: %s type: %s updated at timestamp: %d", si.UUID, si.ContentType, si.UpdatedAtTimestamp))
+	}
+
 	output.Conflicts = sResp.Conflicts
 	output.Conflicts.DeDupe()
 	output.Cursor = sResp.CursorToken
@@ -146,6 +160,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postElapsed := time.Since(postStart)
 	debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
+
 	if err = output.Conflicts.Validate(debug); err != nil {
 		panic(err)
 	}
@@ -156,6 +171,84 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	if len(output.Items) > 0 {
 		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
+	}
+
+	// Resync any conflicts
+	var conflictsToSync EncryptedItems
+
+	if len(output.Conflicts) > 0 {
+		debugPrint(debug, fmt.Sprintf("Sync | found %d conflicts", len(output.Conflicts)))
+
+		for _, conflict := range output.Conflicts {
+			var conflictedItem EncryptedItem
+
+			if conflict.Type == "sync_conflict" {
+				// if server item is deleted then we will give unsaved item a new uuid and sync it
+				switch {
+				case conflict.ServerItem.Deleted:
+					debugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace", conflict.ServerItem.UUID, conflict.ServerItem.ContentType))
+					var found bool
+					for _, item := range input.Items {
+						if item.UUID == conflict.ServerItem.UUID {
+							found = true
+							item.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
+							conflictedItem = item
+
+							break
+						}
+					}
+
+					if !found {
+						panic("could not find item that failed to sync")
+					}
+
+				case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
+					debugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp))
+
+					conflictedItem = conflict.UnsavedItem
+					conflictedItem.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
+				default:
+					debugPrint(debug, "Sync | server item is most recent so will sync that back to resolve conflict")
+
+					conflictedItem = conflict.ServerItem
+				}
+
+				conflictsToSync = append(conflictsToSync, conflictedItem)
+			}
+
+			if conflict.Type == "uuid_conflict" {
+				// give the item a new UUID
+				conflictedItem = conflict.UnsavedItem
+
+				debugPrint(debug, "Sync | item has uuid_conflict, so setting item's UUID to a new one")
+
+				conflictedItem.UUID = GenUUID()
+
+				conflictsToSync = append(conflictsToSync, conflictedItem)
+			}
+		}
+	}
+
+	if len(conflictsToSync) > 0 {
+		// Call Sync Again and add the output to the output we've already got
+		input.Items = conflictsToSync
+
+		var resyncOutput SyncOutput
+
+		resyncOutput, err = Sync(input)
+		if err != nil {
+			panic(err)
+		}
+
+		// we only expect to get saved items back from the new sync as these are conflicts being resolved
+		if len(resyncOutput.Conflicts) > 0 {
+			panic(fmt.Sprintf("we didn't expect to get any conflicts now, but got: %d", len(resyncOutput.Conflicts)))
+		}
+		// zero the conflicts as we've resolved them
+		output.Conflicts = nil
+
+		output.Items = append(output.Items, resyncOutput.Items...)
+		output.SavedItems = append(output.SavedItems, resyncOutput.SavedItems...)
 	}
 
 	return output, err
@@ -183,12 +276,14 @@ func (cis ConflictedItems) Validate(debug bool) error {
 	for _, ci := range cis {
 		switch ci.Type {
 		case "sync_conflict":
+			debugPrint(debug, fmt.Sprintf("Sync | sync conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
 			continue
 		case "uuid_conflict":
 			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
-			return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
+			continue
+			//return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
 		default:
-			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2", ci.Type)
+			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
 		}
 	}
 
@@ -216,19 +311,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
 	// determine how many items to retrieve with each call
 	var limit int
-
-	// DEBUG START
-	for _, a := range input.Items {
-		if a.ContentType == "SN|ItemsKey" {
-			if a.Deleted {
-				panic("TRYING TO DELETE ITEMS KEY")
-			}
-		}
-		if a.ItemsKeyID == "" {
-			panic("Trying to sync item without itemskeyid")
-		}
-	}
-	// DEBUG END
 
 	switch {
 	case input.PageSize > 0:
@@ -259,37 +341,34 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var requestBody []byte
 	// generate request body
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
+	//debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
 	newST := stripLineBreak(input.SyncToken) + `\n`
 
 	switch {
 	case input.CursorToken == "":
-		debugPrint(debug, "syncItemsViaAPI | cursor is empty")
-
 		if len(input.Items) == 0 {
-
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) + `}`)
+				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) + `}`)
 			} else {
-				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
+				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
 			}
 		} else {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","compute_integrity":true,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
+				requestBody = []byte(`{"api":"20200115","compute_integrity":false,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
 			} else {
-				requestBody = []byte(`{"api":"20200115","compute_integrity":true,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
+				requestBody = []byte(`{"api":"20200115","compute_integrity":false,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 					`,"sync_token":"` + newST + `"}`)
 			}
 		}
 
 	case input.CursorToken == "null":
-		debugPrint(debug, "syncItemsViaAPI | cursor is null")
+		//debugPrint(debug, "syncItemsViaAPI | cursor is null")
 
 		if input.SyncToken == "" {
-			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
 				`,"items":[],"cursor_token":null}`)
 		} else {
-			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":true,"limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
 				`,"items":[],"sync_token":"` + newST + `","cursor_token":null}`)
 		}
 
@@ -301,19 +380,21 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		input.SyncToken = stripLineBreak(rawST)
 
 		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"compute_integrity":true,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
+			`,"items":[],"compute_integrity":false,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}
 
 	// make the request
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
+	//debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
 
 	msrStart := time.Now()
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
+
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
+
 	msrEnd := time.Since(msrStart)
 	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 
@@ -324,7 +405,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	// get encrypted items from API response
 	var bodyContent syncResponse
 
-	bodyContent, err = getBodyContent(responseBody)
+	bodyContent, err = unmarshallSyncResponse(responseBody)
 	if err != nil {
 		return
 	}
@@ -332,10 +413,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems
 
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Saved %d items", len(out.SavedItems)))
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Retrieved %d items", len(out.Items)))
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Unsaved %d items", len(out.Unsaved)))
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Conflict %d items", len(out.Conflicts)))
+	//debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Saved: %d Retrieved: %d Unsaved: %d Conflict: %d",
+	//	len(out.SavedItems), len(out.Items), len(out.Unsaved), len(out.Conflicts)))
+
 	out.Unsaved = bodyContent.Unsaved
 	out.SyncToken = bodyContent.SyncToken
 	out.CursorToken = bodyContent.CursorToken
