@@ -12,6 +12,8 @@ func parseComponent(i DecryptedItem) Item {
 	c.ContentType = i.ContentType
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt
+	c.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+	c.CreatedAtTimestamp = i.CreatedAtTimestamp
 	c.CreatedAt = i.CreatedAt
 	c.ContentSize = len(i.Content)
 
@@ -93,7 +95,7 @@ func (i *Items) Append(x []interface{}) {
 
 func (i Items) Components() (c Components) {
 	for _, x := range i {
-		if x.GetContentType() == "Component" {
+		if x.GetContentType() == "SN|Component" {
 			component := x.(*Component)
 			c = append(c, *component)
 		}
@@ -118,21 +120,22 @@ func (c *Components) DeDupe() {
 	*c = deDuped
 }
 
-// NewComponent returns an Item of type Component without content
+// NewComponent returns an Item of type Component without content.
 func NewComponent() Component {
 	now := time.Now().UTC().Format(timeLayout)
 
 	var c Component
 
 	c.ContentType = "SN|Component"
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.CreatedAt = now
-	c.UpdatedAt = now
+	//c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c
 }
 
-// NewComponentContent returns an empty Tag content instance
+// NewComponentContent returns an empty Tag content instance.
 func NewComponentContent() *ComponentContent {
 	c := &ComponentContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -222,6 +225,22 @@ func (c Component) GetUpdatedAt() string {
 
 func (c *Component) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c Component) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *Component) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c Component) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *Component) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *Component) SetContentType(ct string) {
