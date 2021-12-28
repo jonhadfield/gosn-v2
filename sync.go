@@ -281,7 +281,7 @@ func (cis ConflictedItems) Validate(debug bool) error {
 		case "uuid_conflict":
 			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
 			continue
-			//return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
+			// return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
 		default:
 			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
 		}
@@ -341,7 +341,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var requestBody []byte
 	// generate request body
-	//debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
+	// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
 	newST := stripLineBreak(input.SyncToken) + `\n`
 
 	switch {
@@ -362,7 +362,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		}
 
 	case input.CursorToken == "null":
-		//debugPrint(debug, "syncItemsViaAPI | cursor is null")
+		// debugPrint(debug, "syncItemsViaAPI | cursor is null")
 
 		if input.SyncToken == "" {
 			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
@@ -384,7 +384,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	// make the request
-	//debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
+	// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
 
 	msrStart := time.Now()
 
@@ -413,7 +413,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems
 
-	//debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Saved: %d Retrieved: %d Unsaved: %d Conflict: %d",
+	// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Saved: %d Retrieved: %d Unsaved: %d Conflict: %d",
 	//	len(out.SavedItems), len(out.Items), len(out.Unsaved), len(out.Conflicts)))
 
 	out.Unsaved = bodyContent.Unsaved

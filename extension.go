@@ -98,7 +98,6 @@ func NewExtension() Extension {
 
 	c.ContentType = "Extension"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

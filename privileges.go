@@ -96,7 +96,6 @@ func NewPrivileges() Privileges {
 
 	c.ContentType = "SN|Privileges"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c

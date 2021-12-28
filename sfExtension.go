@@ -98,7 +98,6 @@ func NewSFExtension() SFExtension {
 
 	c.ContentType = "SFExtension"
 	c.CreatedAt = now
-	c.UpdatedAt = now
 	c.UUID = GenUUID()
 
 	return c
