@@ -15,7 +15,7 @@ func stripLineBreak(input string) string {
 	return input
 }
 
-// GenUUID generates a unique identifier required when creating a new item
+// GenUUID generates a unique identifier required when creating a new item.
 func GenUUID() string {
 	newUUID := uuid.New()
 	return newUUID.String()
@@ -54,6 +54,7 @@ func DeleteContent(session *Session) (err error) {
 	var so SyncOutput
 
 	so, err = Sync(si)
+
 	if err != nil {
 		return
 	}
