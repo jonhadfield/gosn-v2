@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -807,7 +806,7 @@ func TestSearchNotesByText(t *testing.T) {
 	_, err := Sync(SyncInput{
 		Session: testSession,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// create two notes
 	noteInput := map[string]string{
@@ -913,7 +912,7 @@ func TestSearchTagsByText(t *testing.T) {
 	_, err := Sync(SyncInput{
 		Session: testSession,
 	})
-	
+
 	require.NoError(t, err)
 
 	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
