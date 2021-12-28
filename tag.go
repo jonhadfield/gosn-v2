@@ -18,6 +18,8 @@ func parseTag(i DecryptedItem) Item {
 	t.Deleted = i.Deleted
 	t.UpdatedAt = i.UpdatedAt
 	t.CreatedAt = i.CreatedAt
+	t.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+	t.CreatedAtTimestamp = i.CreatedAtTimestamp
 	t.ContentSize = len(i.Content)
 
 	var err error
@@ -93,20 +95,21 @@ func (t *Tags) Encrypt(s Session) (e EncryptedItems, err error) {
 	return
 }
 
-// NewTag returns an Item of type Tag without content
+// NewTag returns an Item of type Tag without content.
 func NewTag() Tag {
 	now := time.Now().UTC().Format(timeLayout)
 
 	var tag Tag
 	tag.ContentType = "Tag"
 	tag.CreatedAt = now
-	tag.UpdatedAt = now
+	//tag.UpdatedAt = now
+	tag.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	tag.UUID = GenUUID()
 
 	return tag
 }
 
-// NewTagContent returns an empty Tag content instance
+// NewTagContent returns an empty Tag content instance.
 func NewTagContent() *TagContent {
 	c := &TagContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -202,12 +205,23 @@ func (t Tag) GetCreatedAt() string {
 	return t.CreatedAt
 }
 
+func (t Tag) GetCreatedAtTimestamp() int64 {
+	return t.CreatedAtTimestamp
+}
+
 func (t *Tag) SetCreatedAt(ca string) {
 	t.CreatedAt = ca
 }
 
+func (t *Tag) SetCreatedAtTimestamp(ca int64) {
+	t.CreatedAtTimestamp = ca
+}
+
 func (t Tag) GetUpdatedAt() string {
 	return t.UpdatedAt
+}
+func (t Tag) GetUpdatedAtTimestamp() int64 {
+	return t.UpdatedAtTimestamp
 }
 
 func (t Tag) GetContentSize() int {
@@ -220,6 +234,10 @@ func (t *Tag) SetContentSize(s int) {
 
 func (t *Tag) SetUpdatedAt(ca string) {
 	t.UpdatedAt = ca
+}
+
+func (t *Tag) SetUpdatedAtTimestamp(ca int64) {
+	t.UpdatedAtTimestamp = ca
 }
 
 func (t *Tag) SetContentType(ct string) {
@@ -297,8 +315,8 @@ func (tagContent TagContent) Equals(e TagContent) bool {
 
 func (tagContent TagContent) Copy() TagContent {
 	return TagContent{
-		Title: tagContent.Title,
-		AppData: tagContent.AppData,
+		Title:          tagContent.Title,
+		AppData:        tagContent.AppData,
 		ItemReferences: tagContent.ItemReferences,
 	}
 }
