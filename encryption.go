@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/argon2"
-
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -24,10 +23,12 @@ func splitContent(in string) (version, nonce, cipherText, authenticatedData stri
 	if len(components) < 3 {
 		panic(components)
 	}
+
 	version = components[0]           // protocol version
 	nonce = components[1]             // encryption nonce
 	cipherText = components[2]        // ciphertext
 	authenticatedData = components[3] // authenticated data
+
 	return
 }
 
@@ -90,33 +91,42 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 	if err != nil {
 		return nil, err
 	}
+
 	plaintext, err := aead.Open(dst, hexDecodedNonce, dct, []byte(rawAuthenticatedData))
 	if err != nil {
 		return
 	}
+
 	return plaintext, err
 }
 
 // decryptItemsKeys takes the master key and a list of EncryptedItemKeys
-// and returns a list of items keys
+// and returns a list of items keys.
 func decryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
 	for _, eik := range eiks {
 		// decrypt enc_item_key
 		_, encNonce, cipherText, authenticatedData := splitContent(eik.EncItemKey)
+
 		var pt []byte
+
 		pt, err = decryptString(cipherText, mk, encNonce, authenticatedData)
 		if err != nil {
 			return
 		}
+
 		// decrypt content with item_key
 		_, encNonce1, cipherText1, authenticatedData1 := splitContent(eik.Content)
+
 		var pt1 []byte
+
 		pt1, err = decryptString(cipherText1, string(pt), encNonce1, authenticatedData1)
+
 		if err != nil {
 			return
 		}
 
 		var f ItemsKey
+
 		err = json.Unmarshal(pt1, &f)
 		if err != nil {
 			return
@@ -125,11 +135,12 @@ func decryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 		f.UUID = eik.UUID
 		f.ContentType = eik.ContentType
 		f.UpdatedAt = eik.UpdatedAt
+		f.UpdatedAtTimestamp = eik.UpdatedAtTimestamp
+		f.CreatedAtTimestamp = eik.CreatedAtTimestamp
 		iks = append(iks, f)
 	}
 
 	return
-
 }
 
 func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
@@ -143,7 +154,7 @@ func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
 }
 
 // decryptItems takes the itemsKeys and the EncryptedItems to decrypt
-// and returns a list of items keys uuid (string) and key (bytes)
+// and returns a list of items keys uuid (string) and key (bytes).
 func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
 	for _, ei := range eis {
 		if !isEncryptedType(ei.ContentType) || ei.Deleted {
@@ -151,15 +162,15 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 		}
 
 		// decrypt item key with itemsKey
-		if ei.ItemsKeyID == "" {
+		if ei.ItemsKeyID == nil {
 			debugPrint(s.Debug, fmt.Sprintf("ignoring invalid item: %+v\n", ei))
 
 			continue
 		}
 
-		ik := getMatchingItem(ei.ItemsKeyID, s.ItemsKeys)
+		ik := getMatchingItem(*ei.ItemsKeyID, s.ItemsKeys)
 		if ik.UUID == "" {
-			debugPrint(s.Debug, fmt.Sprintf("ignoring item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, ei.ItemsKeyID))
+			debugPrint(s.Debug, fmt.Sprintf("ignoring item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, *ei.ItemsKeyID))
 
 			continue
 		}
@@ -169,24 +180,32 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 			err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", ei.UUID, ei.ContentType, version)
 			return
 		}
+
 		var itemKey []byte
+
 		itemKey, err = decryptString(cipherText, ik.ItemsKey, nonce, authData)
 		if err != nil {
 			return
 		}
+
 		version, nonce, cipherText, authData = splitContent(ei.Content)
+
 		var content []byte
+
 		content, err = decryptString(cipherText, string(itemKey), nonce, authData)
 		if err != nil {
 			return
 		}
+
 		var di DecryptedItem
 		di.UUID = ei.UUID
-		di.ItemsKeyID = ei.ItemsKeyID
+		di.ItemsKeyID = *ei.ItemsKeyID
 		di.ContentType = ei.ContentType
 		di.Deleted = ei.Deleted
 		di.UpdatedAt = ei.UpdatedAt
 		di.CreatedAt = ei.CreatedAt
+		di.CreatedAtTimestamp = ei.CreatedAtTimestamp
+		di.UpdatedAtTimestamp = ei.UpdatedAtTimestamp
 		di.Content = string(content)
 		items = append(items, di)
 	}
@@ -197,8 +216,14 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 func encryptItems(s Session, decItems *Items) (encryptedItems EncryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
 	d := *decItems
+
 	for _, decItem := range d {
 		var e EncryptedItem
+
+		if decItem.GetContentType() == "SN|ItemsKey" {
+			panic("doh")
+		}
+
 		e, err = encryptItem(decItem, s.DefaultItemsKey)
 		encryptedItems = append(encryptedItems, e)
 	}
@@ -228,6 +253,7 @@ func encryptString(plainText, key, nonce, authenticatedData string) (result stri
 	msg := []byte(plainText)
 
 	hexDecodedNonce := make([]byte, 24)
+
 	_, err = hex.Decode(hexDecodedNonce, []byte(nonce))
 	if err != nil {
 		return
@@ -240,12 +266,15 @@ func encryptString(plainText, key, nonce, authenticatedData string) (result stri
 }
 
 func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error) {
+	ikid := ik.GetUUID()
 	encryptedItem.UUID = item.GetUUID()
-	encryptedItem.ItemsKeyID = ik.GetUUID()
+	encryptedItem.ItemsKeyID = &ikid
 	encryptedItem.ContentType = item.GetContentType()
 	encryptedItem.UpdatedAt = item.GetUpdatedAt()
 	encryptedItem.CreatedAt = item.GetCreatedAt()
 	encryptedItem.Deleted = item.IsDeleted()
+	encryptedItem.UpdatedAtTimestamp = item.GetUpdatedAtTimestamp()
+	encryptedItem.CreatedAtTimestamp = item.GetCreatedAtTimestamp()
 	// Generate Item Key
 	itemKeyBytes := make([]byte, 64)
 
@@ -271,13 +300,16 @@ func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error
 	if err != nil {
 		panic(err)
 	}
+
 	nonce := hex.EncodeToString(bNonce)
 
 	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData)
 	if err != nil {
 		panic(err)
+
 		return
 	}
+
 	content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
 
 	encryptedItem.Content = content
@@ -287,6 +319,7 @@ func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error
 	if err != nil {
 		panic(err)
 	}
+
 	nonce = hex.EncodeToString(bNonce)
 
 	// encrypt content encryption key with default Items Key
@@ -302,9 +335,11 @@ func generateSalt(identifier, nonce string) []byte {
 	saltLength := 32
 	hashSource := fmt.Sprintf("%s:%s", identifier, nonce)
 	h := sha256.New()
+
 	if _, err := h.Write([]byte(hashSource)); err != nil {
 		panic(err)
 	}
+
 	preHash := sha256.Sum256([]byte(hashSource))
 	hash := make([]byte, hex.EncodedLen(len(preHash)))
 	hex.Encode(hash, preHash[:])
@@ -352,10 +387,18 @@ func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw,
 	return
 }
 
-func getBodyContent(input []byte) (output syncResponse, err error) {
+func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
 	err = json.Unmarshal(input, &output)
 	if err != nil {
 		return
+	}
+
+	// check no items keys have an items key
+	for _, item := range output.Items {
+		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
+			err = fmt.Errorf("Items Key has an Items Key")
+			return
+		}
 	}
 
 	return
