@@ -61,6 +61,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	var reqBodyBytes []byte
 
 	e := url.PathEscape(input.email)
+
 	var reqBody string
 
 	apiVer := "20200115"
@@ -69,13 +70,14 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
 	} else {
 		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `"}`
-
 	}
 
 	reqBodyBytes = []byte(reqBody)
 
 	var signInURLReq *http.Request
+
 	debugPrint(input.debug, fmt.Sprintf("sign-in url: %s", input.signInURL))
+
 	signInURLReq, err = http.NewRequest(http.MethodPost, input.signInURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return
@@ -139,7 +141,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 	case 404:
-		// email address not recognised
+		// email address not recognized
 		err = json.Unmarshal(body, &errResp)
 		if err != nil {
 			return
@@ -192,7 +194,7 @@ type errorResponse struct {
 	Data errorResponseData  `json:"data"`
 }
 
-// HTTP request bit
+// HTTP request bit.
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
 	// make initial params request without mfa token
 	var reqURL string
@@ -272,7 +274,7 @@ type signInInput struct {
 	debug       bool
 }
 
-type keyParams struct {
+type KeyParams struct {
 	Created     string `json:"created"`
 	Identifier  string `json:"identifier"`
 	Origination string `json:"origination"`
@@ -287,7 +289,7 @@ type user struct {
 
 type signInResponseData struct {
 	Session   Session   `json:"Session"`
-	KeyParams keyParams `json:"key_params"`
+	KeyParams KeyParams `json:"key_params"`
 	User      user      `json:"user"`
 }
 
@@ -319,7 +321,7 @@ type SignInInput struct {
 
 type SignInOutput struct {
 	Session   Session
-	KeyParams keyParams
+	KeyParams KeyParams
 	User      user
 	TokenName string
 }
@@ -355,7 +357,7 @@ func processConnectionFailure(i error, reqURL string) error {
 }
 
 // SignIn authenticates with the server using credentials and optional MFA
-// in order to obtain the data required to interact with Standard Notes
+// in order to obtain the data required to interact with Standard Notes.
 func SignIn(input SignInInput) (output SignInOutput, err error) {
 	if input.APIServer == "" {
 		input.APIServer = apiServer
@@ -403,7 +405,9 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	genEncPasswordInput.debug = input.Debug
 
 	var _, sp string
+
 	var mk string
+
 	mk, sp, err = generateMasterKeyAndServerPassword004(genEncPasswordInput)
 	if err != nil {
 		return
@@ -437,9 +441,12 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	output.KeyParams = tokenResp.Data.KeyParams
 	output.User = tokenResp.Data.User
 	output.Session.MasterKey = mk
+	output.Session.KeyParams = tokenResp.Data.KeyParams
 	output.Session.Debug = input.Debug
 	output.Session.Token = tokenResp.Data.Session.Token
 	output.Session.Server = input.APIServer
+
+	output.Session.PasswordNonce = getAuthParamsOutput.PasswordNonce
 
 	// check if we need to add a post sign in delay
 	pside := os.Getenv("SN_POST_SIGN_IN_DELAY")
@@ -493,8 +500,8 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 		token = output.Token
 	case 404:
 		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message))
-		// email address not recognised
-		err = fmt.Errorf("email address not recognised")
+		// email address not recognized
+		err = fmt.Errorf("email address not recognized")
 	case 401:
 		// unmarshal error response
 		var errResp errorResponse
@@ -514,7 +521,7 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 }
 
 // Register creates a new user token
-// Params: email, password, pw_cost, pw_nonce, version
+// Params: email, password, pw_cost, pw_nonce, version.
 func (input RegisterInput) Register() (token string, err error) {
 	var pwNonce, serverPassword string
 	_, pwNonce, _, serverPassword, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
@@ -523,6 +530,7 @@ func (input RegisterInput) Register() (token string, err error) {
 	reqBody := `{"email":"` + input.Email + `","identifier":"` + input.Email + `","password":"` + serverPassword + `","pw_nonce":"` + pwNonce + `","version":"` + defaultSNVersion + `","origination":"registration","created":"1608473387799","api":"20200115"}`
 
 	reqBodyBytes := []byte(reqBody)
+
 	req, err = http.NewRequest(http.MethodPost, input.APIServer+authRegisterPath, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return
@@ -587,7 +595,7 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 }
 
 // CliSignIn takes the server URL and credentials and sends them to the API to get a response including
-// an authentication token plus the keys required to encrypt and decrypt SN items
+// an authentication token plus the keys required to encrypt and decrypt SN items.
 func CliSignIn(email, password, apiServer string, debug bool) (session Session, err error) {
 	sInput := SignInInput{
 		Email:     email,
@@ -598,10 +606,12 @@ func CliSignIn(email, password, apiServer string, debug bool) (session Session, 
 
 	// attempt sign-in without MFA
 	var sioNoMFA SignInOutput
+
 	sioNoMFA, err = SignIn(sInput)
 	if err != nil {
 		return
 	}
+
 	// return Session if auth and master key returned
 	if sioNoMFA.Session.AccessToken != "" && sioNoMFA.Session.RefreshExpiration != 0 {
 		return sioNoMFA.Session, err
