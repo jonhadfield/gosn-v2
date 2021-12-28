@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/asdine/storm/v3"
-	"github.com/stretchr/testify/require"
-
 	gosn "github.com/jonhadfield/gosn-v2"
+	"github.com/stretchr/testify/require"
 )
 
-var gTestSession *gosn.Session
-var testSession *Session
+var (
+	gTestSession *gosn.Session
+	testSession  *Session
+)
 
 func TestMain(m *testing.M) {
 	gs, err := gosn.CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"), true)
@@ -60,6 +61,7 @@ func TestSyncWithoutDatabase(t *testing.T) {
 	if err != nil {
 		return
 	}
+
 	session.CacheDBPath = ""
 	_, err = Sync(SyncInput{Session: session})
 	require.EqualError(t, err, "database path is required")
@@ -126,7 +128,7 @@ func TestSyncWithNoItems(t *testing.T) {
 	require.NoError(t, so.DB.Close())
 }
 
-// NewCacheDB creates a storm database in the provided path and returns a pointer to the opened database
+// NewCacheDB creates a storm database in the provided path and returns a pointer to the opened database.
 func NewCacheDB(path string) (db *storm.DB, err error) {
 	// TODO: check path syntax is file (not ending in file sep.)
 	// TODO: check file doesn't exist
@@ -150,7 +152,7 @@ func GetCacheDB(path string) (db *storm.DB, err error) {
 
 // create a note in a storm DB, mark it dirty, and then sync to SN
 // the returned DB should have the note returned as not dirty
-// SN should now have that note
+// SN should now have that note.
 func TestSyncWithNewNote(t *testing.T) {
 	defer cleanup(testSession.Session)
 
@@ -212,7 +214,7 @@ func TestSyncWithNewNote(t *testing.T) {
 }
 
 // create a note in SN directly
-// call persist Sync and check DB contains the note
+// call persist Sync and check DB contains the note.
 func TestSyncOneExisting(t *testing.T) {
 	defer cleanup(testSession.Session)
 
@@ -274,12 +276,13 @@ func TestSyncOneExisting(t *testing.T) {
 
 // create a note in SN directly
 // call persist, Sync, and check DB contains the note
-// update new note, sync to SN, then check new content is persisted
+// update new note, sync to SN, then check new content is persisted.
 func TestSyncUpdateExisting(t *testing.T) {
+	cleanup(testSession.Session)
 	defer cleanup(testSession.Session)
 
 	// create new note with random content and push to SN (not DB)
-	newNote, _ := createNote("test", "")
+	newNote, _ := createNote("test title", "some content")
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
@@ -289,97 +292,166 @@ func TestSyncUpdateExisting(t *testing.T) {
 	// push new note to SN
 	var gso gosn.SyncOutput
 	gso, err = gosn.Sync(gosn.SyncInput{
-		Session: gTestSession,
+		Session: testSession.Session,
 		Items:   eItems,
 	})
 
 	require.NoError(t, err)
 	require.Len(t, gso.SavedItems, 1)
 
-	// call cache sync
-	var so SyncOutput
+	// USE CACHE SYNC TO LOAD NEW NOTE INTO CACHE
 
-	so, err = Sync(SyncInput{
+	// var so SyncOutput
+
+	cso, err := Sync(SyncInput{
 		Session: testSession,
+		Close:   false,
 	})
+
 	require.NoError(t, err)
 
-	defer so.DB.Close()
+	// defer so.DB.Close()
 	defer removeDB(tempDBPath)
 
 	// get all items
 	var allPersistedItems Items
 
-	err = so.DB.All(&allPersistedItems)
-	require.NoError(t, err)
-
+	// get sync token from previous operation
 	var syncTokens []SyncToken
-	err = so.DB.All(&syncTokens)
+	err = cso.DB.All(&syncTokens)
 	require.NoError(t, err)
 	require.NotEmpty(t, syncTokens)
 
-	err = so.DB.All(&allPersistedItems)
+	err = cso.DB.All(&allPersistedItems)
+	require.NoError(t, err)
 	require.Greater(t, len(allPersistedItems), 0)
-
-	var foundNotes int
-
-	for _, pi := range allPersistedItems {
-		if pi.ContentType == "Note" && pi.UUID == newNote.UUID {
-			foundNotes++
-		}
-
-	}
-
-	require.Equal(t, 1, foundNotes)
-
-	// *****
-	// Now modify note in db and sync
-	// *****
 
 	var items gosn.Items
 	items, err = allPersistedItems.ToItems(testSession)
 	require.NoError(t, err)
 	require.NotEmpty(t, items)
-	var existingNote gosn.Note
-	for _, item := range items {
-		if item.GetUUID() == newNote.UUID {
-			existingNote = *item.(*gosn.Note)
+
+	var newNoteFound bool
+
+	for x := range items {
+		if items[x].GetContentType() == "Note" && items[x].GetUUID() == newNote.UUID {
+			newNote = *items[x].(*gosn.Note)
+			if newNote.Content.Title == "test title" && newNote.Content.Text == "some content" {
+				newNoteFound = true
+			}
 		}
 	}
-	require.NotEmpty(t, existingNote.UUID)
-	require.NotEmpty(t, existingNote.GetContent())
 
-	existingNote.Content.SetTitle("New Title")
-	existingNote.Content.SetText("New Text")
+	require.True(t, newNoteFound)
+	newNote.Content.SetTitle("Modified Title")
+	require.Equal(t, newNote.Content.Title, "Modified Title")
+	newNote.Content.SetText("Modified Text")
+	// newNote.Content.SetUpdateTime(time.Now())
+	require.Equal(t, newNote.Content.Text, "Modified Text")
+	// check note content was saved
+	time.Sleep(1 * time.Second)
 
-	require.NoError(t, SaveNotes(testSession, so.DB, gosn.Notes{existingNote}, true))
+	// items convert new items to 'persist' items and mark as dirty
+	var ditems gosn.Items
+	ditems = append(ditems, &newNote)
+	eItems, err = ditems.Encrypt(*testSession.Session)
+	require.NoError(t, err)
+	require.Len(t, eItems, 1)
 
-	// sync back to SN
-	_, err = Sync(SyncInput{
+	itp := ToCacheItems(eItems, false)
+	for x := range itp {
+		require.NoError(t, cso.DB.Save(&itp[x]))
+	}
+
+	require.True(t, checkItemInDBTemp(cso.DB, newNote, "Modified Title", "Modified Text"))
+
+	require.NoError(t, cso.DB.Close())
+
+	cso, err = Sync(SyncInput{
 		Session: testSession,
 	})
+
+	require.NoError(t, err)
+	require.True(t, checkItemInDBTemp(cso.DB, newNote, "Modified Title", "Modified Text"))
+
+	// CHECK ITEM IS NOW IN DB
+	err = cso.DB.All(&allPersistedItems)
+	require.NoError(t, err)
+	// require.Equal(t, len(allPersistedItems), 1)
+	items, err = allPersistedItems.ToItems(testSession)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
+
+	newNoteFound = false
+
+	for x := range items {
+		if items[x].GetContentType() == "Note" && items[x].GetUUID() == newNote.UUID {
+			newNote1 := *items[x].(*gosn.Note)
+
+			if newNote1.Content.Title == "Modified Title" && newNote1.Content.Text == "Modified Text" {
+				newNoteFound = true
+			}
+		}
+	}
+
+	require.True(t, newNoteFound)
 
 	// now do a gosn sync and check item has updates
 	var newSO gosn.SyncOutput
 	newSO, err = gosn.Sync(gosn.SyncInput{
-		Session: gTestSession,
+		Session: testSession.Session,
 	})
 	require.NoError(t, err)
+
 	var uItem gosn.EncryptedItem
+
 	for _, i := range newSO.Items {
-		if i.UUID == existingNote.UUID {
+		if i.UUID == newNote.UUID && i.Deleted == false {
 			uItem = i
 		}
 	}
+
 	require.NotEmpty(t, uItem.UUID)
+	require.Equal(t, newNote.UUID, uItem.UUID)
+	// require.Equal(t, newNote.UpdatedAt, uItem.UpdatedAt)
+
 	newEncItems := gosn.EncryptedItems{uItem}
+
 	var newDecItems gosn.Items
-	newDecItems, err = newEncItems.DecryptAndParse(gTestSession)
+	newDecItems, err = newEncItems.DecryptAndParse(testSession.Session)
 	require.NoError(t, err)
 	require.NotEmpty(t, newDecItems)
 	uNote := *newDecItems[0].(*gosn.Note)
-	require.Equal(t, "New Title", uNote.Content.GetTitle())
-	require.Equal(t, "New Text", uNote.Content.GetText())
+	require.Equal(t, "Modified Title", uNote.Content.GetTitle())
+	require.Equal(t, "Modified Text", uNote.Content.GetText())
+}
+
+func checkItemInDBTemp(db *storm.DB, inNote gosn.Note, title, text string) (found bool) {
+	var allPersistedItems Items
+
+	err := db.All(&allPersistedItems)
+	if err != nil {
+		panic(fmt.Sprintf("couldn't get items from db: %+v", err))
+	}
+
+	// require.Equal(t, len(allPersistedItems), 1)
+	items, err := allPersistedItems.ToItems(testSession)
+	if err != nil {
+		panic("couldn't turn cache items to gosn items")
+	}
+
+	for x := range items {
+		if items[x].GetContentType() == "Note" && items[x].GetUUID() == inNote.UUID {
+			// panic("found new note in cache")
+			foundNote := *items[x].(*gosn.Note)
+
+			if foundNote.Content.Title == title && foundNote.Content.Text == text {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
@@ -435,7 +507,7 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 
 	if len(toDel) > 0 {
 		eToDel, _ := toDel.Encrypt(*session)
-		si := gosn.SyncInput{
+		si = gosn.SyncInput{
 			Session: session,
 			Items:   eToDel,
 		}
@@ -486,7 +558,7 @@ var (
 		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut venenatis est sit amet lectus aliquam, ac rutrum nibh vulputate. Etiam vel nulla dapibus, lacinia neque et, porttitor elit. Nulla scelerisque elit sem, ac posuere est gravida dignissim. Fusce laoreet, enim gravida vehicula aliquam, tellus sem iaculis lorem, rutrum congue ex lectus ut quam. Cras sollicitudin turpis magna, et tempor elit dignissim eu. Etiam sed auctor leo. Sed semper consectetur purus, nec vehicula tellus tristique ac. Cras a quam et magna posuere varius vitae posuere sapien. Morbi tincidunt tellus eu metus laoreet, quis pulvinar sapien consectetur. Fusce nec viverra lectus, sit amet ullamcorper elit. Vestibulum vestibulum augue sem, vitae egestas ipsum fringilla sit amet. Nulla eget ante sit amet velit placerat gravida.",
 		"Duis odio tortor, consequat egestas neque dictum, porttitor laoreet felis. Sed sed odio non orci dignissim vulputate. Praesent a scelerisque lectus. Phasellus sit amet vestibulum felis. Integer blandit, nulla eget tempor vestibulum, nisl dolor interdum eros, sed feugiat est augue sit amet eros. Suspendisse maximus tortor sodales dolor sagittis, vitae mattis est cursus. Etiam lobortis nunc non mi posuere, vel elementum massa congue. Aenean ut lectus vitae nisl scelerisque semper.",
 		"Quisque pellentesque mauris ut tortor ultrices, eget posuere metus rhoncus. Aenean maximus ultricies mauris vel facilisis. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Curabitur hendrerit, ligula a sagittis condimentum, metus nibh sodales elit, sed rhoncus felis ipsum sit amet sem. Phasellus nec massa non felis suscipit dictum. Aenean dictum iaculis metus quis aliquam. Aenean suscipit mi vel nisi finibus rhoncus. Donec eleifend, massa in convallis mattis, justo eros euismod dui, sollicitudin imperdiet nibh lacus sit amet diam. Praesent eu mollis ligula. In quis nisi egestas, scelerisque ante vitae, dignissim nisi. Curabitur vel est eget purus porta malesuada.",
-		"Duis tincidunt eros ligula, et tincidunt lacus scelerisque ac. Cras aliquam ultrices egestas. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nunc sapien est, imperdiet in cursus id, suscipit ac orci. Integer magna augue, accumsan quis massa rutrum, dictum posuere odio. Vivamus vitae efficitur enim. Donec posuere sapien sit amet turpis lacinia rutrum. Nulla porttitor lacinia justo quis consequat.",
+		"Duis tincidunt eros ligula, et tincidunt lacus scelerisque ac. Cras aliquam ultrices egestas. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculous mus. Nunc sapien est, imperdiet in cursus id, suscipit ac orci. Integer magna augue, accumsan quis massa rutrum, dictum posuere odio. Vivamus vitae efficitur enim. Donec posuere sapien sit amet turpis lacinia rutrum. Nulla porttitor lacinia justo quis consequat.",
 		"Quisque blandit ultricies nisi eu dignissim. Mauris venenatis enim et posuere ornare. Phasellus facilisis libero ut elit consequat scelerisque. Vivamus facilisis, nibh eget hendrerit malesuada, velit tellus vehicula justo, id ultrices justo orci nec dui. Sed hendrerit fermentum pulvinar. Aenean at magna gravida, finibus ligula non, cursus felis. Quisque consectetur malesuada magna ut cursus. Nam aliquet felis aliquet lobortis pulvinar. Fusce vel ipsum felis. Maecenas sapien magna, feugiat vitae tristique sit amet, vehicula ac quam. Donec a consectetur lorem, id euismod augue. Suspendisse metus ipsum, bibendum efficitur tortor vitae, molestie suscipit nulla. Proin vel felis eget libero auctor pulvinar eget ac diam. Vivamus malesuada elementum lobortis. Mauris nibh enim, pharetra eu elit vel, sagittis pulvinar ante. Ut efficitur nunc at odio elementum, sed pretium ante porttitor.",
 		"Nulla convallis a lectus quis efficitur. Aenean quis vestibulum enim. Nunc in mattis tortor. Nullam sit amet placerat ipsum. Aene an sagittis, elit non bibendum posuere, sapien libero eleifend nisl, quis iaculis urna tortor ut nibh. Fusce fringilla elit in pellentesque laoreet. Duis ornare semper sagittis. Curabitur efficitur quam ac erat venenatis bibendum. Curabitur et luctus nunc, eu euismod augue. Mauris magna enim, vulputate eget gravida a, vestibulum non massa. Pellentesque eget pulvinar nisl.",
 		"Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Proin a venenatis felis, a posuere augue. Cras ultrices libero in lorem congue ultrices. Integer porttitor, urna non vehicula maximus, est tellus volutpat erat, id volutpat eros erat sit amet mi. Quisque faucibus maximus risus, in placerat mauris venenatis vitae. Ut placerat, risus eu suscipit cursus, velit magna rhoncus dui, eu condimentum mauris nisi in ligula. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aliquam sed dictum lectus. Quisque malesuada sapien mattis, consectetur augue non, sodales arcu. Vivamus imperdiet leo et lacus bibendum, eu venenatis odio auctor. Donec vitae massa vitae nisi tristique faucibus. Curabitur nec pretium ex. Quisque at sapien ornare, mollis nulla eget, tristique ex.",
@@ -505,14 +577,14 @@ var (
 		"Donec elementum scelerisque leo, vitae interdum neque fringilla vel. Etiam eu leo rutrum, mollis sapien quis, bibendum mi. Quisque sem ex, tincidunt nec tincidunt molestie, varius eu tellus. Donec viverra sit amet purus eget tincidunt. Cras pulvinar porttitor tellus eu faucibus. In sit amet rhoncus sem. Mauris faucibus tortor urna, at faucibus quam volutpat ac. Vivamus ut molestie velit, quis tristique dolor. Duis molestie semper nisi ac feugiat. Nunc a nisi convallis, commodo dui et, ultrices velit.",
 		"Nullam semper suscipit mi, ut consequat velit suscipit nec. Curabitur finibus pharetra diam sed condimentum. Aliquam dolor ligula, hendrerit nec pretium vitae, convallis sit amet leo. Vestibulum magna tortor, blandit eget fermentum in, porttitor et orci. In aliquam urna eu mollis lacinia. Nullam semper interdum orci. Cras semper mauris nec elementum mattis. Donec porta luctus ultricies. Pellentesque in luctus ligula. In ante ex, lacinia at dui vel, bibendum ornare lacus. Quisque porta eleifend dignissim. Nunc sed placerat risus. Etiam fermentum nec enim in dignissim.",
 		"Nunc sodales tellus a urna cursus, ac posuere felis ultrices. Suspendisse maximus massa sem, in laoreet eros molestie ut. Aliquam suscipit vel orci at vestibulum. Fusce hendrerit, felis eu posuere sollicitudin, est velit dictum turpis, vitae faucibus mauris mauris ut velit. Praesent bibendum lectus ut vestibulum maximus. Donec blandit ligula libero, ut tempor nulla scelerisque posuere. Nulla egestas elit ex. Maecenas pretium semper quam in rhoncus. Fusce a viverra nunc, sed placerat libero. Sed venenatis convallis risus sed condimentum. Vivamus euismod tellus eu sagittis facilisis. Aliquam ac massa lacus. Interdum et malesuada fames ac ante ipsum primis in faucibus. Ut turpis ligula, euismod ac enim sed, porta tristique magna.",
-		"Pellentesque venenatis elementum enim, nec consequat felis. Nulla facilisi. Suspendisse tempus erat non ipsum vulputate, in lacinia elit feugiat. Maecenas et velit eget tortor congue luctus nec eu urna. Duis congue tellus vel purus convallis tristique. Aenean dapibus tincidunt leo, vel aliquam turpis pretium sit amet. Pellentesque mollis in massa eu mattis. Suspendisse potenti. Cras facilisis at purus ut elementum. Sed volutpat eget nisl id lobortis. Etiam vestibulum lectus id justo vulputate lacinia quis ut lectus. Phasellus tincidunt dolor id nisl placerat, a consequat est volutpat. Phasellus venenatis finibus ante, et eleifend justo pulvinar id. Cras eu ligula quis libero tempor condimentum. Praesent accumsan enim in sodales vulputate. Curabitur rhoncus ante a luctus interdum.",
+		"Pellentesque venenatis elementum enim, nec consequat felis. Nulla facilities. Suspendisse tempus erat non ipsum vulputate, in lacinia elit feugiat. Maecenas et velit eget tortor congue luctus nec eu urna. Duis congue tellus vel purus convallis tristique. Aenean dapibus tincidunt leo, vel aliquam turpis pretium sit amet. Pellentesque mollis in massa eu mattis. Suspendisse potenti. Cras facilisis at purus ut elementum. Sed volutpat eget nisl id lobortis. Etiam vestibulum lectus id justo vulputate lacinia quis ut lectus. Phasellus tincidunt dolor id nisl placerat, a consequat est volutpat. Phasellus venenatis finibus ante, et eleifend justo pulvinar id. Cras eu ligula quis libero tempor condimentum. Praesent accumsan enim in sodales vulputate. Curabitur rhoncus ante a luctus interdum.",
 		"Maecenas vel rhoncus turpis, sit amet varius lacus. Vivamus venenatis sapien vel mi euismod, eget commodo tortor auctor. Cras sit amet dictum quam, non fermentum massa. Aliquam gravida est sed gravida suscipit. Praesent finibus tempor magna, ut dapibus dolor. Proin quis pulvinar arcu. Suspendisse tempor sem justo, at dignissim justo elementum vel. Aenean vitae dolor varius lacus rutrum eleifend.",
 		"Etiam ut varius enim. Quisque ligula neque, accumsan et neque eget, pretium lacinia nisi. Etiam aliquet id quam a ullamcorper. Fusce eleifend, mauris vitae placerat egestas, orci erat euismod enim, ut posuere nisl justo placerat libero. Nam ac dui ac lorem laoreet maximus. Curabitur risus leo, feugiat et ligula ac, pellentesque ullamcorper lorem. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec dignissim non turpis tristique hendrerit. Donec libero odio, ullamcorper condimentum tincidunt ac, hendrerit sed metus. Maecenas venenatis sodales ex. Vestibulum sit amet finibus urna, eu pellentesque velit. Donec accumsan lectus sit amet purus lacinia, et aliquam quam imperdiet. Nunc quis sem fermentum, consectetur urna quis, tristique eros. Sed at tortor a velit blandit aliquam in semper odio. Etiam laoreet sapien lacus, at convallis felis feugiat vitae. Integer et facilisis nibh.",
 		"Nullam consequat vehicula euismod. Donec non metus sed nulla bibendum facilisis sed vitae orci. Donec at sapien elit. Sed luctus id augue a gravida. Quisque bibendum nisl sed imperdiet congue. Nam tristique diam diam, ut finibus ante laoreet sit amet. Fusce eget condimentum sem, eget imperdiet massa. Sed orci velit, aliquet a malesuada ac, convallis vitae elit. Aliquam molestie tellus vitae tellus accumsan, quis dapibus purus placerat. Cras commodo, ligula quis commodo congue, ipsum enim placerat nisi, eu congue ante dolor sed ante. Nunc luctus est id metus eleifend, sed consequat leo gravida. Phasellus mattis enim sit amet placerat vehicula. Suspendisse vestibulum lacus sit amet nunc placerat, et ultricies elit fermentum. In et est ac turpis vestibulum bibendum.",
 		"Cras in est efficitur, volutpat nisi ut, faucibus nisl. Proin vehicula quam vel ante cursus, vel ultricies erat rutrum. Aliquam pharetra fringilla mauris eget condimentum. Sed placerat turpis eu turpis semper, nec vestibulum sem ornare. Suspendisse potenti. Ut at elit porta, luctus lorem in, tincidunt nunc. Vivamus in justo a lectus sollicitudin tempor non non tellus. Phasellus nec iaculis lacus. Cras consequat orci nec feugiat rutrum. Praesent vulputate, lorem a vulputate ornare, nisi ante tempus elit, sit amet interdum eros nunc vitae erat. Donec at neque in orci ultricies pulvinar eu sit amet quam. Duis tempus vitae sapien vel malesuada.",
 		"In auctor condimentum diam sed auctor. Vivamus id rutrum arcu. Proin venenatis, neque malesuada eleifend posuere, urna est pellentesque turpis, vitae scelerisque nisi nunc sit amet ligula. Vestibulum viverra consequat est in lobortis. Nam efficitur arcu at neque lacinia, ut condimentum leo gravida. Vestibulum vitae nisi leo. Nulla odio dolor, malesuada a magna non, accumsan efficitur nisi. Proin vitae lacus facilisis erat interdum pulvinar. Praesent in egestas tortor.", "Integer in massa odio. Duis ex mi, varius nec nibh eget, sodales pellentesque sapien. Aenean pharetra eros vitae tellus volutpat euismod. Vestibulum mattis condimentum metus eget ullamcorper. Integer ut iaculis lorem. Fusce nec lobortis massa. Aliquam pellentesque placerat lorem in efficitur. In pharetra et ex sed mattis. Praesent eget nisi sit amet metus ullamcorper fermentum. Integer ante dolor, vestibulum id massa in, dictum porta nisi. Duis lacinia est vitae enim dignissim blandit. Integer non dapibus velit. Cras auctor eu felis sodales tempor.",
 		"Fusce convallis facilisis lacus id lacinia. Nunc rhoncus vulputate consectetur. Ut malesuada malesuada mi, molestie luctus purus feugiat at. Integer eros mauris, porttitor eu tristique quis, gravida id enim. Nullam vitae lectus nulla. Etiam consequat sapien vitae risus volutpat, vitae condimentum nisl ultrices. Donec et magna sed justo suscipit iaculis. Vestibulum id mauris eu eros tempus interdum. Morbi porta libero quis leo consectetur maximus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Proin ut dui pharetra, faucibus augue blandit, tempor massa. Duis urna odio, luctus eget justo sed, consectetur faucibus mauris. Phasellus vel sapien justo. Donec sed lectus eget lectus ultrices ornare. Curabitur ultrices sapien libero, sit amet fermentum mi bibendum nec.",
-		"Phasellus sed quam mi. Aenean eget sodales neque. Nam convallis lacus non justo blandit, non ornare mauris imperdiet. Nam mattis commodo turpis et lacinia. Duis ac maximus lorem. Suspendisse euismod dui at sodales accumsan. Suspendisse vulputate lobortis sapien, viverra vehicula felis blandit vitae. Fusce viverra ultrices felis sed egestas. Duis ex diam, rutrum nec maximus sit amet, imperdiet ac ex. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Mauris scelerisque facilisis eros, sed maximus erat elementum et.",
+		"Phasellus sed quam mi. Aenean eget sodales neque. Nam convallis lacus non justo blandit, non ornare mauris imperdiet. Nam mattis commodo turpis et lacinia. Duis ac maximus lorem. Suspendisse euismod dui at sodales accumsan. Suspendisse vulputate lobortis sapien, viverra vehicula felis blandit vitae. Fusce viverra ultrices felis sed egestas. Duis ex diam, rutrum nec maximus sit amet, imperdiet ac ex. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculous mus. Mauris scelerisque facilisis eros, sed maximus erat elementum et.",
 		"In ultricies, felis eu aliquet tempor, velit ante finibus ipsum, ut sagittis lacus urna sit amet erat. Vestibulum porttitor gravida scelerisque. Fusce semper faucibus est placerat varius. Curabitur nec quam pellentesque, pharetra magna nec, pellentesque nunc. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sagittis tincidunt justo, nec sagittis turpis vehicula eu. Duis ultricies nulla urna, vel efficitur purus feugiat a. Etiam molestie pharetra ex. Cras ut est faucibus, maximus orci eget, accumsan sapien.",
 		"Nam tempor, libero eget iaculis commodo, mauris neque feugiat diam, vel lacinia ipsum velit ac lorem. In eget fringilla velit. Nullam mattis elit sem, tincidunt ultricies quam euismod ac. Sed sagittis mauris id orci consequat, a accumsan ligula commodo. Quisque a faucibus ligula, eget porttitor sem. Quisque sit amet sollicitudin sem. Vestibulum dignissim erat lacus, id molestie metus malesuada eget. Vivamus ac metus non dui sagittis rutrum. Curabitur quam quam, luctus at hendrerit quis, vehicula in libero. Fusce et sapien lorem.",
 		"Integer ornare ex tempus libero hendrerit, ac maximus purus imperdiet. Nullam tincidunt ex et ipsum vulputate luctus. Nunc ac sodales mi. Integer nec velit leo. Fusce quis ante tortor. Donec congue purus sem. Sed eget velit vel lacus semper suscipit. Praesent id lacinia enim. Fusce luctus in leo sit amet porttitor. Nam non lorem in enim fermentum auctor. Morbi non pellentesque ex.",
@@ -530,7 +602,8 @@ var (
 		"Pellentesque posuere ullamcorper velit eu interdum. Vivamus posuere aliquam velit a rhoncus. Fusce viverra fermentum justo id rhoncus. Quisque at dui dapibus, bibendum eros fermentum, laoreet ligula. Curabitur porta, diam at fringilla congue, dui enim bibendum elit, non scelerisque lorem risus eget lacus. Proin risus nibh, scelerisque nec feugiat vel, finibus interdum lorem. Morbi elit purus, fringilla at odio at, cursus condimentum erat. In tristique nisi eu ex tristique, sed bibendum est eleifend. Mauris interdum quis velit sit amet sodales. Integer semper tempus magna, vel vehicula eros pharetra sed. Sed tincidunt porttitor tellus. Suspendisse potenti. Nulla et scelerisque nisi. Aenean pellentesque fermentum ipsum vel pretium. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.",
 		"Curabitur tempus lectus nisl, ut tempus nunc efficitur et. Maecenas vel nulla et ipsum sollicitudin consectetur ac a dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vulputate a tellus sit amet pellentesque. Cras sapien nunc, efficitur eu mi nec, tincidunt finibus dolor. Nullam volutpat accumsan elit et efficitur. Nullam felis enim, consequat quis semper nec, gravida id dui. Mauris et lorem ac odio eleifend tempor id vitae dolor. Quisque ante leo, vestibulum id leo sed, bibendum venenatis mauris. Fusce bibendum placerat nibh, in posuere magna placerat ac. Duis imperdiet mauris at risus aliquam, in congue lectus hendrerit. Phasellus porttitor metus eu purus rhoncus, ut iaculis dolor condimentum.",
 		"Sed eu ante lorem. Donec diam odio, suscipit eu euismod eget, sagittis non dui. Mauris consectetur volutpat viverra. Curabitur lacinia, dui vel aliquam lacinia, felis turpis bibendum odio, non ultricies augue augue nec diam. Etiam posuere risus sodales nisi gravida, eu venenatis turpis fermentum. Nulla vestibulum nec purus ut imperdiet. Vivamus vestibulum elementum nisi non molestie. Integer sit amet dignissim erat, sed lacinia massa. Sed ac nulla leo. Nulla ex purus, consequat at lectus vel, mollis tempor justo.",
-		"Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Vivamus convallis nulla facilisis odio viverra, quis malesuada leo viverra. Etiam neque purus, interdum eu dui et, facilisis congue felis. Nunc tempor risus ut sapien porta, non tincidunt magna ornare. Vivamus consectetur, ligula in facilisis consequat, turpis quam fermentum ipsum, eget elementum odio velit vel risus. Etiam maximus eleifend lacus et cursus. Sed feugiat dolor et velit suscipit, vel mattis orci auctor. Nam tempor nunc vitae turpis interdum mollis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Vestibulum sit amet mauris a nulla consequat blandit. Aenean fringilla orci fringilla lectus pulvinar, eu pellentesque erat egestas. Vivamus venenatis, tortor at tincidunt fermentum, metus ligula blandit massa, id congue metus eros sit amet nisi. Etiam ac vehicula ex, sit amet mollis mauris. Suspendisse potenti. Praesent ut eleifend ante."}
+		"Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Vivamus convallis nulla facilisis odio viverra, quis malesuada leo viverra. Etiam neque purus, interdum eu dui et, facilisis congue felis. Nunc tempor risus ut sapien porta, non tincidunt magna ornare. Vivamus consectetur, ligula in facilisis consequat, turpis quam fermentum ipsum, eget elementum odio velit vel risus. Etiam maximus eleifend lacus et cursus. Sed feugiat dolor et velit suscipit, vel mattis orci auctor. Nam tempor nunc vitae turpis interdum mollis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Vestibulum sit amet mauris a nulla consequat blandit. Aenean fringilla orci fringilla lectus pulvinar, eu pellentesque erat egestas. Vivamus venenatis, tortor at tincidunt fermentum, metus ligula blandit massa, id congue metus eros sit amet nisi. Etiam ac vehicula ex, sit amet mollis mauris. Suspendisse potenti. Praesent ut eleifend ante.",
+	}
 )
 
 func randInt(min int, max int) int {
