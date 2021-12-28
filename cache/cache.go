@@ -4,39 +4,40 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/asdine/storm/v3"
-	"github.com/fatih/color"
-	"github.com/jonhadfield/gosn-v2"
-	"github.com/mitchellh/go-homedir"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/asdine/storm/v3"
+	"github.com/fatih/color"
+	"github.com/jonhadfield/gosn-v2"
+	"github.com/mitchellh/go-homedir"
 )
 
 const (
-	// LOGGING
+	// LOGGING.
 	libName       = "gosn-v2 | cache" // name of library used in logging
 	maxDebugChars = 120               // number of characters to display when logging API response body
 )
 
-var (
-	HiWhite = color.New(color.FgHiWhite).SprintFunc()
-)
+var HiWhite = color.New(color.FgHiWhite).SprintFunc()
 
 type Item struct {
-	UUID        string `storm:"id,unique"`
-	Content     string
-	ContentType string `storm:"index"`
-	ItemsKeyID  string
-	EncItemKey  string
-	Deleted     bool
-	CreatedAt   string
-	UpdatedAt   string
-	DuplicateOf string
-	Dirty       bool
-	DirtiedDate time.Time
+	UUID               string `storm:"id,unique"`
+	Content            string
+	ContentType        string `storm:"index"`
+	ItemsKeyID         *string
+	EncItemKey         string
+	Deleted            bool
+	CreatedAt          string
+	UpdatedAt          string
+	CreatedAtTimestamp int64
+	UpdatedAtTimestamp int64
+	DuplicateOf        *string
+	Dirty              bool
+	DirtiedDate        time.Time
 }
 
 type SyncToken struct {
@@ -67,34 +68,46 @@ func (s *Session) gosn() *gosn.Session {
 		AccessExpiration:  s.AccessExpiration,
 		RefreshExpiration: s.RefreshExpiration,
 	}
+
 	return &gs
 }
 
 func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("ToItems | Converting %d cache items to gosn items", len(pi)))
+
 	var eItems gosn.EncryptedItems
+
 	for _, ei := range pi {
+		eiik := ei.ItemsKeyID
+
 		eItems = append(eItems, gosn.EncryptedItem{
-			UUID:        ei.UUID,
-			Content:     ei.Content,
-			ContentType: ei.ContentType,
-			ItemsKeyID:  ei.ItemsKeyID,
-			EncItemKey:  ei.EncItemKey,
-			Deleted:     ei.Deleted,
-			CreatedAt:   ei.CreatedAt,
-			UpdatedAt:   ei.UpdatedAt,
-			DuplicateOf: ei.DuplicateOf,
+			UUID:               ei.UUID,
+			Content:            ei.Content,
+			ContentType:        ei.ContentType,
+			ItemsKeyID:         eiik,
+			EncItemKey:         ei.EncItemKey,
+			Deleted:            ei.Deleted,
+			CreatedAt:          ei.CreatedAt,
+			CreatedAtTimestamp: ei.CreatedAtTimestamp,
+			UpdatedAtTimestamp: ei.UpdatedAtTimestamp,
+			UpdatedAt:          ei.UpdatedAt,
+			DuplicateOf:        ei.DuplicateOf,
 		})
 	}
 
 	if eItems != nil {
 		gs := s.gosn()
+
 		if len(gs.ItemsKeys) == 0 {
 			panic("trying to convert cache items to items with no items keys")
 		}
+
 		if gs.DefaultItemsKey.ItemsKey == "" {
 			panic("trying to convert cache items to items with no default items key")
 		}
+
 		items, err = eItems.DecryptAndParse(gs)
+
 		if err != nil {
 			return
 		}
@@ -108,6 +121,8 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 		var cItem Item
 		cItem.UUID = i.UUID
 		cItem.Content = i.Content
+		cItem.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+		cItem.CreatedAtTimestamp = i.CreatedAtTimestamp
 
 		if !clean {
 			cItem.Dirty = true
@@ -115,6 +130,16 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 		}
 
 		cItem.ContentType = i.ContentType
+
+		iik := ""
+		if i.ItemsKeyID != nil {
+			iik = *i.ItemsKeyID
+		}
+
+		if i.ContentType == "SN|ItemsKey" && iik != "" {
+			log.Fatal("ItemsKey with UUID:", i.UUID, "has ItemsKeyID:", iik)
+		}
+
 		cItem.ItemsKeyID = i.ItemsKeyID
 		cItem.EncItemKey = i.EncItemKey
 		cItem.Deleted = i.Deleted
@@ -127,7 +152,7 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 	return
 }
 
-// SaveItems encrypts, converts to cache items, and then persists to db
+// SaveItems encrypts, converts to cache items, and then persists to db.
 func SaveItems(db *storm.DB, s *Session, items gosn.Items, close bool) error {
 	gs := s.gosn()
 
@@ -141,7 +166,7 @@ func SaveItems(db *storm.DB, s *Session, items gosn.Items, close bool) error {
 	return SaveCacheItems(db, cItems, close)
 }
 
-// SaveNotes encrypts, converts to cache items, and then persists to db
+// SaveNotes encrypts, converts to cache items, and then persists to db.
 func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
 	eItems, err := items.Encrypt(*s.gosn())
 	if err != nil {
@@ -153,7 +178,7 @@ func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
 	return SaveCacheItems(db, cItems, close)
 }
 
-// SaveTags encrypts, converts to cache items, and then persists to db
+// SaveTags encrypts, converts to cache items, and then persists to db.
 func SaveTags(db *storm.DB, s *Session, items gosn.Tags, close bool) error {
 	eItems, err := items.Encrypt(*s.gosn())
 	if err != nil {
@@ -165,16 +190,17 @@ func SaveTags(db *storm.DB, s *Session, items gosn.Tags, close bool) error {
 	return SaveCacheItems(db, cItems, close)
 }
 
-// SaveEncryptedItems converts to cache items and persists to db
+// SaveEncryptedItems converts to cache items and persists to db.
 func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) error {
 	cItems := ToCacheItems(items, false)
+
 	return SaveCacheItems(db, cItems, close)
 }
 
-// SaveCacheItems saves Cache Items to the provided database
+// SaveCacheItems saves Cache Items to the provided database.
 func SaveCacheItems(db *storm.DB, items Items, close bool) error {
-	for _, i := range items {
-		if err := db.Save(&i); err != nil {
+	for i := range items {
+		if err := db.Save(&items[i]); err != nil {
 			return err
 		}
 	}
@@ -186,7 +212,7 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	return nil
 }
 
-// UpdateCacheItems updates Cache Items in the provided database
+// UpdateCacheItems updates Cache Items in the provided database.
 func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
 	for _, i := range items {
 		if err := db.Update(&i); err != nil {
@@ -226,6 +252,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			return
 		}
 
+		si.CacheDB = db
+
 		if si.Close {
 			defer func(db *storm.DB) {
 				if err = db.Close(); err != nil {
@@ -244,6 +272,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	err = db.Find("Dirty", true, &dirty)
 	if err != nil {
 		if !strings.Contains(err.Error(), "not found") {
+
 			return
 		}
 	}
@@ -256,6 +285,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		if !strings.Contains(err.Error(), "not found") {
 			return
 		}
+
 		return
 	}
 
@@ -265,23 +295,33 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	err = db.Find("ContentType", "SN|ItemsKey", &ciks)
 	if err != nil {
 		if !strings.Contains(err.Error(), "not found") {
+
 			return
 		}
 	}
 
 	var iks gosn.EncryptedItems
-	for _, cik := range ciks {
+
+	for x := range ciks {
 		iks = append(iks, gosn.EncryptedItem{
-			UUID:        cik.UUID,
-			ItemsKeyID:  cik.ItemsKeyID,
-			Content:     cik.Content,
-			ContentType: cik.ContentType,
-			EncItemKey:  cik.EncItemKey,
-			Deleted:     cik.Deleted,
-			CreatedAt:   cik.CreatedAt,
-			UpdatedAt:   cik.UpdatedAt,
-			DuplicateOf: cik.DuplicateOf,
+			UUID:               ciks[x].UUID,
+			ItemsKeyID:         ciks[x].ItemsKeyID,
+			Content:            ciks[x].Content,
+			ContentType:        ciks[x].ContentType,
+			EncItemKey:         ciks[x].EncItemKey,
+			Deleted:            ciks[x].Deleted,
+			CreatedAt:          ciks[x].CreatedAt,
+			UpdatedAt:          ciks[x].UpdatedAt,
+			CreatedAtTimestamp: ciks[x].CreatedAtTimestamp,
+			UpdatedAtTimestamp: ciks[x].UpdatedAtTimestamp,
+			DuplicateOf:        ciks[x].DuplicateOf,
 		})
+	}
+
+	for _, x := range iks {
+		if x.ContentType == "SN|ItemsKey" && x.ItemsKeyID != nil {
+			panic("SN|ItemsKey should not have an ItemsKeyID")
+		}
 	}
 
 	if iks != nil && len(iks) > 0 {
@@ -294,9 +334,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		_, err = iks.DecryptAndParseItemsKeys(gs)
 		si.Session.ItemsKeys = gs.ItemsKeys
 		si.Session.DefaultItemsKey = gs.DefaultItemsKey
+
 		if err != nil {
 			return
 		}
+
 		if len(si.Session.ItemsKeys) == 0 {
 			panic("pants")
 		}
@@ -323,30 +365,36 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	var dirtyItemsToPush gosn.EncryptedItems
 	for _, d := range dirty {
 		dirtyItemsToPush = append(dirtyItemsToPush, gosn.EncryptedItem{
-			UUID:        d.UUID,
-			Content:     d.Content,
-			ContentType: d.ContentType,
-			ItemsKeyID:  d.ItemsKeyID,
-			EncItemKey:  d.EncItemKey,
-			Deleted:     d.Deleted,
-			CreatedAt:   d.CreatedAt,
-			UpdatedAt:   d.UpdatedAt,
-			DuplicateOf: d.DuplicateOf,
+			UUID:               d.UUID,
+			Content:            d.Content,
+			ContentType:        d.ContentType,
+			ItemsKeyID:         d.ItemsKeyID,
+			EncItemKey:         d.EncItemKey,
+			Deleted:            d.Deleted,
+			CreatedAt:          d.CreatedAt,
+			UpdatedAt:          d.UpdatedAt,
+			CreatedAtTimestamp: d.CreatedAtTimestamp,
+			UpdatedAtTimestamp: d.UpdatedAtTimestamp,
+			DuplicateOf:        d.DuplicateOf,
 		})
 	}
 
-	// TODO: Only call if dirty items to push
 	// call gosn sync with dirty items to push
 	var gSI gosn.SyncInput
 
 	gs := si.Session.gosn()
+
 	if len(dirtyItemsToPush) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | pushing %d dirty items", len(dirtyItemsToPush)))
+
 		gSI = gosn.SyncInput{
 			Session:   gs,
 			Items:     dirtyItemsToPush,
 			SyncToken: syncToken,
 		}
 	} else {
+		debugPrint(si.Debug, "Sync | no dirty items to push")
+
 		gSI = gosn.SyncInput{
 			Session:   gs,
 			SyncToken: syncToken,
@@ -354,7 +402,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	if !gSI.Session.Valid() {
-		fmt.Println("Invalid Session")
+		panic("invalid Session")
 	}
 
 	var gSO gosn.SyncOutput
@@ -363,6 +411,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	if err != nil {
 		return
+	}
+
+	if len(gSO.Conflicts) > 0 {
+		panic("conflicts should have been resolved by gosn sync")
 	}
 
 	// check items are valid
@@ -378,35 +430,60 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-	// check saved items are valid
+	// check saved items are valid and remove any from db that are now deleted
+	var itemsToDeleteFromDB Items
+
 	for _, x := range gSO.SavedItems {
-		if !x.Deleted {
+		if x.Deleted {
+			// handle deleted item by removing from db
+			var itemToDeleteFromDB Items
+
+			err = db.Find("UUID", x.UUID, &itemToDeleteFromDB)
+			if err != nil {
+				if err.Error() == "not found" {
+					err = nil
+				} else {
+					return
+				}
+			}
+
+			itemsToDeleteFromDB = append(itemsToDeleteFromDB, itemToDeleteFromDB...)
+		} else {
+			// handle saved item by updating in db
 			components := strings.Split(x.EncItemKey, ":")
 			if len(components) <= 1 {
 				debugPrint(si.Debug, fmt.Sprintf("ignoring saved item %s of type %s", x.UUID, x.ContentType))
 				continue
 			}
 
-			//if x.UUID != components[2] {
-			//	err = fmt.Errorf("synced item with uuid: %s has uuid in enc key as: %s", string(x.UUID), components[2])
-			//	return
-			//}
-		}
-	}
-
-	// TODO: Remove as unsaved items no longer part of SN, replaced with conflicts returned on sync
-	// check unsaved items are valid
-	for _, x := range gSO.Unsaved {
-		if !x.Deleted {
-			components := strings.Split(x.EncItemKey, ":")
-			if len(components) <= 1 {
-				debugPrint(si.Debug, fmt.Sprintf("ignoring unsaved item %s of type %s", x.UUID, x.ContentType))
-				continue
+			// if a new item has been saved then we'll have an updated timestamp returned from the server that we need
+			// to update the db item with
+			err = db.UpdateField(&Item{UUID: x.UUID}, "UpdatedAtTimestamp", x.UpdatedAtTimestamp)
+			if err != nil {
+				panic(err)
 			}
 		}
 	}
 
+	for y := range itemsToDeleteFromDB {
+		err = db.DeleteStruct(&itemsToDeleteFromDB[y])
+
+		if err != nil {
+			if err.Error() == "not found" {
+				err = nil
+			} else {
+				return
+			}
+		}
+	}
+
+	// unset dirty flag and date on anything that has now been synced back to SN
 	for _, d := range dirty {
+		if d.Deleted {
+			// deleted items have been removed by now
+			continue
+		}
+
 		err = db.UpdateField(&Item{UUID: d.UUID}, "Dirty", false)
 		if err != nil {
 			return
@@ -420,19 +497,23 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// put new Items in db
 	for _, i := range gSO.Items {
+		// don't add deleted
 		if i.ContentType == "SN|ItemsKey" && i.Deleted {
-			continue
+			log.Fatal("Attempting to delete SN|ItemsKey:", i.UUID)
 		}
+
 		item := Item{
-			UUID:        i.UUID,
-			Content:     i.Content,
-			ContentType: i.ContentType,
-			ItemsKeyID:  i.ItemsKeyID,
-			EncItemKey:  i.EncItemKey,
-			Deleted:     i.Deleted,
-			CreatedAt:   i.CreatedAt,
-			UpdatedAt:   i.UpdatedAt,
-			DuplicateOf: i.DuplicateOf,
+			UUID:               i.UUID,
+			Content:            i.Content,
+			ContentType:        i.ContentType,
+			ItemsKeyID:         i.ItemsKeyID,
+			EncItemKey:         i.EncItemKey,
+			Deleted:            i.Deleted,
+			CreatedAt:          i.CreatedAt,
+			UpdatedAt:          i.UpdatedAt,
+			CreatedAtTimestamp: i.CreatedAtTimestamp,
+			UpdatedAtTimestamp: i.UpdatedAtTimestamp,
+			DuplicateOf:        i.DuplicateOf,
 		}
 
 		err = db.Save(&item)
@@ -442,31 +523,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	err = db.All(&all)
-
-	// updated db with saved items
-	// put new Items in db
-	for _, i := range gSO.SavedItems {
-		if i.ContentType == "SN|ItemsKey" && i.Deleted {
-			continue
-		}
-
-		item := Item{
-			UUID:        i.UUID,
-			DuplicateOf: i.DuplicateOf,
-			Content:     i.Content,
-			ContentType: i.ContentType,
-			ItemsKeyID:  i.ItemsKeyID,
-			EncItemKey:  i.EncItemKey,
-			Deleted:     i.Deleted,
-			CreatedAt:   i.CreatedAt,
-			UpdatedAt:   i.UpdatedAt,
-		}
-
-		err = db.Save(&item)
-		if err != nil {
-			return
-		}
-	}
 
 	// drop the SyncToken db if it exists
 	_ = db.Drop("SyncToken")
@@ -486,86 +542,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	so.DB = db
-	si.Session.ItemsKeys = gs.ItemsKeys
-	si.Session.DefaultItemsKey = gs.DefaultItemsKey
-	si.Session.Debug = gs.Debug
-	si.Session.MasterKey = gs.MasterKey
-	si.Session.AccessExpiration = gs.AccessExpiration
-	si.Session.RefreshToken = gs.RefreshToken
-	si.Session.AccessToken = gs.AccessToken
-	si.Session.RefreshExpiration = gs.RefreshExpiration
-	si.Session.Token = gs.Token
-	si.Session.Server = gs.Server
-
-	err = db.All(&all)
-
-	// check for conflicts and call sync again
-	var resync bool
-	if len(gSO.Conflicts) > 0 {
-		resync = true
-	}
-
-	var sItems gosn.EncryptedItems
-	for _, x := range gSO.Conflicts {
-		sItems = append(sItems, x.ServerItem)
-
-		conflictedItem := x.ServerItem
-
-		serverItemUUID := x.ServerItem.UUID
-		var myDupes []Item
-		err = db.Find("UUID", serverItemUUID, &myDupes)
-		if err != nil {
-			return
-		}
-		if len(myDupes) == 0 {
-			err = fmt.Errorf("didn't find item in DB with serverItemUUID: %s", serverItemUUID)
-			return
-		}
-
-		if len(myDupes) > 1 {
-			err = fmt.Errorf("found multiple items with same serverItemUUID: %s %+v", serverItemUUID, myDupes)
-			return
-		}
-		myDupe := myDupes[0]
-
-		newUUID := gosn.GenUUID()
-		now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-		item := Item{
-			UUID:        newUUID,
-			DuplicateOf: serverItemUUID,
-			Content:     myDupe.Content,
-			ContentType: myDupe.ContentType,
-			ItemsKeyID:  myDupe.ItemsKeyID,
-			EncItemKey:  myDupe.EncItemKey,
-			Deleted:     myDupe.Deleted,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-			DirtiedDate: time.Now(),
-			Dirty:       true,
-		}
-		conflictedCacheItem := ToCacheItems(gosn.EncryptedItems{conflictedItem}, true)
-		err = db.Save(&conflictedCacheItem[0])
-		if err != nil {
-			return
-		}
-		if err := db.Save(&item); err != nil {
-			return so, err
-		}
-
-		db.Close()
-		//if !x.Deleted {
-		//	components := strings.Split(x.EncItemKey, ":")
-		//	if len(components) <= 1 {
-		//		debugPrint(si.Debug, fmt.Sprintf("ignoring conflicted item %s of type %s", x.UUID, x.ContentType))
-		//		continue
-		//	}
-		//
-		//}
-	}
-	if resync {
-		resync = false
-		return Sync(si)
-	}
 
 	return
 }
@@ -575,7 +551,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 // and avoid concurrent usage:
 // - part of the session authentication key (so that caches are unique to a user)
 // - the server URL (so that caches are server specific)
-// - the requesting application name (so that caches are application specific)
+// - the requesting application name (so that caches are application specific).
 func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 	var err error
 
