@@ -14,7 +14,7 @@ type Session struct {
 }
 
 // ImportSession creates a new Session from an existing gosn.Session instance
-// with the option of specifying a path for the db other than the home folder
+// with the option of specifying a path for the db other than the home folder.
 func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
 	s = &Session{}
 
@@ -40,11 +40,10 @@ func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
 	}
 
 	return s, err
-
 }
 
 // GetSession returns a cache session that encapsulates a gosn-v2 session with additional
-// configuration for managing a local cache database
+// configuration for managing a local cache database.
 func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
 	var gs gosn.Session
 
@@ -60,11 +59,13 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 			Token:             gs.Token,
 			MasterKey:         gs.MasterKey,
 			ItemsKeys:         gs.ItemsKeys,
+			KeyParams:         gs.KeyParams,
 			DefaultItemsKey:   gs.DefaultItemsKey,
 			AccessToken:       gs.AccessToken,
 			RefreshToken:      gs.RefreshToken,
 			AccessExpiration:  gs.AccessExpiration,
 			RefreshExpiration: gs.RefreshExpiration,
+			PasswordNonce:     gs.PasswordNonce,
 		},
 		CacheDB:     nil,
 		CacheDBPath: "",
