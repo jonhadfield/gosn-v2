@@ -13,6 +13,8 @@ func parseExtension(i DecryptedItem) Item {
 	c.Deleted = i.Deleted
 	c.UpdatedAt = i.UpdatedAt
 	c.CreatedAt = i.CreatedAt
+	c.UpdatedAtTimestamp = i.UpdatedAtTimestamp
+	c.CreatedAtTimestamp = i.CreatedAtTimestamp
 	c.ContentSize = len(i.Content)
 
 	var err error
@@ -88,7 +90,7 @@ func (c *Extensions) DeDupe() {
 	*c = deDuped
 }
 
-// NewExtension returns an Item of type Extension without content
+// NewExtension returns an Item of type Extension without content.
 func NewExtension() Extension {
 	now := time.Now().UTC().Format(timeLayout)
 
@@ -102,7 +104,7 @@ func NewExtension() Extension {
 	return c
 }
 
-// NewExtensionContent returns an empty Tag content instance
+// NewExtensionContent returns an empty Tag content instance.
 func NewExtensionContent() *ExtensionContent {
 	c := &ExtensionContent{}
 	c.SetUpdateTime(time.Now().UTC())
@@ -192,6 +194,22 @@ func (c Extension) GetUpdatedAt() string {
 
 func (c *Extension) SetUpdatedAt(ca string) {
 	c.UpdatedAt = ca
+}
+
+func (c Extension) GetCreatedAtTimestamp() int64 {
+	return c.CreatedAtTimestamp
+}
+
+func (c *Extension) SetCreatedAtTimestamp(ca int64) {
+	c.CreatedAtTimestamp = ca
+}
+
+func (c Extension) GetUpdatedAtTimestamp() int64 {
+	return c.UpdatedAtTimestamp
+}
+
+func (c *Extension) SetUpdatedAtTimestamp(ca int64) {
+	c.UpdatedAtTimestamp = ca
 }
 
 func (c *Extension) SetContentType(ct string) {
