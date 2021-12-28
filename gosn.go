@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	// API
+	// API.
 	apiServer        = "https://api.standardnotes.com"
 	authParamsPath   = "/v1/login-params" // remote path for getting auth parameters
-	authRegisterPath = "/auth"            // remote path for registering user
+	authRegisterPath = "/v1/users"        // remote path for registering user
 	signInPath       = "/v1/login"        // remote path for authenticating
 	syncPath         = "/items/sync"      // remote path for making sync calls
-	// PageSize is the maximum number of items to return with each call
+	// PageSize is the maximum number of items to return with each call.
 	PageSize            = 150
 	timeLayout          = "2006-01-02T15:04:05.000Z"
 	timeLayout2         = "2006-01-02T15:04:05.000000Z"
@@ -22,26 +22,24 @@ const (
 	defaultPasswordCost = 110000
 	numRawSessionTokens = 7
 
-	// LOGGING
+	// LOGGING.
 	LibName       = "gosn-v2" // name of library used in logging
 	maxDebugChars = 120       // number of characters to display when logging API response body
 
-	// HTTP
+	// HTTP.
 	maxIdleConnections = 100 // HTTP transport limit
 	requestTimeout     = 60  // HTTP transport limit
 	connectionTimeout  = 10  // HTTP transport dialer limit
 	keepAliveTimeout   = 10  // HTTP transport dialer limit
 )
 
-var (
-	httpClient *http.Client
-)
+var httpClient *http.Client
 
 func init() {
 	httpClient = createHTTPClient()
 }
 
-// createHTTPClient for connection re-use
+// createHTTPClient for connection re-use.
 func createHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
