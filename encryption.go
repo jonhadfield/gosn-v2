@@ -396,7 +396,7 @@ func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
 	// check no items keys have an items key
 	for _, item := range output.Items {
 		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
-			err = fmt.Errorf("Items Key has an Items Key")
+			err = fmt.Errorf("SN|ItemsKey %s has an ItemsKeyID set", item.UUID)
 			return
 		}
 	}

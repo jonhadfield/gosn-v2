@@ -183,11 +183,13 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 			var conflictedItem EncryptedItem
 
 			if conflict.Type == "sync_conflict" {
-				// if server item is deleted then we will give unsaved item a new uuid and sync it
 				switch {
 				case conflict.ServerItem.Deleted:
+					// if server item is deleted then we will give unsaved item a new uuid and sync it
 					debugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace", conflict.ServerItem.UUID, conflict.ServerItem.ContentType))
+
 					var found bool
+
 					for _, item := range input.Items {
 						if item.UUID == conflict.ServerItem.UUID {
 							found = true
@@ -203,14 +205,30 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 					}
 
 				case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
+					// if unsaved item is newer than that our server item, then unsaved wins
 					debugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp))
 
 					conflictedItem = conflict.UnsavedItem
 					conflictedItem.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
 				default:
-					debugPrint(debug, "Sync | server item is most recent so will sync that back to resolve conflict")
+					debugPrint(debug, "Sync | server item most recent, so set new UUID on the item that conflicted and set it as 'duplicate_of' original")
 
-					conflictedItem = conflict.ServerItem
+					var found bool
+
+					for _, item := range input.Items {
+						if item.UUID == conflict.ServerItem.UUID {
+							conflictedItem = item
+							conflictedItem.UUID = GenUUID()
+							conflictedItem.DuplicateOf = &conflict.ServerItem.UUID
+							found = true
+
+							break
+						}
+					}
+
+					if !found {
+						panic("could not find item that failed to sync")
+					}
 				}
 
 				conflictsToSync = append(conflictsToSync, conflictedItem)
