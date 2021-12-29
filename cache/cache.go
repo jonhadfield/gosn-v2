@@ -434,6 +434,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	var itemsToDeleteFromDB Items
 
 	for _, x := range gSO.SavedItems {
+		// don't add deleted
+		if x.ContentType == "SN|ItemsKey" && x.Deleted {
+			log.Fatal("Attempting to delete SN|ItemsKey:", x.UUID)
+		}
+
 		if x.Deleted {
 			// handle deleted item by removing from db
 			var itemToDeleteFromDB Items
@@ -448,23 +453,30 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			}
 
 			itemsToDeleteFromDB = append(itemsToDeleteFromDB, itemToDeleteFromDB...)
-		} else {
-			// handle saved item by updating in db
-			components := strings.Split(x.EncItemKey, ":")
-			if len(components) <= 1 {
-				debugPrint(si.Debug, fmt.Sprintf("ignoring saved item %s of type %s", x.UUID, x.ContentType))
-				continue
-			}
+		}
 
-			// if a new item has been saved then we'll have an updated timestamp returned from the server that we need
-			// to update the db item with
-			err = db.UpdateField(&Item{UUID: x.UUID}, "UpdatedAtTimestamp", x.UpdatedAtTimestamp)
-			if err != nil {
-				panic(err)
-			}
+		debugPrint(si.Debug, fmt.Sprintf("adding saved item %s of type %s to db", x.UUID, x.ContentType))
+		item := Item{
+			UUID:               x.UUID,
+			Content:            x.Content,
+			ContentType:        x.ContentType,
+			ItemsKeyID:         x.ItemsKeyID,
+			EncItemKey:         x.EncItemKey,
+			Deleted:            x.Deleted,
+			CreatedAt:          x.CreatedAt,
+			UpdatedAt:          x.UpdatedAt,
+			CreatedAtTimestamp: x.CreatedAtTimestamp,
+			UpdatedAtTimestamp: x.UpdatedAtTimestamp,
+			DuplicateOf:        x.DuplicateOf,
+		}
+
+		err = db.Save(&item)
+		if err != nil {
+			return
 		}
 	}
 
+	// remove items from db
 	for y := range itemsToDeleteFromDB {
 		err = db.DeleteStruct(&itemsToDeleteFromDB[y])
 

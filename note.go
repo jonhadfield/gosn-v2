@@ -135,6 +135,7 @@ func (n Notes) Validate() error {
 			if err != nil {
 				return err
 			}
+
 			switch {
 			case item.Content.GetTitle() == "":
 				err = fmt.Errorf("failed to create \"%s\" due to missing title: \"%s\"",
