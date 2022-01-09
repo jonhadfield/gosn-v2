@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -51,24 +52,53 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 
 	for _, e := range ei {
 		if e.ContentType == "SN|ItemsKey" {
-			debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | got encrypted item key: %s deleted: %t", e.UUID, e.Deleted))
+			if e.EncItemKey == "" {
+				panic(fmt.Sprintf("DecryptAndParseItemsKeys | item key uuid: %s has no encrypted item key", e.UUID))
+			}
+
 			eiks = append(eiks, e)
 		}
 	}
 
 	if len(eiks) == 0 {
+		err = fmt.Errorf("no items keys were retrieved")
+
 		return
 	}
 
-	o, err = decryptAndParseItemKeys(s.MasterKey, eiks)
+	o, err = DecryptAndParseItemKeys(s.MasterKey, eiks)
+	if err != nil {
+		err = fmt.Errorf("gsDecrypt | %w", err)
+
+		return
+	}
+
+	var numDefaultItemKeys int
+
 	for _, ik := range o {
-		if ik.IsDefault {
+		s.ItemsKeys = append(s.ItemsKeys, ik)
+
+		if ik.Default {
+			numDefaultItemKeys++
+
+			debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | setting default items key uuid: %s", ik.UUID))
+
 			s.DefaultItemsKey = ik
+			s.DefaultItemsKey.Default = true
+			s.DefaultItemsKey.Content.Default = true
 		}
 	}
 
-	if len(o) != 0 {
-		s.ItemsKeys = o
+	if numDefaultItemKeys > 1 {
+		debugPrint(s.Debug, "DecryptAndParseItemsKeys | more than one default ItemsKey found")
+
+		return
+	}
+
+	if s.DefaultItemsKey.UUID == "" {
+		err = errors.New("DecryptAndParseItemsKeys | no default items key found")
+
+		return
 	}
 
 	return
@@ -87,51 +117,91 @@ func isEncryptedType(ct string) bool {
 
 func (ei *EncryptedItems) Validate() error {
 	var err error
+
 	for _, i := range *ei {
 		enc := isEncryptedType(i.ContentType)
+
 		switch {
 		case i.IsDeleted():
 			continue
 		case enc && i.ItemsKeyID == nil:
 			// ignore item in this scenario as the official app does so
-			// err = fmt.Errorf("validation failed for \"%s\" with uuid: \"%s\" due to missing ItemsKeyID",
-			//   i.ContentType, i.UUID)
 		case enc && i.EncItemKey == "":
 			err = fmt.Errorf("validation failed for \"%s\" due to missing encrypted item key: \"%s\"",
 				i.ContentType, i.UUID)
 		}
+
 		if err != nil {
 			return err
 		}
 	}
+
 	return err
 }
 
 func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
 
-	// if no itemsKeys are passed, then items must be items keys to decrypt with mk
-	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
+	// the encrypted items may have been encrypted with a key that is with them
+	for x := range ei {
+		if ei[x].ContentType != "SN|ItemsKey" {
+			var found bool
+
+			for y := range s.ItemsKeys {
+				if s.ItemsKeys[y].UUID == *ei[x].ItemsKeyID {
+					found = true
+				}
+			}
+
+			if !found {
+				panic(fmt.Sprintf("no items key: %s for %s: %s not found in session", *ei[x].ItemsKeyID, ei[x].ContentType, ei[x].UUID))
+			}
+		}
+	}
 
 	var di DecryptedItems
 
 	di, err = ei.Decrypt(s)
 	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
 		return
 	}
 
 	o, err = di.Parse()
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | Parse | %w", err)
+	}
 
 	return
 }
 
-func (i *Items) Encrypt(s Session) (e EncryptedItems, err error) {
+func (i *Items) Append(x []interface{}) {
+	var all Items
+
+	for _, y := range x {
+		switch t := y.(type) {
+		case Note:
+			it := t
+			all = append(all, &it)
+		case Tag:
+			it := t
+			all = append(all, &it)
+		case Component:
+			it := t
+			all = append(all, &it)
+		}
+	}
+
+	*i = all
+}
+
+func (i *Items) Encrypt(ik ItemsKey, masterKey string, debug bool) (e EncryptedItems, err error) {
 	// return empty if no items provided
 	if len(*i) == 0 {
 		return
 	}
 
-	e, err = encryptItems(s, i)
+	e, err = encryptItems(i, ik, masterKey, debug)
 	if err != nil {
 		return
 	}
@@ -139,16 +209,18 @@ func (i *Items) Encrypt(s Session) (e EncryptedItems, err error) {
 	if err = e.Validate(); err != nil {
 		return e, err
 	}
+
 	return
 }
 
 type EncryptedItem struct {
-	UUID               string  `json:"uuid"`
-	ItemsKeyID         *string `json:"items_key_id,omitempty"`
-	Content            string  `json:"content"`
-	ContentType        string  `json:"content_type"`
-	EncItemKey         string  `json:"enc_item_key"`
-	Deleted            bool    `json:"deleted"`
+	UUID        string  `json:"uuid"`
+	ItemsKeyID  *string `json:"items_key_id,omitempty"`
+	Content     string  `json:"content"`
+	ContentType string  `json:"content_type"`
+	EncItemKey  string  `json:"enc_item_key"`
+	Deleted     bool    `json:"deleted"`
+	// Default            bool    `json:"isDefault"`
 	CreatedAt          string  `json:"created_at"`
 	UpdatedAt          string  `json:"updated_at"`
 	CreatedAtTimestamp int64   `json:"created_at_timestamp"`
@@ -170,6 +242,7 @@ type DecryptedItem struct {
 	Content            string `json:"content"`
 	ContentType        string `json:"content_type"`
 	Deleted            bool   `json:"deleted"`
+	Default            bool   `json:"isDefault"`
 	CreatedAt          string `json:"created_at"`
 	UpdatedAt          string `json:"updated_at"`
 	CreatedAtTimestamp int64  `json:"created_at_timestamp"`
@@ -328,6 +401,10 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 		var pi Item
 
 		switch i.ContentType {
+		case "SN|ItemsKey":
+			// TODO: To be implemented separately so we don't parse as a normal item and,
+			// most importantly, don't return as a normal Item
+			continue
 		case "Note":
 			pi = parseNote(i)
 		case "Tag":
@@ -466,7 +543,6 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return fsc, err
-
 	default:
 		return nil, fmt.Errorf("unexpected type '%s'", contentType)
 	}
@@ -538,4 +614,216 @@ func (di *DecryptedItems) RemoveDeleted() {
 	}
 
 	*di = clean
+}
+
+func (i Items) Export(s *Session, path string, plainText bool) error {
+	// create a new ItemsKey to encrypt the items with
+	ik, err := s.CreateItemsKey()
+	if err != nil {
+		return err
+	}
+
+	// encrypt items with the new ItemsKey
+	nei, err := i.Encrypt(ik, s.MasterKey, s.Debug)
+	if err != nil {
+		return err
+	}
+	// encrypt items key that encrypted the items
+	eik, err := ik.Encrypt(s)
+	if err != nil {
+		return err
+	}
+
+	// prepend new items key to the export
+	nei = append([]EncryptedItem{eik}, nei...)
+	// add existing items keys to the export
+
+	if err = writeJSON(writeJSONConfig{
+		session:   *s,
+		plainText: false,
+		Path:      path,
+		Debug:     true,
+	}, nei); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type EncryptedItemExport struct {
+	UUID        string  `json:"uuid"`
+	ItemsKeyID  *string `json:"items_key_id,omitempty"`
+	Content     string  `json:"content"`
+	ContentType string  `json:"content_type"`
+	// Deleted            bool    `json:"deleted"`
+	EncItemKey         string  `json:"enc_item_key"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
+	CreatedAtTimestamp int64   `json:"created_at_timestamp"`
+	UpdatedAtTimestamp int64   `json:"updated_at_timestamp"`
+	DuplicateOf        *string `json:"duplicate_of"`
+}
+
+type writeJSONConfig struct {
+	session   Session
+	plainText bool
+	Path      string
+	Debug     bool
+}
+
+func writeJSON(c writeJSONConfig, items EncryptedItems) error {
+	// prepare for export
+	var itemsExport []EncryptedItemExport
+
+	for x := range items {
+		itemsExport = append(itemsExport, EncryptedItemExport{
+			UUID:       items[x].UUID,
+			ItemsKeyID: items[x].ItemsKeyID,
+			Content:    items[x].Content,
+			// Deleted:            items[x].Deleted,
+			ContentType:        items[x].ContentType,
+			EncItemKey:         items[x].EncItemKey,
+			CreatedAt:          items[x].CreatedAt,
+			UpdatedAt:          items[x].UpdatedAt,
+			CreatedAtTimestamp: items[x].CreatedAtTimestamp,
+			UpdatedAtTimestamp: items[x].UpdatedAtTimestamp,
+			DuplicateOf:        items[x].DuplicateOf,
+		})
+	}
+
+	file, err := os.Create(c.Path)
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	var jsonExport []byte
+	if err == nil {
+		jsonExport, err = json.MarshalIndent(itemsExport, "", "  ")
+	}
+
+	content := strings.Builder{}
+	content.WriteString("{\n  \"version\": \"004\",")
+	content.WriteString("\n  \"items\": ")
+	content.WriteString(string(jsonExport))
+	content.WriteString(",")
+
+	// add keyParams
+	content.WriteString("\n  \"keyParams\": {")
+	content.WriteString(fmt.Sprintf("\n    \"identifier\": \"%s\",", c.session.KeyParams.Identifier))
+	content.WriteString(fmt.Sprintf("\n    \"version\": \"%s\",", c.session.KeyParams.Version))
+	content.WriteString(fmt.Sprintf("\n    \"origination\": \"%s\",", c.session.KeyParams.Origination))
+	content.WriteString(fmt.Sprintf("\n    \"created\": \"%s\",", c.session.KeyParams.Created))
+	content.WriteString(fmt.Sprintf("\n    \"pw_nonce\": \"%s\"", c.session.KeyParams.PwNonce))
+	content.WriteString("\n  }")
+
+	content.WriteString("\n}")
+	_, err = file.WriteString(content.String())
+
+	return err
+}
+
+func (s *Session) Import(path string, persist bool, syncToken string) (items Items, itemsKey ItemsKey, err error) {
+	encItemsToImport, err := readJSON(path)
+	if err != nil {
+		return
+	}
+
+	var eik EncryptedItems
+
+	if persist {
+		_, err = Sync(SyncInput{
+			Session: s,
+			Items:   encItemsToImport,
+			//SyncToken: syncToken,
+		})
+		if err != nil {
+			return
+		}
+	}
+
+	// retrieve the ItemsKey used to encrypt the export
+	for x := range encItemsToImport {
+		if encItemsToImport[x].ContentType == "SN|ItemsKey" {
+			eik = append(eik, encItemsToImport[x])
+
+			break
+		}
+	}
+
+	var mainItemsKeyUUID string
+	// getMatchingItemsKey
+	for x := range encItemsToImport {
+		if encItemsToImport[x].ContentType != "SN|ItemsKey" {
+			mainItemsKeyUUID = *encItemsToImport[x].ItemsKeyID
+			break
+		}
+	}
+
+	var mainEncryptedItemsKey EncryptedItem
+
+	for x := range encItemsToImport {
+		if encItemsToImport[x].UUID == mainItemsKeyUUID {
+			if encItemsToImport[x].UUID == mainItemsKeyUUID {
+				mainEncryptedItemsKey = encItemsToImport[x]
+				break
+			}
+		}
+	}
+
+	// decrypt the ItemsKey used to encrypt the export
+	iks, err := EncryptedItems{mainEncryptedItemsKey}.DecryptAndParseItemsKeys(s)
+	iks[0].Default = true
+	iks[0].Content.Default = true
+	s.DefaultItemsKey = iks[0]
+	itemsKey = iks[0]
+
+	s.ItemsKeys = append(s.ItemsKeys, iks...)
+
+	var encFinalList EncryptedItems
+
+	if encItemsToImport != nil {
+		for _, item := range encItemsToImport {
+			if item.DuplicateOf != nil {
+				err = fmt.Errorf("duplicate of item found: %s", *item.DuplicateOf)
+			}
+		}
+		encFinalList = append(encFinalList, encItemsToImport...)
+	}
+
+	if len(encFinalList) == 0 {
+		err = fmt.Errorf("no items to import were loaded")
+
+		return
+	}
+
+	items, err = encFinalList.DecryptAndParse(s)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func readJSON(filePath string) (items EncryptedItems, err error) {
+	file, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		err = fmt.Errorf("%w failed to open: %s", err, filePath)
+		return
+	}
+
+	var eif EncryptedItemsFile
+
+	err = json.Unmarshal(file, &eif)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshall json: %w", err)
+		return
+	}
+
+	return eif.Items, err
+}
+
+type EncryptedItemsFile struct {
+	Items EncryptedItems `json:"items"`
 }

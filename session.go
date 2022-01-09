@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/viper"
 	keyring "github.com/zalando/go-keyring"
 
-	//  "golang.org/x/term"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -125,10 +124,6 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	s, err = GetSessionFromKeyring(k)
 	// only return an error if there's an issue accessing the keyring
 	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
-		return
-	}
-
-	if err != nil {
 		return
 	}
 
@@ -297,6 +292,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 				return
 			}
 		}
+
 		email, session, err = ParseSessionString(rawSess)
 
 		if err != nil {

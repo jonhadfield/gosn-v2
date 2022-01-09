@@ -73,24 +73,8 @@ type Component struct {
 	Content ComponentContent
 }
 
-func (i *Items) Append(x []interface{}) {
-	var all Items
-
-	for _, y := range x {
-		switch t := y.(type) {
-		case Note:
-			it := t
-			all = append(all, &it)
-		case Tag:
-			it := t
-			all = append(all, &it)
-		case Component:
-			it := t
-			all = append(all, &it)
-		}
-	}
-
-	*i = all
+func (c Component) IsDefault() bool {
+	return false
 }
 
 func (i Items) Components() (c Components) {

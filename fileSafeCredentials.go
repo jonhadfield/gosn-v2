@@ -61,6 +61,10 @@ type FileSafeCredentials struct {
 	Content FileSafeCredentialsContent
 }
 
+func (c FileSafeCredentials) IsDefault() bool {
+	return false
+}
+
 func (i Items) FileSafeCredentials() (c FileSafeCredentialss) {
 	for _, x := range i {
 		if x.GetContentType() == "FileSafeCredentials" {

@@ -76,6 +76,10 @@ type UserPreferences struct {
 	Content UserPreferencesContent
 }
 
+func (c UserPreferences) IsDefault() bool {
+	return false
+}
+
 func (i Items) UserPreferences() (c UserPreferencess) {
 	for _, x := range i {
 		if x.GetContentType() == "UserPreferences" {

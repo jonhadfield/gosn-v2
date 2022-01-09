@@ -79,8 +79,14 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 			Email:     emailAddr,
 			Password:  password,
 		}
-		_, err = SignIn(postRegSignInInput)
+		sio, err := SignIn(postRegSignInInput)
 		require.NoError(t, err, err)
+
+		so, err := Sync(SyncInput{
+			Session: &sio.Session,
+		})
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(so.Items), 1)
 	}
 }
 

@@ -63,6 +63,10 @@ type Extension struct {
 	Content ExtensionContent
 }
 
+func (c Extension) IsDefault() bool {
+	return false
+}
+
 func (i Items) Extension() (c Extensions) {
 	for _, x := range i {
 		if x.GetContentType() == "Extension" {

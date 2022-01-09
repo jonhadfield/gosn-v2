@@ -61,6 +61,10 @@ type FileSafeFileMetaData struct {
 	Content FileSafeFileMetaDataContent
 }
 
+func (c FileSafeFileMetaData) IsDefault() bool {
+	return false
+}
+
 func (i Items) FileSafeFileMetaData() (c FileSafeFileMetaDatas) {
 	for _, x := range i {
 		if x.GetContentType() == "FileSafeFileMetaData" {

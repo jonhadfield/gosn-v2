@@ -61,6 +61,10 @@ type FileSafeIntegration struct {
 	Content FileSafeIntegrationContent
 }
 
+func (c FileSafeIntegration) IsDefault() bool {
+	return false
+}
+
 func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
 	for _, x := range i {
 		if x.GetContentType() == "FileSafeIntegration" {

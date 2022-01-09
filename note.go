@@ -10,6 +10,10 @@ type Note struct {
 	Content NoteContent
 }
 
+func (n Note) IsDefault() bool {
+	return false
+}
+
 var _ Item = &Note{}
 
 func parseNote(i DecryptedItem) Item {
@@ -94,8 +98,7 @@ func (n *Notes) Encrypt(s Session) (e EncryptedItems, err error) {
 	}
 
 	// get default items key
-
-	e, err = encryptItems(s, &ite)
+	e, err = encryptItems(&ite, s.DefaultItemsKey, s.MasterKey, s.Debug)
 
 	return
 }

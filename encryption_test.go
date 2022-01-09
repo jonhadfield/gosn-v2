@@ -3,9 +3,61 @@ package gosn
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
+	s := testSession
+	ik := NewItemsKey()
+	require.False(t, ik.Deleted)
+	require.NotEmpty(t, ik.ItemsKey)
+	time.Sleep(time.Millisecond * 1)
+	require.Greater(t, time.Now().UTC().UnixMicro(), ik.CreatedAtTimestamp)
+
+	note := NewNote()
+	noteContent := NewNoteContent()
+	noteContent.Title = "Note Title"
+	noteContent.Text = "Note Text"
+	note.Content = *noteContent
+
+	items := Items{&note}
+	eItems, err := items.Encrypt(ik, s.MasterKey, true)
+	require.NoError(t, err)
+	require.Len(t, eItems, 1)
+
+	s.DefaultItemsKey = ik
+	s.ItemsKeys = []ItemsKey{ik}
+	di, err := eItems.DecryptAndParse(s)
+	require.NoError(t, err)
+	require.Len(t, di, 1)
+	dn := di[0].(*Note)
+	require.Equal(t, note.Content.Title, dn.Content.Title)
+	require.Equal(t, note.Content.Text, dn.Content.Text)
+}
+
+func TestEncryptDecryptOfItemsKey(t *testing.T) {
+	s := testSession
+	ik, err := s.CreateItemsKey()
+	require.NoError(t, err)
+	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+	require.NotEmpty(t, ik.ItemsKey)
+
+	eik, err := ik.Encrypt(testSession)
+	require.NoError(t, err)
+	require.Equal(t, "SN|ItemsKey", eik.ContentType)
+	require.NotEmpty(t, eik.EncItemKey)
+
+	dik, err := DecryptAndParseItemKeys(s.MasterKey, []EncryptedItem{eik})
+	require.NoError(t, err)
+	require.Equal(t, ik.ItemsKey, dik[0].ItemsKey)
+	require.NotZero(t, dik[0].CreatedAtTimestamp)
+	require.Equal(t, ik.CreatedAtTimestamp, dik[0].CreatedAtTimestamp)
+	require.Equal(t, ik.UpdatedAtTimestamp, dik[0].UpdatedAtTimestamp)
+	require.Equal(t, ik.CreatedAt, dik[0].CreatedAt)
+	require.Equal(t, ik.UpdatedAt, dik[0].UpdatedAt)
+}
 
 func TestDecryptString(t *testing.T) {
 	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4"
@@ -18,7 +70,7 @@ func TestDecryptString(t *testing.T) {
 	require.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(plainText))
 }
 
-func TestDecryptItemsKey(t *testing.T) {
+func TestDecryptItemKey(t *testing.T) {
 	// decrypt encrypted item key
 	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4"
 	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="

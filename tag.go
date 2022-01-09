@@ -10,6 +10,10 @@ type Tag struct {
 	Content TagContent
 }
 
+func (t Tag) IsDefault() bool {
+	return false
+}
+
 func parseTag(i DecryptedItem) Item {
 	t := Tag{}
 	t.UUID = i.UUID
@@ -90,7 +94,7 @@ func (t *Tags) Encrypt(s Session) (e EncryptedItems, err error) {
 		ite = append(ite, &g)
 	}
 
-	e, err = encryptItems(s, &ite)
+	e, err = encryptItems(&ite, s.DefaultItemsKey, s.MasterKey, s.Debug)
 
 	return
 }

@@ -61,6 +61,10 @@ type Privileges struct {
 	Content PrivilegesContent
 }
 
+func (c Privileges) IsDefault() bool {
+	return false
+}
+
 func (i Items) Privileges() (c PrivilegesN) {
 	for _, x := range i {
 		if x.GetContentType() == "Privileges" {

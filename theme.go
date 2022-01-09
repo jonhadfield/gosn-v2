@@ -61,6 +61,10 @@ type Theme struct {
 	Content ThemeContent
 }
 
+func (c Theme) IsDefault() bool {
+	return false
+}
+
 func (i Items) Themes() (c Themes) {
 	for _, x := range i {
 		if x.GetContentType() == "Theme" {

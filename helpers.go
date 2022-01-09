@@ -1,7 +1,6 @@
 package gosn
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -34,19 +33,6 @@ func stringInSlice(inStr string, inSlice []string, matchCase bool) bool {
 }
 
 func DeleteContent(session *Session) (err error) {
-	gnf := Filter{
-		Type: "Note",
-	}
-	gtf := Filter{
-		Type: "Tag",
-	}
-	gcf := Filter{
-		Type: "SN|Component",
-	}
-	f := ItemFilters{
-		Filters:  []Filter{gnf, gtf, gcf},
-		MatchAny: true,
-	}
 	si := SyncInput{
 		Session: session,
 	}
@@ -54,49 +40,22 @@ func DeleteContent(session *Session) (err error) {
 	var so SyncOutput
 
 	so, err = Sync(si)
-
 	if err != nil {
 		return
 	}
 
-	var items Items
+	var itemsToPut EncryptedItems
 
-	items, err = so.Items.DecryptAndParse(session)
-	if err != nil {
-		return
-	}
-
-	items.Filter(f)
-
-	var toDel Items
-
-	for x := range items {
-		md := items[x]
-		switch md.GetContentType() {
-		case "Note":
-			md.SetContent(*NewNoteContent())
-		case "Tag":
-			md.SetContent(*NewTagContent())
-		case "SN|Component":
-			md.SetContent(*NewComponentContent())
-		}
-
-		md.SetDeleted(true)
-		toDel = append(toDel, md)
-	}
-
-	if len(toDel) > 0 {
-		eToDel, _ := toDel.Encrypt(*session)
-		si := SyncInput{
-			Session: session,
-			Items:   eToDel,
-		}
-
-		_, err = Sync(si)
-		if err != nil {
-			return fmt.Errorf("PutItems Failed: %v", err)
+	for _, item := range so.Items {
+		if stringInSlice(item.ContentType, []string{"Note", "Tag", "SN|Component"}, true) {
+			item.Deleted = true
+			itemsToPut = append(itemsToPut, item)
 		}
 	}
+
+	si.Items = itemsToPut
+
+	_, err = Sync(si)
 
 	return err
 }
