@@ -74,6 +74,7 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 
 	// hex decode masterkey
 	dst1 := make([]byte, 32)
+
 	_, err = hex.Decode(dst1, masterKeyBytes)
 	if err != nil {
 		return
@@ -87,6 +88,7 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 	var dst []byte
 
 	hexDecodedNonce := make([]byte, 24)
+
 	_, err = hex.Decode(hexDecodedNonce, []byte(nonce))
 	if err != nil {
 		return nil, err
@@ -94,181 +96,143 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 
 	plaintext, err := aead.Open(dst, hexDecodedNonce, dct, []byte(rawAuthenticatedData))
 	if err != nil {
-		return
+		err = fmt.Errorf("decryptString: %w", err)
 	}
 
 	return plaintext, err
 }
 
-// decryptItemsKeys takes the master key and a list of EncryptedItemKeys
-// and returns a list of items keys.
-func decryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
-	for _, eik := range eiks {
-		// decrypt enc_item_key
-		_, encNonce, cipherText, authenticatedData := splitContent(eik.EncItemKey)
-
-		var pt []byte
-
-		pt, err = decryptString(cipherText, mk, encNonce, authenticatedData)
-		if err != nil {
-			return
-		}
-
-		// decrypt content with item_key
-		_, encNonce1, cipherText1, authenticatedData1 := splitContent(eik.Content)
-
-		var pt1 []byte
-
-		pt1, err = decryptString(cipherText1, string(pt), encNonce1, authenticatedData1)
-
-		if err != nil {
-			return
-		}
-
-		var f ItemsKey
-
-		err = json.Unmarshal(pt1, &f)
-		if err != nil {
-			return
-		}
-
-		f.UUID = eik.UUID
-		f.ContentType = eik.ContentType
-		f.UpdatedAt = eik.UpdatedAt
-		f.UpdatedAtTimestamp = eik.UpdatedAtTimestamp
-		f.CreatedAtTimestamp = eik.CreatedAtTimestamp
-		iks = append(iks, f)
+func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err error) {
+	if ik.Content.ItemsKey == "" {
+		panic("ik.Content.ItemsKey is empty")
 	}
 
-	return
-}
-
-func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
-	for _, i := range iks {
-		if uuid == i.UUID {
-			return i
-		}
+	if ik.UUID == "" {
+		panic("ik.UUID is empty")
 	}
 
-	return ItemsKey{}
-}
+	encryptedItem.UUID = ik.UUID
 
-// decryptItems takes the itemsKeys and the EncryptedItems to decrypt
-// and returns a list of items keys uuid (string) and key (bytes).
-func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
-	for _, ei := range eis {
-		if !isEncryptedType(ei.ContentType) || ei.Deleted {
-			continue
-		}
-
-		// decrypt item key with itemsKey
-		if ei.ItemsKeyID == nil {
-			debugPrint(s.Debug, fmt.Sprintf("ignoring invalid item: %+v\n", ei))
-
-			continue
-		}
-
-		ik := getMatchingItem(*ei.ItemsKeyID, s.ItemsKeys)
-		if ik.UUID == "" {
-			debugPrint(s.Debug, fmt.Sprintf("ignoring item with uuid: \"%s\" specifies missing ItemsKeyID: \"%s\"", ei.UUID, *ei.ItemsKeyID))
-
-			continue
-		}
-
-		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
-		if version != "004" {
-			err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", ei.UUID, ei.ContentType, version)
-			return
-		}
-
-		var itemKey []byte
-
-		itemKey, err = decryptString(cipherText, ik.ItemsKey, nonce, authData)
-		if err != nil {
-			return
-		}
-
-		version, nonce, cipherText, authData = splitContent(ei.Content)
-
-		var content []byte
-
-		content, err = decryptString(cipherText, string(itemKey), nonce, authData)
-		if err != nil {
-			return
-		}
-
-		var di DecryptedItem
-		di.UUID = ei.UUID
-		di.ItemsKeyID = *ei.ItemsKeyID
-		di.ContentType = ei.ContentType
-		di.Deleted = ei.Deleted
-		di.UpdatedAt = ei.UpdatedAt
-		di.CreatedAt = ei.CreatedAt
-		di.CreatedAtTimestamp = ei.CreatedAtTimestamp
-		di.UpdatedAtTimestamp = ei.UpdatedAtTimestamp
-		di.Content = string(content)
-		items = append(items, di)
+	if ik.ContentType == "" {
+		panic("ik.ContentType is empty")
 	}
 
-	return
-}
+	encryptedItem.ContentType = ik.ContentType
 
-func encryptItems(s Session, decItems *Items) (encryptedItems EncryptedItems, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
-	d := *decItems
+	encryptedItem.UpdatedAt = ik.UpdatedAt
 
-	for _, decItem := range d {
-		var e EncryptedItem
-
-		if decItem.GetContentType() == "SN|ItemsKey" {
-			panic("doh")
-		}
-
-		e, err = encryptItem(decItem, s.DefaultItemsKey)
-		encryptedItems = append(encryptedItems, e)
+	encryptedItem.CreatedAt = ik.CreatedAt
+	encryptedItem.Deleted = ik.Deleted
+	encryptedItem.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
+	if ik.CreatedAtTimestamp == 0 {
+		panic("ik.CreatedAtTimeStamp is 0")
 	}
+	encryptedItem.CreatedAtTimestamp = ik.CreatedAtTimestamp
+	itemKeyBytes := make([]byte, 64)
 
-	return
-}
-
-func encryptString(plainText, key, nonce, authenticatedData string) (result string, err error) {
-	// TODO: expecting authenticatedData to be pre base64 encoded?
-	if len(nonce) == 0 {
-		panic("empty nonce")
-	}
-
-	// Re-use previous item key (cheating for now)
-	itemKey := make([]byte, 32)
-	_, err = hex.Decode(itemKey, []byte(key))
-	if err != nil {
-		return
-	}
-
-	aead, err := chacha20poly1305.NewX(itemKey)
+	_, err = crand.Read(itemKeyBytes)
 	if err != nil {
 		panic(err)
 	}
 
-	var encryptedMsg []byte
-	msg := []byte(plainText)
+	itemKey := hex.EncodeToString(itemKeyBytes)
+	// Create Item Encryption Key (that will encrypt the items key content itself)
+	itemEncryptionKey := itemKey[:len(itemKey)/2]
+	var encryptedContent string
 
-	hexDecodedNonce := make([]byte, 24)
+	// Marshall the ItemsKey plaintext content
+	mContent, _ := json.Marshal(ik.Content)
 
-	_, err = hex.Decode(hexDecodedNonce, []byte(nonce))
+	// Create the auth data that will be used to authenticate the encrypted content
+	// authData := "{\"u\":\"" + ik.UUID + "\",\"v\":\"004\"}"
+
+	authData := "{\"kp\":{\"identifier\":\"" + session.KeyParams.Identifier + "\",\"pw_nonce\":\"" + session.KeyParams.PwNonce + "\",\"version\":\"" + session.KeyParams.Version + "\",\"origination\":\"" + session.KeyParams.Origination + "\",\"created\":\"" + session.KeyParams.Created + "\"},\"u\":\"" + encryptedItem.UUID + "\",\"v\":\"" + session.KeyParams.Version + "\"}"
+
+	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
+	// Generate nonce
+	bNonce := make([]byte, chacha20poly1305.NonceSizeX)
+
+	_, err = crand.Read(bNonce)
+	if err != nil {
+		panic(err)
+	}
+
+	nonce := hex.EncodeToString(bNonce)
+
+	// Encrypt the marshaled JSON with the item encryption key, nonce, and auth data
+	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData)
 	if err != nil {
 		return
 	}
 
-	// Encrypt the message and append the ciphertext to the nonce.
-	encryptedMsg = aead.Seal(nil, hexDecodedNonce, msg, []byte(authenticatedData))
+	// Create the Encrypted Items Key content element
+	content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
+	encryptedItem.Content = content
 
-	return base64.StdEncoding.EncodeToString(encryptedMsg), err
+	// Generate another nonce for the content element to be encrypted with
+	_, err = crand.Read(bNonce)
+	if err != nil {
+		panic(err)
+	}
+	nonce = hex.EncodeToString(bNonce)
+
+	// Encrypt the Encrypted Items Key content element with the master key
+	var encryptedContentKey string
+	encryptedContentKey, err = encryptString(itemEncryptionKey, session.MasterKey, nonce, b64AuthData)
+	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
+	encryptedItem.EncItemKey = encItemKey
+
+	return encryptedItem, err
 }
 
-func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error) {
-	ikid := ik.GetUUID()
-	encryptedItem.UUID = item.GetUUID()
+func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
+	if ei.ContentType != "SN|ItemsKey" {
+		return ik, fmt.Errorf("item passed to decrypt is of type %s, expected SN|ItemsKey", ik.ContentType)
+	}
+	// decrypt enc_item_key
+	_, encNonce, cipherText, authenticatedData := splitContent(ei.EncItemKey)
+	var pt []byte
+
+	pt, err = decryptString(cipherText, mk, encNonce, authenticatedData)
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParseItemKeys: %w", err)
+
+		return
+	}
+
+	// decrypt content with item key
+	_, encNonce1, cipherText1, authenticatedData1 := splitContent(ei.Content)
+
+	var pt1 []byte
+
+	pt1, err = decryptString(cipherText1, string(pt), encNonce1, authenticatedData1)
+	if err != nil {
+		return
+	}
+
+	var f ItemsKey
+
+	err = json.Unmarshal(pt1, &f)
+	if err != nil {
+		return
+	}
+
+	f.UUID = ei.UUID
+	f.ContentType = ei.ContentType
+	f.UpdatedAt = ei.UpdatedAt
+	f.UpdatedAtTimestamp = ei.UpdatedAtTimestamp
+	f.CreatedAtTimestamp = ei.CreatedAtTimestamp
+	f.CreatedAt = ei.CreatedAt
+
+	return
+}
+
+func encryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem EncryptedItem, err error) {
+	var contentEncryptionKey string
+	ikid := ik.UUID
 	encryptedItem.ItemsKeyID = &ikid
+	contentEncryptionKey = ik.ItemsKey
+	encryptedItem.UUID = item.GetUUID()
 	encryptedItem.ContentType = item.GetContentType()
 	encryptedItem.UpdatedAt = item.GetUpdatedAt()
 	encryptedItem.CreatedAt = item.GetCreatedAt()
@@ -291,11 +255,17 @@ func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error
 
 	mContent, _ := json.Marshal(item.GetContent())
 
-	authData := "{\"u\":\"" + item.GetUUID() + "\",\"v\":\"004\"}"
+	var authData string
+	if item.GetContentType() == "SN|ItemsKey" {
+		authData = "{\"kp\":{\"identifier\":\"" + session.KeyParams.Identifier + "\",\"pw_nonce\":\"" + session.KeyParams.PwNonce + "\",\"version\":\"" + session.KeyParams.Version + "\",\"origination\":\"" + session.KeyParams.Origination + "\",\"created\",\"" + session.KeyParams.Created + "\"},\"u\":\"" + item.GetUUID() + "\",\"v\":\"" + session.KeyParams.Version + "\"}"
+	} else {
+		authData = "{\"u\":\"" + item.GetUUID() + "\",\"v\":\"004\"}"
+	}
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 
 	// generate nonce
 	bNonce := make([]byte, chacha20poly1305.NonceSizeX)
+
 	_, err = crand.Read(bNonce)
 	if err != nil {
 		panic(err)
@@ -322,13 +292,221 @@ func encryptItem(item Item, ik ItemsKey) (encryptedItem EncryptedItem, err error
 
 	nonce = hex.EncodeToString(bNonce)
 
-	// encrypt content encryption key with default Items Key
+	// encrypt content encryption key
 	var encryptedContentKey string
-	encryptedContentKey, err = encryptString(itemEncryptionKey, ik.ItemsKey, nonce, b64AuthData)
+	encryptedContentKey, err = encryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData)
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 
 	return encryptedItem, err
+}
+
+type AuthData struct {
+	Kp struct {
+		Identifier  string `json:"identifier"`
+		PwNonce     string `json:"pw_nonce"`
+		Version     string `json:"version"`
+		Origination string `json:"origination"`
+		Created     string `json:"created"`
+	} `json:"kp"`
+
+	U string `json:"u"`
+	V string `json:"v"`
+}
+
+// decryptItemsKeys takes the master key and a list of EncryptedItemKeys
+// and returns a list of items keys.
+func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
+	for _, eik := range eiks {
+		// decrypt enc_item_key
+		_, encNonce, cipherText, authenticatedData := splitContent(eik.EncItemKey)
+
+		var pt []byte
+
+		pt, err = decryptString(cipherText, mk, encNonce, authenticatedData)
+		if err != nil {
+			err = fmt.Errorf("DecryptAndParseItemKeys: %w", err)
+
+			return
+		}
+
+		dct, e1 := base64.StdEncoding.DecodeString(authenticatedData)
+		if e1 != nil {
+			panic(e1)
+		}
+
+		var ad AuthData
+		err = json.Unmarshal(dct, &ad)
+		if err != nil {
+			return
+		}
+
+		_, encNonce1, cipherText1, authenticatedData1 := splitContent(eik.Content)
+
+		var pt1 []byte
+
+		pt1, err = decryptString(cipherText1, string(pt), encNonce1, authenticatedData1)
+		if err != nil {
+			return
+		}
+
+		var f ItemsKey
+
+		err = json.Unmarshal(pt1, &f)
+		if err != nil {
+			return
+		}
+
+		f.UUID = eik.UUID
+		f.ContentType = eik.ContentType
+		f.UpdatedAt = eik.UpdatedAt
+		f.UpdatedAtTimestamp = eik.UpdatedAtTimestamp
+		f.CreatedAtTimestamp = eik.CreatedAtTimestamp
+		f.CreatedAt = eik.CreatedAt
+		if f.ItemsKey == "" {
+			panic(fmt.Sprintf("failed to unmarshall item key: %s\n", string(pt1)))
+		}
+
+		iks = append(iks, f)
+	}
+
+	return
+}
+
+func getMatchingItem(uuid string, iks []ItemsKey) ItemsKey {
+	for x := range iks {
+		if uuid == iks[x].UUID {
+			return iks[x]
+		}
+	}
+
+	return ItemsKey{}
+}
+
+func isEncryptedWithMasterKey(t string) bool {
+	return t == "SN|ItemsKey"
+}
+
+func isUnsupportedType(t string) bool {
+	return strings.HasPrefix(t, "SF|")
+}
+
+// decryptItems takes the itemsKeys and the EncryptedItems to decrypt
+// and returns a list of items keys uuid (string) and key (bytes).
+func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("decryptItems | decrypting %d items", len(eis)))
+	for _, ei := range eis {
+		var contentEncryptionKey string
+
+		switch {
+		case isEncryptedWithMasterKey(ei.ContentType):
+			contentEncryptionKey = s.MasterKey
+		case isUnsupportedType(ei.ContentType):
+			debugPrint(s.Debug, fmt.Sprintf("decryptItems | unsupported content type: %s", ei.ContentType))
+
+			// unsupported types (currently just decrypted types) to be skipped
+			continue
+		default:
+			if ei.ItemsKeyID == nil {
+				debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", ei.ContentType))
+				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID", ei.Deleted, ei.UUID, ei.ContentType)
+				return
+			}
+
+			contentEncryptionKey = getMatchingItem(*ei.ItemsKeyID, s.ItemsKeys).ItemsKey
+			if contentEncryptionKey == "" {
+				err = fmt.Errorf("item %s of type %s cannot be decrypted as we're missing ItemsKey %s", ei.UUID, ei.ContentType, *ei.ItemsKeyID)
+				return
+			}
+		}
+
+		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
+
+		if version != "004" {
+			err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", ei.UUID, ei.ContentType, version)
+			return
+		}
+
+		var itemKey []byte
+
+		itemKey, err = decryptString(cipherText, contentEncryptionKey, nonce, authData)
+		if err != nil {
+			return
+		}
+
+		_, nonce, cipherText, authData = splitContent(ei.Content)
+		var content []byte
+
+		content, err = decryptString(cipherText, string(itemKey), nonce, authData)
+		if err != nil {
+			return
+		}
+
+		var di DecryptedItem
+		di.UUID = ei.UUID
+		di.ContentType = ei.ContentType
+		di.Deleted = ei.Deleted
+		if ei.ItemsKeyID != nil {
+			di.ItemsKeyID = *ei.ItemsKeyID
+		}
+		di.UpdatedAt = ei.UpdatedAt
+		di.CreatedAt = ei.CreatedAt
+		di.CreatedAtTimestamp = ei.CreatedAtTimestamp
+		di.UpdatedAtTimestamp = ei.UpdatedAtTimestamp
+		di.Content = string(content)
+		items = append(items, di)
+	}
+
+	return
+}
+
+func encryptItems(decItems *Items, ik ItemsKey, masterKey string, debug bool) (encryptedItems EncryptedItems, err error) {
+	debugPrint(debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
+	d := *decItems
+
+	for _, decItem := range d {
+		var e EncryptedItem
+		e, err = encryptItem(decItem, ik, nil)
+		encryptedItems = append(encryptedItems, e)
+	}
+
+	return
+}
+
+func encryptString(plainText, key, nonce, authenticatedData string) (result string, err error) {
+	// TODO: expecting authenticatedData to be pre base64 encoded?
+	if len(nonce) == 0 {
+		panic("empty nonce")
+	}
+
+	// Re-use previous item key (cheating for now)
+	itemKey := make([]byte, 32)
+
+	_, err = hex.Decode(itemKey, []byte(key))
+	if err != nil {
+		return
+	}
+
+	aead, err := chacha20poly1305.NewX(itemKey)
+	if err != nil {
+		panic(err)
+	}
+
+	var encryptedMsg []byte
+
+	msg := []byte(plainText)
+
+	hexDecodedNonce := make([]byte, 24)
+
+	_, err = hex.Decode(hexDecodedNonce, []byte(nonce))
+	if err != nil {
+		return
+	}
+
+	// Encrypt the message and append the ciphertext to the nonce.
+	encryptedMsg = aead.Seal(nil, hexDecodedNonce, msg, []byte(authenticatedData))
+
+	return base64.StdEncoding.EncodeToString(encryptedMsg), err
 }
 
 func generateSalt(identifier, nonce string) []byte {
@@ -367,6 +545,7 @@ func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw,
 		err = fmt.Errorf("password cost too low")
 		return
 	}
+
 	saltSource := input.Identifier + ":" + "SF" + ":" + input.Version + ":" + strconv.Itoa(int(input.PasswordCost)) + ":" + input.PasswordNonce
 
 	h := sha256.New()
@@ -388,6 +567,7 @@ func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw,
 }
 
 func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
+	// TODO: There should be an IsValid method on each item that includes this check if SN|ItemsKey
 	err = json.Unmarshal(input, &output)
 	if err != nil {
 		return

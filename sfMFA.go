@@ -63,6 +63,10 @@ type SFMFA struct {
 	Content SFMFAContent
 }
 
+func (c SFMFA) IsDefault() bool {
+	return false
+}
+
 func (i Items) SFMFA() (c SFMFAs) {
 	for _, x := range i {
 		if x.GetContentType() == "SFMFA" {

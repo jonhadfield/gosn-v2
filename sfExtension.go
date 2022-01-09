@@ -63,6 +63,10 @@ type SFExtension struct {
 	Content SFExtensionContent
 }
 
+func (c SFExtension) IsDefault() bool {
+	return false
+}
+
 func (i Items) SFExtension() (c SFExtensions) {
 	for _, x := range i {
 		if x.GetContentType() == "SFExtension" {

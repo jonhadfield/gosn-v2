@@ -63,6 +63,10 @@ type ExtensionRepo struct {
 	Content ExtensionRepoContent
 }
 
+func (c ExtensionRepo) IsDefault() bool {
+	return false
+}
+
 func (i Items) ExtensionRepo() (c ExtensionRepos) {
 	for _, x := range i {
 		if x.GetContentType() == "ExtensionRepo" {

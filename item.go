@@ -21,6 +21,7 @@ type Item interface {
 	GetUpdatedAtTimestamp() int64
 	GetContent() Content
 	SetContent(Content)
+	IsDefault() bool
 }
 
 type Content interface {

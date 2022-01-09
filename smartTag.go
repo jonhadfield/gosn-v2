@@ -61,6 +61,10 @@ type SmartTag struct {
 	Content SmartTagContent
 }
 
+func (c SmartTag) IsDefault() bool {
+	return false
+}
+
 func (i Items) SmartTag() (c SmartTags) {
 	for _, x := range i {
 		if x.GetContentType() == "SmartTag" {

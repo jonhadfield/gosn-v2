@@ -23,11 +23,15 @@ func TestMain(m *testing.M) {
 		RefreshToken:      gs.RefreshToken,
 		AccessToken:       gs.AccessToken,
 		AccessExpiration:  gs.AccessExpiration,
+		KeyParams:         gs.KeyParams,
 	}
 
 	_, err = Sync(SyncInput{
 		Session: testSession,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if testSession.DefaultItemsKey.ItemsKey == "" {
 		panic("failed in TestMain due to empty default items key")

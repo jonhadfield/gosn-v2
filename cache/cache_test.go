@@ -2,8 +2,10 @@ package cache
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,10 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	gTestSession *gosn.Session
-	testSession  *Session
-)
+var testSession *Session
 
 func TestMain(m *testing.M) {
 	gs, err := gosn.CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"), true)
@@ -24,17 +23,17 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	gTestSession = &gs
-
-	var cTestSession *Session
-	cTestSession, err = ImportSession(gTestSession, "")
+	testSession, err = ImportSession(&gs, "")
 	if err != nil {
 		return
 	}
-	testSession = cTestSession
 
 	var path string
+
 	path, err = GenCacheDBPath(*testSession, "", gosn.LibName)
+	if err != nil {
+		panic(err)
+	}
 
 	testSession.CacheDBPath = path
 
@@ -46,11 +45,61 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	if testSession.DefaultItemsKey.ItemsKey == "" {
+	if testSession.Session.DefaultItemsKey.ItemsKey == "" {
 		panic("failed in TestMain due to empty default items key")
 	}
 
 	os.Exit(m.Run())
+}
+
+// Create a note in cache and sync to SN
+// Export, then import, and sync back
+func TestSyncThenExportImport(t *testing.T) {
+	defer cleanup(testSession.Session)
+
+	// create new note with random content
+	newNote, _ := createNote("test", "")
+	dItems := gosn.Items{&newNote}
+	require.NoError(t, dItems.Validate())
+
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	require.NoError(t, err)
+
+	var so SyncOutput
+	so, err = Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	var allPersistedItems []Item
+	// items convert new items to 'persist' items and mark as dirty
+	itp := ToCacheItems(eItems, false)
+	for _, i := range itp {
+		require.NoError(t, so.DB.Save(&i))
+		allPersistedItems = append(allPersistedItems, i)
+	}
+
+	require.Len(t, allPersistedItems, 1)
+	require.NoError(t, so.DB.Close())
+
+	so, err = Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, so)
+	require.NotNil(t, so.DB)
+	require.NoError(t, so.DB.All(&allPersistedItems))
+	require.NoError(t, so.DB.Close())
+
+	dir, err := ioutil.TempDir("", "test")
+	require.NoError(t, err)
+
+	tmpfn := filepath.Join(dir, "tmpfile")
+	err = testSession.Export(tmpfn)
+	require.NoError(t, err)
+
+	err = testSession.Import(tmpfn, true)
+	require.NoError(t, err)
 }
 
 func TestSyncWithoutDatabase(t *testing.T) {
@@ -81,6 +130,10 @@ func TestSyncWithInvalidSession(t *testing.T) {
 }
 
 func TestInitialSyncWithItemButNoDB(t *testing.T) {
+	defer cleanup(testSession.Session)
+
+	defer removeDB(testSession.CacheDBPath)
+
 	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err)
 	session, err := ImportSession(&sio.Session, tempDBPath)
@@ -89,10 +142,6 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 	}
 	session.CacheDBPath = tempDBPath
 	require.NoError(t, err, "sign-in failed", err)
-
-	defer cleanup(testSession.Session)
-
-	defer removeDB(tempDBPath)
 
 	var so SyncOutput
 	so, err = Sync(SyncInput{
@@ -109,9 +158,10 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 }
 
 func TestSyncWithNoItems(t *testing.T) {
+	removeDB(testSession.CacheDBPath)
 	defer cleanup(testSession.Session)
 
-	defer removeDB(tempDBPath)
+	defer removeDB(testSession.CacheDBPath)
 
 	so, err := Sync(SyncInput{
 		Session: testSession,
@@ -161,8 +211,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(*testSession.Session)
-
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
 	require.NoError(t, err)
 
 	var so SyncOutput
@@ -216,6 +265,7 @@ func TestSyncWithNewNote(t *testing.T) {
 // create a note in SN directly
 // call persist Sync and check DB contains the note.
 func TestSyncOneExisting(t *testing.T) {
+	cleanup(testSession.Session)
 	defer cleanup(testSession.Session)
 
 	// create new note with random content and push to SN (not DB)
@@ -223,7 +273,7 @@ func TestSyncOneExisting(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(*testSession.Session)
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
 
 	require.NoError(t, err)
 	require.NoError(t, eItems.Validate())
@@ -231,13 +281,12 @@ func TestSyncOneExisting(t *testing.T) {
 	// push to SN
 	var gso gosn.SyncOutput
 	gso, err = gosn.Sync(gosn.SyncInput{
-		Session: gTestSession,
+		Session: testSession.Session,
 		Items:   eItems,
 	})
 
 	require.NoError(t, err)
 	require.Len(t, gso.SavedItems, 1)
-
 	// call sync
 	var so SyncOutput
 
@@ -261,6 +310,7 @@ func TestSyncOneExisting(t *testing.T) {
 	require.NotEmpty(t, syncTokens)
 
 	err = so.DB.All(&allPersistedItems)
+
 	require.Greater(t, len(allPersistedItems), 0)
 
 	var foundNotes int
@@ -278,7 +328,6 @@ func TestSyncOneExisting(t *testing.T) {
 // call persist, Sync, and check DB contains the note
 // update new note, sync to SN, then check new content is persisted.
 func TestSyncUpdateExisting(t *testing.T) {
-	cleanup(testSession.Session)
 	defer cleanup(testSession.Session)
 
 	// create new note with random content and push to SN (not DB)
@@ -286,7 +335,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(*gTestSession)
+	eItems, err := dItems.Encrypt(testSession.Session.DefaultItemsKey, testSession.Session.MasterKey, testSession.Session.Debug)
 	require.NoError(t, err)
 
 	// push new note to SN
@@ -300,8 +349,6 @@ func TestSyncUpdateExisting(t *testing.T) {
 	require.Len(t, gso.SavedItems, 1)
 
 	// USE CACHE SYNC TO LOAD NEW NOTE INTO CACHE
-
-	// var so SyncOutput
 
 	cso, err := Sync(SyncInput{
 		Session: testSession,
@@ -354,7 +401,7 @@ func TestSyncUpdateExisting(t *testing.T) {
 	// items convert new items to 'persist' items and mark as dirty
 	var ditems gosn.Items
 	ditems = append(ditems, &newNote)
-	eItems, err = ditems.Encrypt(*testSession.Session)
+	eItems, err = dItems.Encrypt(testSession.Session.DefaultItemsKey, testSession.Session.MasterKey, testSession.Session.Debug)
 	require.NoError(t, err)
 	require.Len(t, eItems, 1)
 
@@ -506,7 +553,7 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	}
 
 	if len(toDel) > 0 {
-		eToDel, _ := toDel.Encrypt(*session)
+		eToDel, err := toDel.Encrypt(session.DefaultItemsKey, session.MasterKey, session.Debug)
 		si = gosn.SyncInput{
 			Session: session,
 			Items:   eToDel,

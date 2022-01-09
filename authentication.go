@@ -525,6 +525,7 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 func (input RegisterInput) Register() (token string, err error) {
 	var pwNonce, serverPassword string
 	_, pwNonce, _, serverPassword, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
+
 	var req *http.Request
 
 	reqBody := `{"email":"` + input.Email + `","identifier":"` + input.Email + `","password":"` + serverPassword + `","pw_nonce":"` + pwNonce + `","version":"` + defaultSNVersion + `","origination":"registration","created":"1608473387799","api":"20200115"}`
@@ -557,7 +558,50 @@ func (input RegisterInput) Register() (token string, err error) {
 		return
 	}
 
+	// create an ItemsKey and Sync it
+	sio, err := SignIn(SignInInput{
+		//_, err = SignIn(SignInInput{
+		Email:     input.Email,
+		Password:  input.Password,
+		APIServer: input.APIServer,
+		Debug:     input.Debug,
+	})
+	if err != nil {
+		return
+	}
+
+	// create an ItemsKey and Sync it
+	ik, err := sio.Session.CreateItemsKey()
+
+	eKey, err := ik.Encrypt(&sio.Session)
+	if err != nil {
+		return
+	}
+
+	so, err := Sync(SyncInput{
+		Session: &sio.Session,
+		Items:   []EncryptedItem{eKey},
+	})
+	if err != nil {
+		return
+	}
+
+	if len(so.SavedItems) == 0 {
+		return "", fmt.Errorf("no items saved")
+	}
+
 	return token, err
+}
+
+func (Session) CreateItemsKey() (ItemsKey, error) {
+	ik := NewItemsKey()
+	// creating an items key is done during registration or when exporting, in which case it will always be default
+	ik.Default = true
+	ik.Content.Default = true
+	ik.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
+	ik.CreatedAt = time.Now().UTC().Format(timeLayout)
+
+	return ik, nil
 }
 
 func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonce, masterKey, serverPassword string, err error) {
@@ -647,6 +691,7 @@ func (s *Session) Valid() bool {
 	if s == nil {
 		return false
 	}
+
 	switch {
 	case s.RefreshToken == "":
 		return false

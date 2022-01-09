@@ -89,7 +89,8 @@ func _createNotes(session *Session, input map[string]string) (so SyncOutput, err
 	}
 
 	if len(newNotes) > 0 {
-		eNotes, _ := newNotes.Encrypt(*session)
+		eNotes, _ := newNotes.Encrypt(session.DefaultItemsKey, session.MasterKey, session.Debug)
+
 		si := SyncInput{
 			Session: session,
 			Items:   eNotes,
@@ -114,7 +115,8 @@ func _createTags(session *Session, input []string) (output SyncOutput, err error
 		newTag.Content = newTagContent
 
 		dItems := Items{&newTag}
-		eItems, _ := dItems.Encrypt(*session)
+		eItems, _ := dItems.Encrypt(session.DefaultItemsKey, session.MasterKey, session.Debug)
+
 		si := SyncInput{
 			Session: session,
 			Items:   eItems,
@@ -238,6 +240,394 @@ func cleanup() {
 	}
 }
 
+func TestCreateItemsKey(t *testing.T) {
+	ik, err := testSession.CreateItemsKey()
+	require.NoError(t, err)
+	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+	require.False(t, ik.Deleted)
+	require.NotEmpty(t, ik.UUID)
+	require.NotEmpty(t, ik.Content)
+	require.NotEmpty(t, ik.CreatedAt)
+	require.NotEmpty(t, ik.CreatedAtTimestamp)
+	require.NotEmpty(t, ik.ItemsKey)
+	require.Empty(t, ik.UpdatedAtTimestamp)
+	require.Empty(t, ik.UpdatedAt)
+}
+
+func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
+	ik, err := testSession.CreateItemsKey()
+	require.NoError(t, err)
+	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+	require.False(t, ik.Deleted)
+	require.NotEmpty(t, ik.UUID)
+	require.NotEmpty(t, ik.Content)
+	require.NotEmpty(t, ik.CreatedAt)
+	require.NotEmpty(t, ik.CreatedAtTimestamp)
+	require.Empty(t, ik.UpdatedAtTimestamp)
+	require.Empty(t, ik.UpdatedAt)
+
+	n := NewNote()
+	nc := NewNoteContent()
+	nc.Title = "test title"
+	nc.Text = "test content"
+	n.Content = *nc
+
+	ei, err := encryptItem(&n, ik, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, ei.UUID)
+	require.NotEmpty(t, ei.CreatedAtTimestamp)
+	require.NotEmpty(t, ei.CreatedAt)
+	require.False(t, ei.Deleted)
+	require.Equal(t, "Note", ei.ContentType)
+	require.NotEmpty(t, ei.Content)
+	require.Empty(t, ei.DuplicateOf)
+
+	testSession.ItemsKeys = append(testSession.ItemsKeys, ik)
+	di, err := decryptItems(testSession, EncryptedItems{ei})
+	require.NoError(t, err)
+	require.NotEmpty(t, di)
+
+	var dn Note
+
+	for _, dItem := range di {
+		if dItem.ContentType == "Note" {
+			dn = *parseNote(dItem).(*Note)
+			break
+		}
+	}
+
+	require.NotEmpty(t, dn.Content)
+	require.Equal(t, "Note", dn.ContentType)
+	require.Equal(t, "test title", dn.Content.GetTitle())
+	require.Equal(t, "test content", dn.Content.GetText())
+	require.NotEmpty(t, dn.UUID)
+	require.NotEmpty(t, dn.CreatedAtTimestamp)
+	require.NotEmpty(t, dn.CreatedAt)
+	require.False(t, dn.Deleted)
+	// TODO: should have DuplicateOf?
+	// require.Empty(t, dn.du)
+}
+
+func TestExportImportOfNote(t *testing.T) {
+	n := NewNote()
+	nc := NewNoteContent()
+	nc.Title = "test title"
+	nc.Text = "test content"
+	n.Content = *nc
+
+	path := "./test.json"
+
+	require.NoError(t, Items{&n}.Export(testSession, path, false))
+
+	importedItems, itemsKey, err := testSession.Import(path, false, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, importedItems)
+	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
+	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+
+	var foundNote bool
+
+	for x := range importedItems {
+		if importedItems[x].GetContentType() == "Note" {
+			in := importedItems[x].(*Note)
+			require.Equal(t, n.Content.Title, in.Content.Title)
+			require.Equal(t, n.Content.Text, in.Content.Text)
+			// n = *parseNote(importedItems[x]).(*Note)
+			foundNote = true
+
+			break
+		}
+		//
+	}
+
+	require.True(t, foundNote)
+}
+
+func TestExportImportOfNoteWithSync(t *testing.T) {
+	syncOutput, err := Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	n := NewNote()
+	nc := NewNoteContent()
+	nc.Title = "test title"
+	nc.Text = "test content"
+	n.Content = *nc
+
+	path := "./test.json"
+
+	require.NoError(t, Items{&n}.Export(testSession, path, false))
+
+	importedItems, itemsKey, err := testSession.Import(path, true, syncOutput.SyncToken)
+	require.NoError(t, err)
+	require.NotEmpty(t, importedItems)
+	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
+	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+
+	var foundNote bool
+	var importedNote *Note
+
+	for x := range importedItems {
+		if importedItems[x].GetContentType() == "Note" {
+			in := importedItems[x].(*Note)
+			require.Equal(t, n.Content.Title, in.Content.Title)
+			require.Equal(t, n.Content.Text, in.Content.Text)
+			// n = *parseNote(importedItems[x]).(*Note)
+			foundNote = true
+			importedNote = in
+
+			break
+		}
+		//
+	}
+
+	require.True(t, foundNote)
+
+	// check items key is in session
+	var foundItemsKeyInSession bool
+
+	for _, ik := range testSession.ItemsKeys {
+		if importedNote.ItemsKeyID == ik.UUID {
+			foundItemsKeyInSession = true
+			break
+		}
+	}
+
+	require.True(t, foundItemsKeyInSession)
+
+	syncOutput, err = Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	var foundItemsKeyInSN bool
+
+	for x := range syncOutput.Items {
+		if syncOutput.Items[x].UUID == importedNote.ItemsKeyID {
+			foundItemsKeyInSN = true
+		}
+	}
+
+	require.True(t, foundItemsKeyInSN)
+}
+
+func TestDecryptionOfImportedItemsKey(t *testing.T) {
+	_, err := Sync(SyncInput{
+		Session: testSession,
+	})
+
+	n := NewNote()
+	nc := NewNoteContent()
+	nc.Title = "test title"
+	nc.Text = "test content"
+	n.Content = *nc
+
+	path := "./test.json"
+
+	var preExportItemsKeys []ItemsKey
+	preExportItemsKeys = append(preExportItemsKeys, testSession.ItemsKeys...)
+	preExportDefaultItemsKey := testSession.DefaultItemsKey
+
+	require.NoError(t, Items{&n}.Export(testSession, path, false))
+
+	// reset the session
+	testSession.DefaultItemsKey = preExportDefaultItemsKey
+	testSession.ItemsKeys = preExportItemsKeys
+
+	importedItems, itemsKey, err := testSession.Import(path, false, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, importedItems)
+	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
+	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+	require.Equal(t, itemsKey.Content.ItemsKey, testSession.DefaultItemsKey.Content.ItemsKey)
+	require.Equal(t, itemsKey.ContentType, testSession.DefaultItemsKey.ContentType)
+
+	var foundNote bool
+
+	for x := range importedItems {
+		if importedItems[x].GetContentType() == "Note" {
+			in := importedItems[x].(*Note)
+			require.Equal(t, n.Content.Title, in.Content.Title)
+			require.Equal(t, n.Content.Text, in.Content.Text)
+			// n = *parseNote(importedItems[x]).(*Note)
+			foundNote = true
+
+			break
+		}
+		//
+	}
+
+	require.True(t, foundNote)
+}
+
+//
+//func TestExportImportOfEncryptedNote(t *testing.T) {
+//	n := NewNote()
+//	nc := NewNoteContent()
+//	nc.Title = "test title"
+//	nc.Text = "test content"
+//	n.Content = *nc
+//
+//	path := "./test.json"
+//
+//	require.NoError(t, Items{&n}.Export(testSession, path, false))
+//
+//	importedItems, itemsKey, err := testSession.Import(path)
+//	require.NoError(t, err)
+//	require.NotEmpty(t, importedItems)
+//	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
+//	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+//
+//	var foundNote bool
+//
+//	for x := range importedItems {
+//		if importedItems[x].GetContentType() == "Note" {
+//			in := importedItems[x].(*Note)
+//			require.Equal(t, n.Content.Title, in.Content.Title)
+//			require.Equal(t, n.Content.Text, in.Content.Text)
+//			//n = *parseNote(importedItems[x]).(*Note)
+//			foundNote = true
+//
+//			break
+//		}
+//		//
+//	}
+//
+//	require.True(t, foundNote)
+//}
+
+func TestEncryptDecryptItemWithItemsKeyWithExportedMethods(t *testing.T) {
+	testSession.Debug = true
+	ik, err := testSession.CreateItemsKey()
+	require.NoError(t, err)
+	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+	require.False(t, ik.Deleted)
+	require.NotEmpty(t, ik.UUID)
+	require.NotEmpty(t, ik.Content)
+	require.NotEmpty(t, ik.CreatedAt)
+	require.NotEmpty(t, ik.CreatedAtTimestamp)
+	require.Empty(t, ik.UpdatedAtTimestamp)
+	require.Empty(t, ik.UpdatedAt)
+
+	n := NewNote()
+	nc := NewNoteContent()
+	nc.Title = "test title"
+	nc.Text = "test content"
+	n.Content = *nc
+
+	eis := Items{&n}
+	encItems, err := eis.Encrypt(ik, testSession.MasterKey, testSession.Debug)
+	require.NoError(t, err)
+	require.NotEmpty(t, encItems[0].UUID)
+	require.NotEmpty(t, encItems[0].CreatedAtTimestamp)
+	require.NotEmpty(t, encItems[0].CreatedAt)
+	require.False(t, encItems[0].Deleted)
+	require.Equal(t, "Note", encItems[0].ContentType)
+	require.NotEmpty(t, encItems[0].Content)
+	require.Empty(t, encItems[0].DuplicateOf)
+
+	testSession.ItemsKeys = append(testSession.ItemsKeys, ik)
+	di, err := encItems.Decrypt(testSession)
+	require.NoError(t, err)
+	require.NotEmpty(t, di)
+
+	var dn Note
+
+	for _, dItem := range di {
+		if dItem.ContentType == "Note" {
+			dn = *parseNote(dItem).(*Note)
+			break
+		}
+	}
+
+	require.NotEmpty(t, dn.Content)
+	require.Equal(t, "Note", dn.ContentType)
+	require.Equal(t, "test title", dn.Content.GetTitle())
+	require.Equal(t, "test content", dn.Content.GetText())
+	require.NotEmpty(t, dn.UUID)
+	require.NotEmpty(t, dn.CreatedAtTimestamp)
+	require.NotEmpty(t, dn.CreatedAt)
+	require.False(t, dn.Deleted)
+}
+
+func TestCreateAddUseItemsKey(t *testing.T) {
+	ik, err := testSession.CreateItemsKey()
+	require.NoError(t, err)
+	require.NotEmpty(t, ik.UUID)
+	// require.NotEmpty(t, ik.Version)
+	require.NotEmpty(t, ik.ItemsKey)
+
+	randPara := "TestText"
+
+	newNoteContent := NoteContent{
+		Title:          "TestTitle",
+		Text:           randPara,
+		ItemReferences: nil,
+	}
+
+	newNoteContent.SetUpdateTime(time.Now())
+
+	newNote := NewNote()
+	newNote.Content = newNoteContent
+	dItems := Items{&newNote}
+	require.NoError(t, dItems.Validate())
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, eItems)
+
+	si := SyncInput{
+		Items:   eItems,
+		Session: testSession,
+	}
+
+	var so SyncOutput
+	so, err = Sync(si)
+	require.NoError(t, err, "Sync Failed", err)
+	require.Len(t, so.SavedItems, 1, "expected 1")
+	uuidOfNewItem := so.SavedItems[0].UUID
+	si = SyncInput{
+		Session: testSession,
+	}
+
+	so, err = Sync(si)
+	require.NoError(t, err, "Sync Failed", err)
+
+	items, err := so.Items.DecryptAndParse(testSession)
+	if err != nil {
+		return
+	}
+
+	var foundCreatedItem bool
+
+	for i := range items {
+		if items[i].GetUUID() == uuidOfNewItem {
+			foundCreatedItem = true
+
+			ni := items[i].(*Note)
+
+			if ni.ContentType != "Note" {
+				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
+					items[i].GetContentType())
+			}
+
+			if ni.Deleted {
+				t.Errorf("deleted status of new item is incorrect - expected: False got: True")
+			}
+
+			if ni.Content.GetText() != randPara {
+				t.Errorf("text of new item is incorrect - expected: %s got: %s",
+					randPara, ni.Content.GetText())
+			}
+		}
+	}
+
+	if !foundCreatedItem {
+		t.Errorf("failed to get created Item by UUID")
+	}
+}
+
 func TestDecryptItemsKeys(t *testing.T) {
 	s := testSession
 
@@ -273,7 +663,8 @@ func TestEncryptDecryptItem(t *testing.T) {
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(*testSession)
+	// eItems, err := dItems.Encrypt(*testSession)
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
@@ -299,7 +690,8 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	newNote.Content = newNoteContent
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
-	eItems, err := dItems.Encrypt(*testSession)
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
@@ -383,7 +775,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 
 	dItems := Items{&newComponent}
 	require.NoError(t, dItems.Validate())
-	eItems, _ := dItems.Encrypt(*testSession)
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
 	syncInput := SyncInput{
 		Items:   eItems,
 		Session: testSession,
@@ -565,14 +957,15 @@ func TestNoteTagging(t *testing.T) {
 	// create base notes
 	newNotes := genNotes(10, 2)
 	require.NoError(t, newNotes.Validate())
-	eItems, _ := newNotes.Encrypt(*testSession)
+	eItems, err := newNotes.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	require.NoError(t, err)
 
 	si := SyncInput{
 		Session: testSession,
 		Items:   eItems,
 	}
 
-	_, err := Sync(si)
+	_, err = Sync(si)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -640,7 +1033,9 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, updatedAnimalTagsOutput.Items...)
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
 	require.NoError(t, allItems.Validate())
-	eItems, _ = allItems.Encrypt(*testSession)
+	// eItems, _ = allItems.Encrypt(*testSession)
+	eItems, err = allItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	require.NoError(t, err)
 
 	_, err = Sync(SyncInput{
 		Items:   eItems,

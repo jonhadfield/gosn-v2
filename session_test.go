@@ -101,6 +101,20 @@ func TestWriteSession(t *testing.T) {
 	require.NoError(t, SessionExists(kDefined))
 }
 
+func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
+	os.Unsetenv("SN_SERVER")
+	os.Unsetenv("SN_EMAIL")
+	os.Unsetenv("SN_PASSWORD")
+
+	serverURL := os.Getenv("SN_SERVER")
+	if serverURL == "" {
+		serverURL = SNServerURL
+	}
+
+	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{}, true)
+	require.NoError(t, err)
+}
+
 func TestAddSession(t *testing.T) {
 	viper.SetEnvPrefix("sn")
 	require.NoError(t, viper.BindEnv("email"))

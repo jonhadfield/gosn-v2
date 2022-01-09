@@ -52,7 +52,9 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 		return
 	}
 
-	return Session{
+	fmt.Sprintf("In gosn.GetSession with gosn.Session: %+v\n", gs)
+
+	cs := Session{
 		Session: &gosn.Session{
 			Debug:             gs.Debug,
 			Server:            gs.Server,
@@ -69,7 +71,9 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 		},
 		CacheDB:     nil,
 		CacheDBPath: "",
-	}, email, err
+	}
+
+	return cs, email, err
 }
 
 func (s Session) Gosn() gosn.Session {

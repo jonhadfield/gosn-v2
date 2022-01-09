@@ -48,6 +48,7 @@ type ConflictedItem struct {
 // session with the items keys required to encrypt and decrypt items.
 func Sync(input SyncInput) (output SyncOutput, err error) {
 	for _, item := range input.Items {
+		// TODO: This is a duplicate from unmarshalResponse function. Use IsValid method instead
 		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
 			log.Fatal("Attempting to sync items key UUID:", item.UUID, " to SN database with an ItemsKeyID:", *item.ItemsKeyID)
 		}
@@ -169,8 +170,23 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		panic(err)
 	}
 
-	if len(output.Items) > 0 {
+	// check if we have any ItemsKeys
+	var haveItemsKeys bool
+
+	for x := range output.Items {
+		if output.Items[x].ContentType == "SN|ItemsKey" && !output.Items[x].Deleted {
+			haveItemsKeys = true
+
+			break
+		}
+	}
+
+	if haveItemsKeys {
+
 		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
+		if err != nil {
+			return
+		}
 	}
 
 	// Resync any conflicts
@@ -220,6 +236,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							conflictedItem = item
 							conflictedItem.UUID = GenUUID()
 							conflictedItem.DuplicateOf = &conflict.ServerItem.UUID
+
 							found = true
 
 							break
@@ -359,7 +376,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var requestBody []byte
 	// generate request body
-	// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | items to put %d", len(input.Items)))
 	newST := stripLineBreak(input.SyncToken) + `\n`
 
 	switch {
@@ -402,13 +418,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	// make the request
-	// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | making request: %s", stripLineBreak(string(requestBody))))
-
 	msrStart := time.Now()
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
@@ -430,10 +443,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems
-
-	// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | Saved: %d Retrieved: %d Unsaved: %d Conflict: %d",
-	//	len(out.SavedItems), len(out.Items), len(out.Unsaved), len(out.Conflicts)))
-
 	out.Unsaved = bodyContent.Unsaved
 	out.SyncToken = bodyContent.SyncToken
 	out.CursorToken = bodyContent.CursorToken
