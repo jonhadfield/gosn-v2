@@ -46,14 +46,18 @@ func (ei EncryptedItems) Decrypt(s *Session) (o DecryptedItems, err error) {
 }
 
 func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | items: %d", len(ei)))
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | encrypted items to check: %d", len(ei)))
 
 	var eiks EncryptedItems
 
 	for _, e := range ei {
 		if e.ContentType == "SN|ItemsKey" {
+			if e.UUID == "" {
+				panic("DecryptAndParseItemsKeys | items key has no uuid")
+			}
+
 			if e.EncItemKey == "" {
-				panic(fmt.Sprintf("DecryptAndParseItemsKeys | item key uuid: %s has no encrypted item key", e.UUID))
+				panic(fmt.Sprintf("DecryptAndParseItemsKeys | items key uuid: %s has no encrypted item key", e.UUID))
 			}
 
 			eiks = append(eiks, e)
@@ -81,11 +85,12 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 		if ik.Default {
 			numDefaultItemKeys++
 
-			debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | setting default items key uuid: %s", ik.UUID))
-
-			s.DefaultItemsKey = ik
-			s.DefaultItemsKey.Default = true
-			s.DefaultItemsKey.Content.Default = true
+			if ik.UpdatedAtTimestamp > s.DefaultItemsKey.UpdatedAtTimestamp {
+				debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | setting default items key to %s", ik.UUID))
+				s.DefaultItemsKey = ik
+				s.DefaultItemsKey.Default = true
+				s.DefaultItemsKey.Content.Default = true
+			}
 		}
 	}
 
@@ -96,15 +101,25 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 	}
 
 	if s.DefaultItemsKey.UUID == "" {
-		err = errors.New("DecryptAndParseItemsKeys | no default items key found")
+		debugPrint(s.Debug, "DecryptAndParseItemsKeys | no default items key found so taking most recent")
+		var latest ItemsKey
 
+		for x := range s.ItemsKeys {
+			if s.ItemsKeys[x].UpdatedAtTimestamp > latest.UpdatedAtTimestamp {
+				latest = s.ItemsKeys[x]
+			}
+		}
+
+		if s.DefaultItemsKey.UUID == "" {
+			panic("failed to get items key")
+		}
 		return
 	}
 
 	return
 }
 
-func isEncryptedType(ct string) bool {
+func IsEncryptedType(ct string) bool {
 	switch {
 	case strings.HasPrefix(ct, "SF"):
 		return false
@@ -118,17 +133,19 @@ func isEncryptedType(ct string) bool {
 func (ei *EncryptedItems) Validate() error {
 	var err error
 
-	for _, i := range *ei {
-		enc := isEncryptedType(i.ContentType)
+	dei := *ei
+
+	for x := range dei {
+		enc := IsEncryptedType(dei[x].ContentType)
 
 		switch {
-		case i.IsDeleted():
+		case dei[x].IsDeleted():
 			continue
-		case enc && i.ItemsKeyID == nil:
+		case enc && dei[x].ItemsKeyID == nil:
 			// ignore item in this scenario as the official app does so
-		case enc && i.EncItemKey == "":
+		case enc && dei[x].EncItemKey == "":
 			err = fmt.Errorf("validation failed for \"%s\" due to missing encrypted item key: \"%s\"",
-				i.ContentType, i.UUID)
+				dei[x].ContentType, dei[x].UUID)
 		}
 
 		if err != nil {
@@ -144,17 +161,26 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 
 	// the encrypted items may have been encrypted with a key that is with them
 	for x := range ei {
-		if ei[x].ContentType != "SN|ItemsKey" {
+		if ei[x].ContentType != "SN|ItemsKey" && !strings.HasPrefix(ei[x].ContentType, "SF") {
 			var found bool
 
 			for y := range s.ItemsKeys {
+				if ei[x].ItemsKeyID == nil {
+					debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | %s %s missing ItemsKeyID", ei[x].UUID, ei[x].ContentType))
+
+					continue
+				}
+
 				if s.ItemsKeys[y].UUID == *ei[x].ItemsKeyID {
 					found = true
 				}
 			}
 
 			if !found {
-				panic(fmt.Sprintf("no items key: %s for %s: %s not found in session", *ei[x].ItemsKeyID, ei[x].ContentType, ei[x].UUID))
+				panic(fmt.Sprintf("no items key for %s %s found in session %+v", ei[x].ContentType, ei[x].UUID, ei[x]))
+				// debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | %s %s missing ItemsKeyID", ei[x].UUID, ei[x].ContentType))
+
+				continue
 			}
 		}
 	}
@@ -564,6 +590,18 @@ func (ei *EncryptedItems) DeDupe() {
 	*ei = deDuped
 }
 
+func (ei *EncryptedItems) RemoveUnsupported() {
+	var supported EncryptedItems
+
+	for _, i := range *ei {
+		if !stringInSlice(i.ContentType, []string{"SF|Extension"}, true) {
+			supported = append(supported, i)
+		}
+	}
+
+	*ei = supported
+}
+
 func (ei *EncryptedItems) RemoveDeleted() {
 	var clean EncryptedItems
 
@@ -736,7 +774,7 @@ func (s *Session) Import(path string, persist bool, syncToken string) (items Ite
 		_, err = Sync(SyncInput{
 			Session: s,
 			Items:   encItemsToImport,
-			//SyncToken: syncToken,
+			// SyncToken: syncToken,
 		})
 		if err != nil {
 			return

@@ -14,7 +14,6 @@ import (
 
 	"github.com/spf13/viper"
 	keyring "github.com/zalando/go-keyring"
-
 	"golang.org/x/crypto/ssh/terminal"
 )
 

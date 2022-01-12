@@ -106,7 +106,6 @@ func NewTag() Tag {
 	var tag Tag
 	tag.ContentType = "Tag"
 	tag.CreatedAt = now
-	// tag.UpdatedAt = now
 	tag.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	tag.UUID = GenUUID()
 
