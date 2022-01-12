@@ -144,6 +144,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	postStart := time.Now()
 	output.Items = sResp.Items
 	output.Items.DeDupe()
+	// output.Items.RemoveUnsupported()
 	output.Unsaved = sResp.Unsaved
 	output.Unsaved.DeDupe()
 	output.SavedItems = sResp.SavedItems
@@ -160,7 +161,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
 	postElapsed := time.Since(postStart)
 	debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
-	debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
+	// debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
 
 	if err = output.Conflicts.Validate(debug); err != nil {
 		panic(err)
@@ -174,6 +175,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	var haveItemsKeys bool
 
 	for x := range output.Items {
+		debugPrint(debug, fmt.Sprintf("Sync | received item from SN %+v", output.Items[x]))
+
 		if output.Items[x].ContentType == "SN|ItemsKey" && !output.Items[x].Deleted {
 			haveItemsKeys = true
 
@@ -182,7 +185,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	}
 
 	if haveItemsKeys {
-
 		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
 		if err != nil {
 			return
@@ -317,6 +319,10 @@ func (cis ConflictedItems) Validate(debug bool) error {
 			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
 			continue
 			// return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
+		case "uuid_error":
+			debugPrint(debug, "Sync | client is attempting to sync an item without uuid")
+
+			panic("Sync | client is attempting to sync an item without a uuid")
 		default:
 			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
 		}
@@ -343,7 +349,7 @@ func lesserOf(first, second int) int {
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | SyncInput: NextItem: %d", input.NextItem))
+
 	// determine how many items to retrieve with each call
 	var limit int
 
@@ -407,8 +413,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		}
 
 	case input.CursorToken != "":
-		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | got cursor %s", stripLineBreak(input.CursorToken)))
-
 		rawST := input.SyncToken
 
 		input.SyncToken = stripLineBreak(rawST)
@@ -422,6 +426,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
+
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
@@ -449,7 +454,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.Conflicts = bodyContent.Conflicts
 	out.LastItemPut = finalItem
 
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
+	if len(input.Items) > 0 {
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
+	}
 
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse
@@ -458,7 +465,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
 
 		input.CursorToken = out.CursorToken
-		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
+		// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
 
 		input.PageSize = limit
 		// sync was successful so set new item
@@ -477,15 +484,14 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		out.SavedItems = append(out.SavedItems, newOutput.SavedItems...)
 		out.Unsaved = append(out.Unsaved, newOutput.Unsaved...)
 		out.Conflicts = append(out.Conflicts, newOutput.Conflicts...)
+		out.SyncToken = newOutput.SyncToken
 
-		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting out.LastItemPut to: %d", finalItem))
 		out.LastItemPut = finalItem
 	} else {
 		return out, err
 	}
 
 	out.CursorToken = ""
-
 	return out, err
 }
 

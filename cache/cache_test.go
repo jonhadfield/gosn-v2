@@ -45,17 +45,23 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	if testSession.Session.DefaultItemsKey.ItemsKey == "" {
-		panic("failed in TestMain due to empty default items key")
-	}
+	//if testSession.Session.DefaultItemsKey.ItemsKey == "" {
+	//	panic("failed in TestMain due to empty default items key")
+	//}
 
 	os.Exit(m.Run())
 }
 
 // Create a note in cache and sync to SN
-// Export, then import, and sync back
+// Export, then import, and sync back.
 func TestSyncThenExportImport(t *testing.T) {
 	defer cleanup(testSession.Session)
+
+	var so SyncOutput
+	so, err := Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
 
 	// create new note with random content
 	newNote, _ := createNote("test", "")
@@ -65,13 +71,8 @@ func TestSyncThenExportImport(t *testing.T) {
 	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
 	require.NoError(t, err)
 
-	var so SyncOutput
-	so, err = Sync(SyncInput{
-		Session: testSession,
-	})
-	require.NoError(t, err)
-
 	var allPersistedItems []Item
+
 	// items convert new items to 'persist' items and mark as dirty
 	itp := ToCacheItems(eItems, false)
 	for _, i := range itp {
@@ -100,6 +101,144 @@ func TestSyncThenExportImport(t *testing.T) {
 
 	err = testSession.Import(tmpfn, true)
 	require.NoError(t, err)
+}
+
+// Create a note in cache and sync to SN
+// Export, then import, and sync back.
+func TestSyncThenExportImportCompare(t *testing.T) {
+	defer cleanup(testSession.Session)
+
+	var so SyncOutput
+	so, err := Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	// create new note with random content
+	newNote, _ := createNote("test", "")
+	dItems := gosn.Items{&newNote}
+	require.NoError(t, dItems.Validate())
+
+	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	require.NoError(t, err)
+
+	var allPersistedItems []Item
+	// items convert new items to 'persist' items and mark as dirty
+	itp := ToCacheItems(eItems, false)
+
+	for _, i := range itp {
+		require.NoError(t, so.DB.Save(&i))
+		allPersistedItems = append(allPersistedItems, i)
+	}
+
+	require.Len(t, allPersistedItems, 1)
+	require.NoError(t, so.DB.Close())
+
+	so, err = Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, so)
+	require.NotNil(t, so.DB)
+	require.NoError(t, so.DB.All(&allPersistedItems))
+
+	dir, err := ioutil.TempDir("", "test")
+	require.NoError(t, err)
+	require.NoError(t, so.DB.Close())
+
+	tmpfn := filepath.Join(dir, "tmpfile")
+	err = testSession.Export(tmpfn)
+	require.NoError(t, err)
+
+	err = testSession.Import(tmpfn, true)
+	require.NoError(t, err)
+
+	err = testSession.Export(tmpfn)
+	require.NoError(t, err)
+
+	err = testSession.Import(tmpfn, true)
+	require.NoError(t, err)
+
+	so, err = Sync(SyncInput{
+		Session: testSession,
+		Close:   true,
+	})
+
+	gso, err := gosn.Sync(gosn.SyncInput{
+		Session:   testSession.Session,
+		SyncToken: "",
+	})
+	require.NoError(t, err)
+	db, err := storm.Open(testSession.CacheDBPath)
+	require.NoError(t, err)
+	require.NoError(t, db.All(&allPersistedItems))
+	require.NoError(t, db.Close())
+
+	var dbItemsKeyCount int
+	for x := range allPersistedItems {
+		if allPersistedItems[x].ContentType == "SN|ItemsKey" {
+			dbItemsKeyCount++
+		}
+		var gsoMatch gosn.EncryptedItem
+
+		var dbMatch Item
+
+		var found bool
+
+		for y := range gso.Items {
+			if allPersistedItems[x].UUID == gso.Items[y].UUID {
+				found = true
+				gsoMatch = gso.Items[y]
+				dbMatch = allPersistedItems[x]
+				break
+			}
+		}
+
+		if !found {
+			panic(fmt.Sprintf("item %+v not found in SN", allPersistedItems[x]))
+		}
+
+		switch {
+		case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
+			fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
+		}
+	}
+
+	var snItemsKeyCount int
+
+	for x := range gso.Items {
+		if gso.Items[x].ContentType == "SN|ItemsKey" {
+			snItemsKeyCount++
+		}
+		var gsoMatch gosn.EncryptedItem
+
+		var dbMatch Item
+
+		var found bool
+
+		for y := range allPersistedItems {
+			if gso.Items[x].UUID == allPersistedItems[y].UUID {
+				found = true
+				gsoMatch = gso.Items[x]
+				dbMatch = allPersistedItems[y]
+
+				break
+			}
+		}
+
+		if !found && gso.Items[x].ContentType != "SN|ItemsKey" {
+			panic(fmt.Sprintf("item %+v not found in DB", gso.Items[x]))
+		}
+
+		switch {
+		case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
+			fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
+		}
+	}
+
+	if snItemsKeyCount != dbItemsKeyCount {
+		fmt.Printf("SN ItemsKey count: %d DB ItemsKey count: %d\n", snItemsKeyCount, dbItemsKeyCount)
+	}
 }
 
 func TestSyncWithoutDatabase(t *testing.T) {
@@ -136,14 +275,18 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 
 	sio, err := gosn.SignIn(sInput)
 	require.NoError(t, err)
+
 	session, err := ImportSession(&sio.Session, tempDBPath)
 	if err != nil {
 		return
 	}
+
 	session.CacheDBPath = tempDBPath
+
 	require.NoError(t, err, "sign-in failed", err)
 
 	var so SyncOutput
+
 	so, err = Sync(SyncInput{
 		Session: session,
 	})
@@ -322,6 +465,61 @@ func TestSyncOneExisting(t *testing.T) {
 	}
 
 	require.Equal(t, 1, foundNotes)
+}
+
+// create a note in SN directly
+// call persist Sync and check DB contains the note.
+func TestSyncRetainsSyncToken(t *testing.T) {
+	cleanup(testSession.Session)
+	defer cleanup(testSession.Session)
+
+	so, err := Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	var syncTokens []SyncToken
+	err = so.DB.All(&syncTokens)
+	require.NoError(t, err)
+	require.Len(t, syncTokens, 1)
+	require.NoError(t, so.DB.Close())
+
+	so, err = Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	err = so.DB.All(&syncTokens)
+	defer so.DB.Close()
+	defer removeDB(tempDBPath)
+	require.NoError(t, err)
+	require.Len(t, syncTokens, 1)
+
+	//
+	//// get all items
+	//var allPersistedItems []Item
+	//
+	//err = so.DB.All(&allPersistedItems)
+	//require.NoError(t, err)
+	//
+	//var syncTokens []SyncToken
+	//err = so.DB.All(&syncTokens)
+	//require.NoError(t, err)
+	//require.NotEmpty(t, syncTokens)
+	//
+	//err = so.DB.All(&allPersistedItems)
+	//
+	//require.Greater(t, len(allPersistedItems), 0)
+	//
+	//var foundNotes int
+	//
+	//for _, pi := range allPersistedItems {
+	//	if pi.ContentType == "Note" && pi.UUID == newNote.UUID {
+	//		foundNotes++
+	//	}
+	//}
+	//
+	//require.Equal(t, 1, foundNotes)
 }
 
 // create a note in SN directly
