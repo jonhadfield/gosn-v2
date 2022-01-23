@@ -28,11 +28,13 @@ const (
 // Session holds authentication and encryption parameters required
 // to communicate with the API and process transferred data.
 type Session struct {
-	Debug             bool
-	Server            string
-	Token             string
-	MasterKey         string
-	ItemsKeys         []ItemsKey
+	Debug     bool
+	Server    string
+	Token     string
+	MasterKey string
+	ItemsKeys []ItemsKey
+	// ImporterItemsKey is the key used to encrypt exported items and set during import only
+	ImporterItemsKey  ItemsKey
 	DefaultItemsKey   ItemsKey
 	KeyParams         KeyParams `json:"keyParams"`
 	AccessToken       string    `json:"access_token"`

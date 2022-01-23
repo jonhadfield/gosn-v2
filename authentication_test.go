@@ -184,6 +184,9 @@ func TestSignInWithInvalidURL(t *testing.T) {
 //   }
 
 func TestSignInWithUnavailableServer(t *testing.T) {
+	if os.Getenv("SN_SERVER") == "http://ramea:3000" {
+		return
+	}
 	password := "invalid"
 	sInput := SignInInput{
 		Email:     "sn@lessknown.co.uk",

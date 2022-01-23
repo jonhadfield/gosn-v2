@@ -102,7 +102,7 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 	return plaintext, err
 }
 
-func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err error) {
+func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedItem, err error) {
 	//if ik.Content.ItemsKey == "" {
 	//	debugPrint(session.Debug, fmt.Sprintf("ItemsKey Encrypt | skipping %s due to missing Content.ItemsKey", ik.UUID))
 	//
@@ -113,6 +113,17 @@ func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err e
 		panic("ik.UUID is empty")
 	}
 
+	// updated at is set by SN so will be zero for a new key
+	if !new {
+		if ik.UpdatedAt == "" {
+			panic("ik.UpdatedAt is empty")
+		}
+
+		if ik.UpdatedAtTimestamp == 0 {
+			panic("ik.UpdatedAtTimestamp is empty")
+		}
+	}
+
 	encryptedItem.UUID = ik.UUID
 
 	if ik.ContentType == "" {
@@ -121,11 +132,14 @@ func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err e
 
 	encryptedItem.ContentType = ik.ContentType
 
-	encryptedItem.UpdatedAt = ik.UpdatedAt
+	// updatedat is set by SN so will be zero for a new key
+	if !new {
+		encryptedItem.UpdatedAt = ik.UpdatedAt
+		encryptedItem.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
+	}
 
 	encryptedItem.CreatedAt = ik.CreatedAt
 	encryptedItem.Deleted = ik.Deleted
-	encryptedItem.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
 
 	if ik.CreatedAtTimestamp == 0 {
 		panic("ik.CreatedAtTimeStamp is 0")
@@ -146,12 +160,16 @@ func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err e
 
 	var encryptedContent string
 
+	if ik.ItemsKey == "" {
+		panic("attempting to encrypt empty items key")
+	}
 	// Marshall the ItemsKey plaintext content
-	mContent, _ := json.Marshal(ik.Content)
+	mContent, err := json.Marshal(ik.Content)
+	if err != nil {
+		return
+	}
 
 	// Create the auth data that will be used to authenticate the encrypted content
-	// authData := "{\"u\":\"" + ik.UUID + "\",\"v\":\"004\"}"
-
 	authData := "{\"kp\":{\"identifier\":\"" + session.KeyParams.Identifier + "\",\"pw_nonce\":\"" + session.KeyParams.PwNonce + "\",\"version\":\"" + session.KeyParams.Version + "\",\"origination\":\"" + session.KeyParams.Origination + "\",\"created\":\"" + session.KeyParams.Created + "\"},\"u\":\"" + encryptedItem.UUID + "\",\"v\":\"" + session.KeyParams.Version + "\"}"
 
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
@@ -173,8 +191,8 @@ func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err e
 
 	// Create the Encrypted Items Key content element
 	content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
-	encryptedItem.Content = content
 
+	encryptedItem.Content = content
 	// Generate another nonce for the content element to be encrypted with
 	_, err = crand.Read(bNonce)
 	if err != nil {
@@ -188,6 +206,7 @@ func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err e
 	encryptedContentKey, err = encryptString(itemEncryptionKey, session.MasterKey, nonce, b64AuthData)
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
+
 	switch {
 	case encryptedItem.EncItemKey == "":
 		panic("produced encrypted ItemsKey with empty enc_item_key")
@@ -195,6 +214,10 @@ func (ik ItemsKey) Encrypt(session *Session) (encryptedItem EncryptedItem, err e
 		panic("produced encrypted ItemsKey with empty uuid")
 	case encryptedItem.Content == "":
 		panic("produced encrypted ItemsKey with empty content")
+	case encryptedItem.ItemsKeyID != nil:
+		panic("produced encrypted ItemsKey non nil ItemsKeyID")
+	case encryptedItem.CreatedAtTimestamp == 0:
+		panic("encrypted items key has CreatedAtTimestamp set to 0")
 	}
 
 	return encryptedItem, err
@@ -240,6 +263,8 @@ func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
 	f.CreatedAtTimestamp = ei.CreatedAtTimestamp
 	f.CreatedAt = ei.CreatedAt
 
+	ik = f
+
 	return
 }
 
@@ -249,7 +274,9 @@ func encryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	if ik.UUID == "" {
 		panic("in encryptItem with invalid items key (missing UUID)")
 	}
+
 	ikid := ik.UUID
+
 	encryptedItem.ItemsKeyID = &ikid
 	contentEncryptionKey = ik.ItemsKey
 	encryptedItem.UUID = item.GetUUID()
@@ -338,9 +365,11 @@ type AuthData struct {
 // and returns a list of items keys.
 func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
 	for _, eik := range eiks {
+		if eik.ContentType != "SN|ItemsKey" {
+			continue
+		}
 		// decrypt enc_item_key
 		_, encNonce, cipherText, authenticatedData := splitContent(eik.EncItemKey)
-
 		var pt []byte
 
 		pt, err = decryptString(cipherText, mk, encNonce, authenticatedData)
@@ -413,44 +442,42 @@ func isUnsupportedType(t string) bool {
 	return strings.HasPrefix(t, "SF|")
 }
 
-// decryptItems takes the itemsKeys and the EncryptedItems to decrypt
-// and returns a list of items keys uuid (string) and key (bytes).
-func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("decryptItems | decrypting %d items", len(eis)))
+// Decrypt
+func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
 
-	for _, ei := range eis {
+	for _, e := range ei {
+		if e.Deleted {
+			continue
+		}
+
 		var contentEncryptionKey string
 
 		switch {
-		case ei.ItemsKeyID == nil && ei.ContentType != "SN|ItemsKey":
-			debugPrint(s.Debug, fmt.Sprintf("decryptItems | not decrypting %s %s due to missing ItemsKeyID", ei.ContentType, ei.UUID))
-
+		case ik.ItemsKey != "":
+			// passed when re-encrypting an export
+			contentEncryptionKey = ik.ItemsKey
+		case e.ItemsKeyID == nil && e.ContentType != "SN|ItemsKey":
 			continue
-		case isEncryptedWithMasterKey(ei.ContentType):
+		case isEncryptedWithMasterKey(e.ContentType):
 			contentEncryptionKey = s.MasterKey
-		//case isUnsupportedType(ei.ContentType):
-		//	debugPrint(s.Debug, fmt.Sprintf("decryptItems | unsupported content type: %s", ei.ContentType))
-		//
-		//	// unsupported types (currently just decrypted types) to be skipped
-		//	continue
 		default:
-			if ei.ItemsKeyID == nil {
-				debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", ei.ContentType))
-				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID", ei.Deleted, ei.UUID, ei.ContentType)
+			if e.ItemsKeyID == nil {
+				debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType))
+				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID", e.Deleted, e.UUID, e.ContentType)
 				return
 			}
 
-			contentEncryptionKey = getMatchingItem(*ei.ItemsKeyID, s.ItemsKeys).ItemsKey
+			contentEncryptionKey = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
 			if contentEncryptionKey == "" {
-				err = fmt.Errorf("item %s of type %s cannot be decrypted as we're missing ItemsKey %s", ei.UUID, ei.ContentType, *ei.ItemsKeyID)
+				err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s", e.Deleted, e.UUID, e.ContentType, *e.ItemsKeyID)
 				return
 			}
 		}
 
-		version, nonce, cipherText, authData := splitContent(ei.EncItemKey)
-
+		version, nonce, cipherText, authData := splitContent(e.EncItemKey)
 		if version != "004" {
-			err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", ei.UUID, ei.ContentType, version)
+			err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", e.UUID, e.ContentType, version)
 			return
 		}
 
@@ -461,7 +488,8 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 			return
 		}
 
-		_, nonce, cipherText, authData = splitContent(ei.Content)
+		version, nonce, cipherText, authData = splitContent(e.Content)
+
 		var content []byte
 
 		content, err = decryptString(cipherText, string(itemKey), nonce, authData)
@@ -470,18 +498,18 @@ func decryptItems(s *Session, eis EncryptedItems) (items DecryptedItems, err err
 		}
 
 		var di DecryptedItem
-		di.UUID = ei.UUID
-		di.ContentType = ei.ContentType
-		di.Deleted = ei.Deleted
-		if ei.ItemsKeyID != nil {
-			di.ItemsKeyID = *ei.ItemsKeyID
+		di.UUID = e.UUID
+		di.ContentType = e.ContentType
+		di.Deleted = e.Deleted
+		if e.ItemsKeyID != nil {
+			di.ItemsKeyID = *e.ItemsKeyID
 		}
-		di.UpdatedAt = ei.UpdatedAt
-		di.CreatedAt = ei.CreatedAt
-		di.CreatedAtTimestamp = ei.CreatedAtTimestamp
-		di.UpdatedAtTimestamp = ei.UpdatedAtTimestamp
+		di.UpdatedAt = e.UpdatedAt
+		di.CreatedAt = e.CreatedAt
+		di.CreatedAtTimestamp = e.CreatedAtTimestamp
+		di.UpdatedAtTimestamp = e.UpdatedAtTimestamp
 		di.Content = string(content)
-		items = append(items, di)
+		o = append(o, di)
 	}
 
 	return
@@ -506,7 +534,6 @@ func encryptString(plainText, key, nonce, authenticatedData string) (result stri
 		panic("empty nonce")
 	}
 
-	// Re-use previous item key (cheating for now)
 	itemKey := make([]byte, 32)
 
 	_, err = hex.Decode(itemKey, []byte(key))

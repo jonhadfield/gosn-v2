@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -33,25 +35,21 @@ type AppTagConfig struct {
 	Debug    bool
 }
 
-// GetItemsInput defines the input for retrieving items
-
 const retryScaleFactor = 0.25
 
 type EncryptedItems []EncryptedItem
 
-func (ei EncryptedItems) Decrypt(s *Session) (o DecryptedItems, err error) {
-	o, err = decryptItems(s, ei)
+func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []ItemsKey, err error) {
+	debugPrint(debug, fmt.Sprintf("DecryptAndParseItemsKeys | encrypted items to check: %d", len(ei)))
 
-	return o, err
-}
-
-func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | encrypted items to check: %d", len(ei)))
+	if len(ei) == 0 {
+		return
+	}
 
 	var eiks EncryptedItems
 
 	for _, e := range ei {
-		if e.ContentType == "SN|ItemsKey" {
+		if e.ContentType == "SN|ItemsKey" && !e.Deleted {
 			if e.UUID == "" {
 				panic("DecryptAndParseItemsKeys | items key has no uuid")
 			}
@@ -65,54 +63,20 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(s *Session) (o []ItemsKey, err
 	}
 
 	if len(eiks) == 0 {
-		err = fmt.Errorf("no items keys were retrieved")
+		// err = fmt.Errorf("no items keys were retrieved")
 
 		return
 	}
 
-	o, err = DecryptAndParseItemKeys(s.MasterKey, eiks)
+	o, err = DecryptAndParseItemKeys(mk, eiks)
 	if err != nil {
 		err = fmt.Errorf("gsDecrypt | %w", err)
 
 		return
 	}
 
-	var numDefaultItemKeys int
-
-	for _, ik := range o {
-		s.ItemsKeys = append(s.ItemsKeys, ik)
-
-		if ik.Default {
-			numDefaultItemKeys++
-
-			if ik.UpdatedAtTimestamp > s.DefaultItemsKey.UpdatedAtTimestamp {
-				debugPrint(s.Debug, fmt.Sprintf("DecryptAndParseItemsKeys | setting default items key to %s", ik.UUID))
-				s.DefaultItemsKey = ik
-				s.DefaultItemsKey.Default = true
-				s.DefaultItemsKey.Content.Default = true
-			}
-		}
-	}
-
-	if numDefaultItemKeys > 1 {
-		debugPrint(s.Debug, "DecryptAndParseItemsKeys | more than one default ItemsKey found")
-
-		return
-	}
-
-	if s.DefaultItemsKey.UUID == "" {
-		debugPrint(s.Debug, "DecryptAndParseItemsKeys | no default items key found so taking most recent")
-		var latest ItemsKey
-
-		for x := range s.ItemsKeys {
-			if s.ItemsKeys[x].UpdatedAtTimestamp > latest.UpdatedAtTimestamp {
-				latest = s.ItemsKeys[x]
-			}
-		}
-
-		if s.DefaultItemsKey.UUID == "" {
-			panic("failed to get items key")
-		}
+	if len(o) == 0 {
+		err = fmt.Errorf("failed to decrypt and parse items keys")
 		return
 	}
 
@@ -156,38 +120,42 @@ func (ei *EncryptedItems) Validate() error {
 	return err
 }
 
-func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
-
-	// the encrypted items may have been encrypted with a key that is with them
-	for x := range ei {
-		if ei[x].ContentType != "SN|ItemsKey" && !strings.HasPrefix(ei[x].ContentType, "SF") {
-			var found bool
-
-			for y := range s.ItemsKeys {
-				if ei[x].ItemsKeyID == nil {
-					debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | %s %s missing ItemsKeyID", ei[x].UUID, ei[x].ContentType))
-
-					continue
-				}
-
-				if s.ItemsKeys[y].UUID == *ei[x].ItemsKeyID {
-					found = true
-				}
-			}
-
-			if !found {
-				panic(fmt.Sprintf("no items key for %s %s found in session %+v", ei[x].ContentType, ei[x].UUID, ei[x]))
-				// debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | %s %s missing ItemsKeyID", ei[x].UUID, ei[x].ContentType))
-
-				continue
-			}
-		}
-	}
+func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newItemsKey ItemsKey, newMasterKey string) (o EncryptedItems, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("ReEncrypt | items: %d", len(ei)))
 
 	var di DecryptedItems
 
-	di, err = ei.Decrypt(s)
+	di, err = ei.Decrypt(s, decryptionItemsKey)
+
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
+		return
+	}
+
+	var itemsToEncrypt Items
+
+	itemsToEncrypt, err = di.Parse()
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | Parse | %w", err)
+
+		return
+	}
+
+	return itemsToEncrypt.Encrypt(newItemsKey, newMasterKey, s.Debug)
+}
+
+func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
+
+	var di DecryptedItems
+
+	if s.ImporterItemsKey.ItemsKey != "" {
+		debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | using ImportersItemsKey"))
+		di, err = ei.Decrypt(s, s.ImporterItemsKey)
+	} else {
+		di, err = ei.Decrypt(s, ItemsKey{})
+	}
+
 	if err != nil {
 		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
 		return
@@ -196,6 +164,8 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 	o, err = di.Parse()
 	if err != nil {
 		err = fmt.Errorf("DecryptAndParse | Parse | %w", err)
+
+		return
 	}
 
 	return
@@ -232,6 +202,12 @@ func (i *Items) Encrypt(ik ItemsKey, masterKey string, debug bool) (e EncryptedI
 		return
 	}
 
+	for x := range e {
+		if e[x].ContentType == "SN|ItemsKey" {
+			panic("pantyhose")
+		}
+	}
+
 	if err = e.Validate(); err != nil {
 		return e, err
 	}
@@ -264,7 +240,7 @@ func (ei EncryptedItem) IsDeleted() bool {
 
 type DecryptedItem struct {
 	UUID               string `json:"uuid"`
-	ItemsKeyID         string `json:"items_key_id"`
+	ItemsKeyID         string `json:"items_key_id,omitempty"`
 	Content            string `json:"content"`
 	ContentType        string `json:"content_type"`
 	Deleted            bool   `json:"deleted"`
@@ -376,11 +352,11 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 		debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status))
 	}
 
-	readStart := time.Now()
+	// readStart := time.Now()
 
 	responseBody, err = ioutil.ReadAll(response.Body)
 
-	debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
+	// debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
 
 	return responseBody, err
 }
@@ -575,16 +551,27 @@ func processContentModel(contentType, input string) (output Content, err error) 
 }
 
 func (ei *EncryptedItems) DeDupe() {
-	var encountered []string
+	if ei == nil {
+		return
+	}
+
+	uniqueItems := make(map[string]EncryptedItem)
 
 	var deDuped EncryptedItems
 
-	for _, i := range *ei {
-		if !stringInSlice(i.UUID, encountered, true) {
-			deDuped = append(deDuped, i)
+	eis := *ei
+	for _, ei1 := range eis {
+		if _, ok := uniqueItems[ei1.UUID]; ok {
+			if ei1.UpdatedAtTimestamp > uniqueItems[ei1.UUID].UpdatedAtTimestamp {
+				uniqueItems[ei1.UUID] = ei1
+			}
+		} else {
+			uniqueItems[ei1.UUID] = ei1
 		}
+	}
 
-		encountered = append(encountered, i.UUID)
+	for _, v := range uniqueItems {
+		deDuped = append(deDuped, v)
 	}
 
 	*ei = deDuped
@@ -654,33 +641,57 @@ func (di *DecryptedItems) RemoveDeleted() {
 	*di = clean
 }
 
-func (i Items) Export(s *Session, path string, plainText bool) error {
-	// create a new ItemsKey to encrypt the items with
-	ik, err := s.CreateItemsKey()
+func (s *Session) Export(path string) error {
+	// we must export all items or otherwise we will update the encryption key for non exported items so they can no longer be encrypted
+	so, err := Sync(SyncInput{
+		Session: s,
+	})
 	if err != nil {
 		return err
 	}
 
+	ik := s.DefaultItemsKey
+
+	// create new items key, but copy across uuid and timestamps
+	nk, err := s.CreateItemsKey()
+	if err != nil {
+		return err
+	}
+
+	nk.UUID = ik.UUID
+	nk.CreatedAt = ik.CreatedAt
+	nk.UpdatedAt = ik.UpdatedAt
+	nk.CreatedAtTimestamp = ik.CreatedAtTimestamp
+	nk.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
+
 	// encrypt items with the new ItemsKey
-	nei, err := i.Encrypt(ik, s.MasterKey, s.Debug)
+	nei, err := so.Items.ReEncrypt(s, ItemsKey{}, nk, s.MasterKey)
 	if err != nil {
 		return err
 	}
+
 	// encrypt items key that encrypted the items
-	eik, err := ik.Encrypt(s)
+	eik, err := nk.Encrypt(s, false)
 	if err != nil {
 		return err
 	}
+
+	if eik.UpdatedAtTimestamp != ik.UpdatedAtTimestamp {
+		panic("updated timestamp not consistent with original")
+	}
+
+	eik.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
+
+	eik.UpdatedAt = ik.UpdatedAt
 
 	// prepend new items key to the export
 	nei = append([]EncryptedItem{eik}, nei...)
-	// add existing items keys to the export
 
+	// add existing items keys to the export
 	if err = writeJSON(writeJSONConfig{
-		session:   *s,
-		plainText: false,
-		Path:      path,
-		Debug:     true,
+		session: *s,
+		Path:    path,
+		Debug:   true,
 	}, nei); err != nil {
 		return err
 	}
@@ -762,89 +773,303 @@ func writeJSON(c writeJSONConfig, items EncryptedItems) error {
 	return err
 }
 
-func (s *Session) Import(path string, persist bool, syncToken string) (items Items, itemsKey ItemsKey, err error) {
-	encItemsToImport, err := readJSON(path)
+type CompareEncryptedItemsInput struct {
+	Session        *Session
+	FirstItem      EncryptedItem
+	FirstItemsKey  ItemsKey
+	SecondItem     EncryptedItem
+	SecondItemsKey ItemsKey
+}
+
+func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported bool, err error) {
+	if input.FirstItem.ContentType != input.SecondItem.ContentType {
+		return false, unsupported, nil
+	}
+	fDec, err := EncryptedItems{input.FirstItem}.Decrypt(input.Session, input.FirstItemsKey)
+	if err != nil {
+		return
+	}
+	fPar, err := fDec.Parse()
+	if err != nil {
+		return
+	}
+	sDec, err := EncryptedItems{input.SecondItem}.Decrypt(input.Session, input.SecondItemsKey)
+	if err != nil {
+		return
+	}
+	sPar, err := sDec.Parse()
 	if err != nil {
 		return
 	}
 
-	var eik EncryptedItems
+	first := fPar[0]
+	second := sPar[0]
 
-	if persist {
-		_, err = Sync(SyncInput{
-			Session: s,
-			Items:   encItemsToImport,
-			// SyncToken: syncToken,
+	switch first.GetContentType() {
+	case "Note":
+		n1 := first.(*Note)
+		n2 := second.(*Note)
+
+		return n1.Content.Title == n2.Content.Title && n1.Content.Text == n2.Content.Text, unsupported, nil
+	case "Tag":
+		t1 := first.(*Tag)
+		t2 := second.(*Tag)
+		return t1.Content.Title == t2.Content.Title, unsupported, nil
+	}
+
+	return false, true, nil
+}
+
+// Import steps are:
+// - decrypt items in current file (derive master key based on username, password nonce)
+// - create a new items key and reencrypt all items
+// - set items key to be same updatedtimestamp in order to replace existing
+func (s *Session) Import(path string, syncToken string) (items EncryptedItems, itemsKey ItemsKey, err error) {
+	initialItemsKey := fmt.Sprintf("Initial DefaultItemsKey %s", s.DefaultItemsKey.ItemsKey)
+
+	encItemsToImport, keyParams, err := readJSON(path)
+	if err != nil {
+		return
+	}
+
+	// set master key to session by default, but then check if new one is required
+	mk := s.MasterKey
+
+	// if export was for a different user (identifier used to generate salt)
+	// TODO: or nonce differs from session's
+	if keyParams.Identifier != s.KeyParams.Identifier {
+		debugPrint(s.Debug, "Import | export is from different account, so prompting for password")
+
+		var password string
+
+		fmt.Print("password: ")
+
+		var bytePassword []byte
+		bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+
+		fmt.Println()
+
+		if err == nil {
+			password = string(bytePassword)
+		} else {
+			return
+		}
+
+		if strings.TrimSpace(password) == "" {
+			err = fmt.Errorf("password not defined")
+			return
+		}
+
+		mk, _, err = generateMasterKeyAndServerPassword004(generateEncryptedPasswordInput{
+			userPassword: password,
+			authParamsOutput: authParamsOutput{
+				Identifier:    keyParams.Identifier,
+				PasswordNonce: keyParams.PwNonce,
+				Version:       keyParams.Version,
+			},
+			debug: s.Debug,
 		})
 		if err != nil {
 			return
 		}
 	}
 
-	// retrieve the ItemsKey used to encrypt the export
+	// retrieve items and itemskey from export
+	var exportsEncItemsKeys EncryptedItems
+
+	var exportedEncItems EncryptedItems
+
 	for x := range encItemsToImport {
 		if encItemsToImport[x].ContentType == "SN|ItemsKey" {
-			eik = append(eik, encItemsToImport[x])
+			exportsEncItemsKeys = append(exportsEncItemsKeys, encItemsToImport[x])
 
-			break
+			continue
 		}
+
+		exportedEncItems = append(exportedEncItems, encItemsToImport[x])
 	}
 
-	var mainItemsKeyUUID string
-	// getMatchingItemsKey
-	for x := range encItemsToImport {
-		if encItemsToImport[x].ContentType != "SN|ItemsKey" {
-			mainItemsKeyUUID = *encItemsToImport[x].ItemsKeyID
-			break
-		}
-	}
-
-	var mainEncryptedItemsKey EncryptedItem
-
-	for x := range encItemsToImport {
-		if encItemsToImport[x].UUID == mainItemsKeyUUID {
-			if encItemsToImport[x].UUID == mainItemsKeyUUID {
-				mainEncryptedItemsKey = encItemsToImport[x]
-				break
-			}
-		}
-	}
-
-	// decrypt the ItemsKey used to encrypt the export
-	iks, err := EncryptedItems{mainEncryptedItemsKey}.DecryptAndParseItemsKeys(s)
-	iks[0].Default = true
-	iks[0].Content.Default = true
-	s.DefaultItemsKey = iks[0]
-	itemsKey = iks[0]
-
-	s.ItemsKeys = append(s.ItemsKeys, iks...)
-
-	var encFinalList EncryptedItems
-
-	if encItemsToImport != nil {
-		for _, item := range encItemsToImport {
-			if item.DuplicateOf != nil {
-				err = fmt.Errorf("duplicate of item found: %s", *item.DuplicateOf)
-			}
-		}
-		encFinalList = append(encFinalList, encItemsToImport...)
-	}
-
-	if len(encFinalList) == 0 {
-		err = fmt.Errorf("no items to import were loaded")
+	// re-encrypt items
+	if len(exportedEncItems) == 0 {
+		err = fmt.Errorf("no items were found in export")
 
 		return
 	}
 
-	items, err = encFinalList.DecryptAndParse(s)
+	var exportsItemsKey ItemsKey
+
+	switch len(exportsEncItemsKeys) {
+	case 0:
+		err = fmt.Errorf("invalid export: missing ItemsKey %w", err)
+		return
+	case 1:
+		var exportsItemsKeys ItemsKeys
+
+		exportsItemsKeys, err = exportsEncItemsKeys.DecryptAndParseItemsKeys(mk, false)
+		if err != nil {
+			err = fmt.Errorf("invalid export: failed to decrypt ItemsKey %w", err)
+			return
+		}
+
+		exportsItemsKey = exportsItemsKeys[0]
+	default:
+		err = fmt.Errorf("invalid export: only one ItemsKey expected but %d found", len(exportsEncItemsKeys))
+		return
+	}
+
+	// re-encrypt all existing items with new key
+	s.ImporterItemsKey = exportsItemsKey
+	so, err := Sync(SyncInput{
+		Session: s,
+		// retrieve all items
+		SyncToken: "",
+	})
+
 	if err != nil {
 		return
 	}
 
+	// sync will override the default items key with the initial one found
+	existingEncrypted := so.Items
+
+	// determine whether existing or exported items should be resynced...
+	// - if export and existing have same last updated time, then just choose exported version (already re-encrypted)
+	var exportedToReencrypt EncryptedItems
+
+	var existingToReencrypt EncryptedItems
+
+	for x := range existingEncrypted {
+		var match bool
+
+		for y := range exportedEncItems {
+			// check if we have a match for existing item and exported item
+			if existingEncrypted[x].UUID == exportedEncItems[y].UUID && exportedEncItems[y].ContentType != "SN|ItemsKey" {
+				match = true
+
+				if existingEncrypted[x].UpdatedAtTimestamp > exportedEncItems[y].UpdatedAtTimestamp {
+					debugPrint(s.Debug, "Import | existing %s %s newer than item to encrypt")
+					// if existing item is newer, then re-encrypt existing and add to list
+					existingToReencrypt = append(existingToReencrypt, existingEncrypted[x])
+
+					var identical, unsupported bool
+					// if exported item's content differs, then add also, and deal with conflict during sync
+					identical, unsupported, err = compareEncryptedItems(CompareEncryptedItemsInput{
+						Session:        s,
+						FirstItem:      existingEncrypted[x],
+						FirstItemsKey:  s.DefaultItemsKey,
+						SecondItem:     exportedEncItems[y],
+						SecondItemsKey: exportsItemsKey,
+					})
+					if err != nil {
+						return
+					}
+
+					// if we're able to compare items, and they differ, then we'll add this item to intentionally
+					// conflict on sync and be created as a conflicted copy
+					if !identical && !unsupported {
+						exportedToReencrypt = append(exportedToReencrypt, exportedEncItems[y])
+					}
+				} else if existingEncrypted[x].UpdatedAtTimestamp == exportedEncItems[y].UpdatedAtTimestamp {
+					// if existing item same age, then choose exported version that's already encrypted with new key
+					exportedToReencrypt = append(exportedToReencrypt, exportedEncItems[y])
+				} else {
+					// (exported cannot be newer than existing item)
+					panic(fmt.Sprintf("exported %s %s found to be newer than server version",
+						existingEncrypted[x].ContentType,
+						existingEncrypted[x].UUID))
+				}
+			}
+		}
+
+		// if we didn't find a match for the item in the export (and it's not a key) then add to final list
+		if !match && existingEncrypted[x].ContentType != "SN|ItemsKey" {
+			existingToReencrypt = append(existingToReencrypt, existingEncrypted[x])
+		}
+	}
+
+	// loop through items to import and import any non Items Key (already handled) that doesn't exist in cache
+	for y := range exportedEncItems {
+		var found bool
+
+		for x := range existingEncrypted {
+			if exportedEncItems[y].UUID == existingEncrypted[x].UUID {
+				found = true
+
+				break
+			}
+		}
+
+		if !found {
+			exportedToReencrypt = append(exportedToReencrypt, exportedEncItems[y])
+		}
+	}
+
+	// create new items key and encrypt using current session's master key
+	nik := NewItemsKey()
+	nik.UUID = exportsEncItemsKeys[0].UUID
+	nik.UpdatedAtTimestamp = s.DefaultItemsKey.UpdatedAtTimestamp
+	nik.UpdatedAt = s.DefaultItemsKey.UpdatedAt
+
+	rEncFinal, err := exportedToReencrypt.ReEncrypt(s, exportsItemsKey, nik, s.MasterKey)
+	if err != nil {
+		return
+	}
+
+	expEncFinal, err := existingToReencrypt.ReEncrypt(s, s.DefaultItemsKey, nik, s.MasterKey)
+	if err != nil {
+		return
+	}
+
+	// add items key used to encrypt items to final list to import
+	if len(exportsEncItemsKeys) > 1 {
+		panic("received more than one items key")
+	}
+
+	eNik, err := nik.Encrypt(s, false)
+	if err != nil {
+		return
+	}
+
+	eNiks := EncryptedItems{
+		eNik,
+	}
+
+	rEncFinal = append(rEncFinal, expEncFinal...)
+	rEncFinal = append(eNiks, rEncFinal...)
+
+	s.DefaultItemsKey = nik
+	s.ItemsKeys = ItemsKeys{s.DefaultItemsKey}
+
+	so2, err := Sync(SyncInput{
+		Session:   s,
+		SyncToken: so.SyncToken,
+		Items:     rEncFinal,
+	})
+
+	if err != nil {
+		return
+	}
+
+	for x := range so.SavedItems {
+		if so.SavedItems[x].ContentType == "SN|ItemsKey" {
+			itemsKey, err = so.SavedItems[x].Decrypt(s.MasterKey)
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	if initialItemsKey == exportsItemsKey.ItemsKey {
+		panic("expected keys to differ")
+	}
+
+	items = so2.SavedItems
+	itemsKey = nik
+
 	return
 }
 
-func readJSON(filePath string) (items EncryptedItems, err error) {
+func readJSON(filePath string) (items EncryptedItems, kp KeyParams, err error) {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		err = fmt.Errorf("%w failed to open: %s", err, filePath)
@@ -859,9 +1084,10 @@ func readJSON(filePath string) (items EncryptedItems, err error) {
 		return
 	}
 
-	return eif.Items, err
+	return eif.Items, eif.KeyParams, err
 }
 
 type EncryptedItemsFile struct {
-	Items EncryptedItems `json:"items"`
+	Items     EncryptedItems `json:"items"`
+	KeyParams KeyParams      `json:"keyParams"`
 }

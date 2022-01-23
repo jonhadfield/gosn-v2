@@ -32,7 +32,7 @@ func stringInSlice(inStr string, inSlice []string, matchCase bool) bool {
 	return false
 }
 
-func DeleteContent(session *Session) (err error) {
+func DeleteContent(session *Session) (deleted int, err error) {
 	si := SyncInput{
 		Session: session,
 	}
@@ -57,5 +57,5 @@ func DeleteContent(session *Session) (err error) {
 
 	_, err = Sync(si)
 
-	return err
+	return len(itemsToPut), err
 }

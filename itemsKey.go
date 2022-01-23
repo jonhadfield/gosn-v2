@@ -91,7 +91,7 @@ func NewItemsKey() ItemsKey {
 
 	c.ContentType = "SN|ItemsKey"
 	c.CreatedAt = now
-	c.CreatedAtTimestamp = time.Now().UTC().Unix()
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	// TODO: generate items key content

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -125,33 +126,9 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 }
 
 func (s *Session) Export(path string) error {
-	so, err := Sync(SyncInput{
-		Session: s,
-		Close:   false,
-	})
-	if err != nil {
-		return err
-	}
-
-	var allPersistedItems Items
-	err = so.DB.All(&allPersistedItems)
-	if err != nil {
-		return err
-	}
-
-	err = so.DB.Close()
-	if err != nil {
-		return err
-	}
-
-	items, err := allPersistedItems.ToItems(s)
-	if err != nil {
-		return err
-	}
-
 	debugPrint(s.Debug, fmt.Sprintf("Exporting to path: %s", path))
 
-	err = items.Export(s.Session, path, false)
+	err := s.Session.Export(path)
 	if err != nil {
 		return err
 	}
@@ -159,6 +136,21 @@ func (s *Session) Export(path string) error {
 	return nil
 }
 
+func (s *Session) RemoveDB() {
+	if err := os.Remove(s.CacheDBPath); err != nil {
+		if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+			if !strings.Contains(err.Error(), "no such file or directory") {
+				panic(err)
+			}
+		}
+
+		if runtime.GOOS == "windows" && !strings.Contains(err.Error(), "cannot find the file specified") {
+			panic(err)
+		}
+	}
+}
+
+// Import reads a json export file into SN and then syncs with the db.
 func (s *Session) Import(path string, persist bool) error {
 	so, err := Sync(SyncInput{
 		Session: s,
@@ -171,6 +163,9 @@ func (s *Session) Import(path string, persist bool) error {
 	var syncTokens []SyncToken
 
 	err = so.DB.All(&syncTokens)
+	if err != nil && err.Error() != "not found" {
+		return err
+	}
 
 	syncToken := ""
 
@@ -178,18 +173,24 @@ func (s *Session) Import(path string, persist bool) error {
 		syncToken = syncTokens[0].SyncToken
 	}
 
-	_, _, err = s.Session.Import(path, true, syncToken)
+	debugPrint(s.Debug, fmt.Sprintf("importing from %s", path))
+	ii, ifk, err := s.Session.Import(path, syncToken)
 	if err != nil {
-
 		return err
 	}
 
+	debugPrint(s.Debug, fmt.Sprintf("importing loaded: %d items and %s key", len(ii), ifk.UUID))
 	err = so.DB.Close()
 	if err != nil {
 		return err
 	}
 
-	return nil
+	_, err = Sync(SyncInput{
+		Session: s,
+		Close:   true,
+	})
+
+	return err
 }
 
 func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
@@ -209,11 +210,13 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 
 		iik := ""
 
-		if i.ItemsKeyID == nil && !(i.ContentType == "SN|ItemsKey" || strings.HasPrefix(i.ContentType, "SF")) {
+		if !i.Deleted && i.ItemsKeyID == nil && !(i.ContentType == "SN|ItemsKey" || strings.HasPrefix(i.ContentType, "SF")) {
 			panic(fmt.Sprintf("we've received %s %s from SN without ItemsKeyID", i.ContentType, i.UUID))
 		}
 
-		iik = *i.ItemsKeyID
+		if i.ItemsKeyID != nil {
+			iik = *i.ItemsKeyID
+		}
 
 		if i.ContentType == "SN|ItemsKey" && iik != "" {
 			log.Fatal("ItemsKey with UUID:", i.UUID, "has ItemsKeyID:", iik)
@@ -278,7 +281,6 @@ func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) err
 func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	for i := range items {
 		if err := db.Save(&items[i]); err != nil {
-
 			return err
 		}
 	}
@@ -390,7 +392,7 @@ func retrieveItemsKeysFromCache(s *gosn.Session, i Items) error {
 
 	for x := range i {
 		if i[x].ContentType == "SN|ItemsKey" && !i[x].Deleted {
-			debugPrint(s.Debug, fmt.Sprintf("retrieved items key %s from cache", i[x].UUID))
+			// debugPrint(s.Debug, fmt.Sprintf("retrieved items key %s from cache", i[x].UUID))
 
 			encryptedItemKeys = append(encryptedItemKeys, gosn.EncryptedItem{
 				UUID:               i[x].UUID,
@@ -411,13 +413,14 @@ func retrieveItemsKeysFromCache(s *gosn.Session, i Items) error {
 	var err error
 
 	if len(encryptedItemKeys) > 0 {
-		_, err = encryptedItemKeys.DecryptAndParseItemsKeys(s)
+		_, err = encryptedItemKeys.DecryptAndParseItemsKeys(s.MasterKey, false)
 	}
 
 	return err
 }
 
 // TODO: do I need to return SyncOutput with DB as SyncInput has a session with DB pointer already?
+// Sync will
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
@@ -501,9 +504,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		syncToken = syncTokens[0].SyncToken
 	}
 
-	//if session doesn't contain items keys then set remove sync token
+	// if session doesn't contain items keys then remove sync token so we bring all items in
 	if si.Session.Session.DefaultItemsKey.ItemsKey == "" {
-
 		syncToken = ""
 	}
 
@@ -530,28 +532,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		})
 	}
 
-	// add all the items keys in the session to SN (dupes will be handled)
-	//for x := range si.Session.Session.ItemsKeys {
-	//	//if si.Session.Session.ItemsKeys[x].Content.ItemsKey == "" {
-	//	//	//panic(fmt.Sprintf("session items key %s is empty: %+v", si.Session.Session.ItemsKeys[x].UUID, si.Session.Session.ItemsKeys[x]))
-	//	//	debugPrint(si.Session.Debug, fmt.Sprintf("skipping empty items key: %s", si.Session.Session.ItemsKeys[x].UUID))
-	//	//
-	//	//	continue
-	//	//}
-	//
-	//	var ek gosn.EncryptedItem
-	//
-	//	debugPrint(si.Session.Debug, fmt.Sprintf("Sync | encrypting session's ItemsKey %s", si.Session.Session.ItemsKeys[x].UUID))
-	//
-	//	ek, err = si.Session.Session.ItemsKeys[x].Encrypt(si.Session.Session)
-	//	if err != nil {
-	//		return
-	//	}
-	//
-	//	fmt.Printf("Post encryption: %+v\n", ek)
-	//
-	//	dirtyItemsToPush = append(dirtyItemsToPush, ek)
-	//}
+	// TODO: add all the items keys in the session to SN (dupes will be handled)?
 
 	// call gosn sync with dirty items to push
 	var gSI gosn.SyncInput
@@ -596,14 +577,14 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check saved items are valid and remove any from db that are now deleted
 	var itemsToDeleteFromDB Items
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | checking gosn.Sync Items for any unsupported"))
+	debugPrint(si.Debug, "Sync | checking gosn.Sync Items for any unsupported")
 
 	for _, x := range gSO.Items {
 		// TODO: we chould just do a 'Validate' method on items and find any without encItemKey (that are meant to be encrypted)
 		components := strings.Split(x.EncItemKey, ":")
 
 		if len(components) <= 1 {
-			debugPrint(si.Debug, fmt.Sprintf("Sync | ignoring item %s of type %s", x.UUID, x.ContentType))
+			debugPrint(si.Debug, fmt.Sprintf("Sync | ignoring item %s of type %s deleted: %t", x.UUID, x.ContentType, x.Deleted))
 			continue
 		}
 	}
@@ -678,7 +659,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	for _, d := range dirty {
 		if d.Deleted {
 			// deleted items have been removed by now
-			debugPrint(si.Debug, fmt.Sprintf("Sync | unexpectedly dirty %s %s skipped for deletion", d.ContentType, d.UUID))
 
 			continue
 		}
@@ -699,11 +679,14 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | saving %d items from gosn.Sync Items to db", len(gSO.Items)))
 
+	var uuidsToDelete []string
 	// put new Items in db
 	for _, i := range gSO.Items {
-		// if the item has been deleted in SN, then no need to add it to db!!!
+		// if the item has been deleted in SN, then delete from db
 		if i.Deleted {
-			debugPrint(si.Debug, fmt.Sprintf("Sync | unexpectedly deleted %s %s skipped for addition to db", i.ContentType, i.UUID))
+			// debugPrint(si.Debug, fmt.Sprintf("Sync | adding uuid for deletion %s %s and skipping addition to db", i.ContentType, i.UUID))
+			uuidsToDelete = append(uuidsToDelete, i.UUID)
+
 			continue
 		}
 
@@ -717,7 +700,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			ContentType: i.ContentType,
 			ItemsKeyID:  i.ItemsKeyID,
 			EncItemKey:  i.EncItemKey,
-			//Deleted:          i.Deleted, 		# No need as we exclude deleted items above
+			// Deleted:          i.Deleted, 		# No need as we exclude deleted items above
 			CreatedAt:          i.CreatedAt,
 			UpdatedAt:          i.UpdatedAt,
 			CreatedAtTimestamp: i.CreatedAtTimestamp,
@@ -728,6 +711,20 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		err = db.Save(&item)
 		if err != nil {
 			return
+		}
+	}
+
+	// remove deleted items from db
+	var allhere Items
+	err = db.All(&allhere)
+	for x := range allhere {
+		for _, uuid := range uuidsToDelete {
+			if allhere[x].UUID == uuid {
+				err = db.DeleteStruct(&allhere[x])
+				if err != nil {
+					panic(err)
+				}
+			}
 		}
 	}
 
@@ -743,6 +740,15 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	debugPrint(si.Debug, fmt.Sprintf("Sync | pre-merge total of %d ItemsKeys in session", len(si.Session.ItemsKeys)))
 
 	si.Session.ItemsKeys = mergeItemsKeysSlices(si.Session.ItemsKeys, iks)
+	// set default items key to most recent
+	var latestItemsKey gosn.ItemsKey
+	for x := range si.Session.ItemsKeys {
+		if si.Session.ItemsKeys[x].CreatedAtTimestamp > latestItemsKey.CreatedAtTimestamp {
+			latestItemsKey = si.Session.ItemsKeys[x]
+		}
+	}
+
+	si.Session.DefaultItemsKey = latestItemsKey
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | post-merge total of %d ItemsKeys in session", len(si.Session.ItemsKeys)))
 	debugPrint(si.Debug, "Sync | retrieving all items from db in preparation for decryption")
@@ -750,6 +756,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	err = db.All(&all)
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | retrieved %d items from db in preparation for decryption", len(all)))
+
 	debugPrint(si.Debug, fmt.Sprint("Sync | replacing db SyncToken with latest from gosn.Sync"))
 
 	// drop the SyncToken db if it exists

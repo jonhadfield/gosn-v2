@@ -414,7 +414,7 @@ func TestFilterNoteTitleByRegex(t *testing.T) {
 }
 
 func TestFilterTagTitle(t *testing.T) {
-	gnuTag := createTag("GNU", "")
+	gnuTag := createTag("GNU", GenUUID())
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "Title",
@@ -447,7 +447,7 @@ func TestFilterTagUUID(t *testing.T) {
 }
 
 func TestFilterTagTitleByRegex(t *testing.T) {
-	gnuTag := createTag("GNU", "")
+	gnuTag := createTag("GNU", GenUUID())
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "Title",
@@ -463,7 +463,7 @@ func TestFilterTagTitleByRegex(t *testing.T) {
 }
 
 func TestFilterTagTitleByNotEqualTo(t *testing.T) {
-	gnuTag := createTag("GNU", "")
+	gnuTag := createTag("GNU", GenUUID())
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "Title",
