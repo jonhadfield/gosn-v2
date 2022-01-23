@@ -1,35 +1,62 @@
 package gosn
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
-var testSession *Session
+var (
+	testSession      *Session
+	testUserEmail    string
+	testUserPassword string
+)
 
-func TestMain(m *testing.M) {
-	gs, err := CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"), true)
+func localTestMain() {
+	localServer := "http://ramea:3000"
+	testUserEmail = fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
+	testUserPassword = "secretsanta"
+
+	rInput := RegisterInput{
+		Password:   testUserPassword,
+		Email:      testUserEmail,
+		Identifier: testUserEmail,
+		APIServer:  localServer,
+		Version:    defaultSNVersion,
+		Debug:      true,
+	}
+
+	_, err := rInput.Register()
+	if err != nil {
+		panic(fmt.Sprintf("failed to register with: %s", localServer))
+	}
+
+	signIn(localServer, testUserEmail, testUserPassword)
+}
+
+func signIn(server, email, password string) {
+	ts, err := CliSignIn(email, password, server, true)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	testSession = &Session{
-		Debug:             true,
-		Server:            gs.Server,
-		Token:             gs.Token,
-		MasterKey:         gs.MasterKey,
-		RefreshExpiration: gs.RefreshExpiration,
-		RefreshToken:      gs.RefreshToken,
-		AccessToken:       gs.AccessToken,
-		AccessExpiration:  gs.AccessExpiration,
-		KeyParams:         gs.KeyParams,
+	debugPrint(true, fmt.Sprintf("logged in as %s", email))
+
+	testSession = &ts
+}
+
+func TestMain(m *testing.M) {
+	if os.Getenv("SN_SERVER") == "" || strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+		localTestMain()
+	} else {
+		signIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"))
 	}
 
-	_, err = Sync(SyncInput{
-		Session: testSession,
-	})
-	if err != nil {
+	if _, err := Sync(SyncInput{Session: testSession}); err != nil {
 		log.Fatal(err)
 	}
 

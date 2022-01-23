@@ -3,7 +3,6 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"strconv"
@@ -47,23 +46,14 @@ type ConflictedItem struct {
 // Sync retrieves items from the API using optional filters and updates the provided
 // session with the items keys required to encrypt and decrypt items.
 func Sync(input SyncInput) (output SyncOutput, err error) {
-	for _, item := range input.Items {
-		// TODO: This is a duplicate from unmarshalResponse function. Use IsValid method instead
-		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
-			log.Fatal("Attempting to sync items key UUID:", item.UUID, " to SN database with an ItemsKeyID:", *item.ItemsKeyID)
-		}
-	}
+	// a different items key may be provided in case the items being synced are encrypted with a non-default items key
+	// we need to reset on completion it to avoid it being used in future
+	defer func() { input.Session.ImporterItemsKey = ItemsKey{} }()
 
 	debug := input.Session.Debug
 	// if items have been passed but no default items key exists then return error
 	if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
 		err = fmt.Errorf("missing default items key in session")
-	}
-
-	for _, a := range input.Items {
-		if a.ContentType == "SN|ItemsKey" && a.Deleted {
-			panic("trying to delete SN|ItemsKey")
-		}
 	}
 
 	giStart := time.Now()
@@ -141,7 +131,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	debugPrint(debug, fmt.Sprintf("Sync | took %v to get all items", elapsed))
 
-	postStart := time.Now()
+	// postStart := time.Now()
 	output.Items = sResp.Items
 	output.Items.DeDupe()
 	// output.Items.RemoveUnsupported()
@@ -150,17 +140,17 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	output.SavedItems = sResp.SavedItems
 	output.SavedItems.DeDupe()
 
-	for _, si := range output.SavedItems {
-		debugPrint(debug, fmt.Sprintf("Sync | saved item: %s type: %s updated at timestamp: %d", si.UUID, si.ContentType, si.UpdatedAtTimestamp))
-	}
+	//for _, si := range output.SavedItems {
+	//	debugPrint(debug, fmt.Sprintf("Sync | saved item: %s type: %s updated at timestamp: %d", si.UUID, si.ContentType, si.UpdatedAtTimestamp))
+	//}
 
 	output.Conflicts = sResp.Conflicts
 	output.Conflicts.DeDupe()
 	output.Cursor = sResp.CursorToken
 	output.SyncToken = sResp.SyncToken
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
-	postElapsed := time.Since(postStart)
-	debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
+	// postElapsed := time.Since(postStart)
+	// debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
 	// debugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(output.SyncToken)))
 
 	if err = output.Conflicts.Validate(debug); err != nil {
@@ -169,26 +159,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	if err = output.Items.Validate(); err != nil {
 		panic(err)
-	}
-
-	// check if we have any ItemsKeys
-	var haveItemsKeys bool
-
-	for x := range output.Items {
-		debugPrint(debug, fmt.Sprintf("Sync | received item from SN %+v", output.Items[x]))
-
-		if output.Items[x].ContentType == "SN|ItemsKey" && !output.Items[x].Deleted {
-			haveItemsKeys = true
-
-			break
-		}
-	}
-
-	if haveItemsKeys {
-		_, err = output.Items.DecryptAndParseItemsKeys(input.Session)
-		if err != nil {
-			return
-		}
 	}
 
 	// Resync any conflicts
@@ -235,9 +205,45 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 					for _, item := range input.Items {
 						if item.UUID == conflict.ServerItem.UUID {
+							if item.Deleted {
+								item = conflict.ServerItem
+								item.Deleted = true
+								item.Content = ""
+								conflictedItem = item
+								found = true
+
+								break
+							}
+
 							conflictedItem = item
-							conflictedItem.UUID = GenUUID()
-							conflictedItem.DuplicateOf = &conflict.ServerItem.UUID
+							// decrypt server item
+							is := EncryptedItems{item}
+							var dis Items
+							dis, err = is.DecryptAndParse(input.Session)
+							if err != nil {
+								return
+							}
+
+							di := dis[0]
+							//set new id
+							di.SetUUID(GenUUID())
+							// re-encrypt to update auth data
+							newdis := Items{di}
+
+							var newis EncryptedItems
+
+							k := input.Session.DefaultItemsKey
+							//if the conflict is during import, then we need to re-encrypt with Importer Key
+							if input.Session.ImporterItemsKey.ItemsKey != "" {
+								k = input.Session.ImporterItemsKey
+							}
+							newis, err = newdis.Encrypt(k, input.Session.MasterKey, input.Session.Debug)
+							if err != nil {
+								return
+							}
+							newi := newis[0]
+							newis[0].DuplicateOf = &conflict.ServerItem.UUID
+							conflictedItem = newi
 
 							found = true
 
@@ -286,9 +292,51 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 		output.Items = append(output.Items, resyncOutput.Items...)
 		output.SavedItems = append(output.SavedItems, resyncOutput.SavedItems...)
+		output.Items.DeDupe()
+		output.SavedItems.DeDupe()
+	}
+
+	items := append(output.Items, output.SavedItems...)
+	items.DeDupe()
+
+	var iks ItemsKeys
+	if len(output.SavedItems) > 0 {
+		// checking if we've saved a new items key, in which case it should be new default
+		iks, err = output.SavedItems.DecryptAndParseItemsKeys(input.Session.MasterKey, false)
+	} else {
+		// existing items key would be returned on first sync
+		iks, err = output.Items.DecryptAndParseItemsKeys(input.Session.MasterKey, false)
+	}
+
+	if err != nil {
+		return
+	}
+
+	switch len(iks) {
+	case 0:
+		break
+	case 1:
+		input.Session.DefaultItemsKey = iks[0]
+		input.Session.ItemsKeys = iks
+		//default:
+		//	panic(fmt.Sprintf("synced %d keys when only one should exist", len(iks)))
 	}
 
 	return output, err
+}
+
+type ItemsKeys []ItemsKey
+
+func (iks ItemsKeys) Valid() bool {
+	seen := make(map[string]int)
+	for x := range iks {
+		seen[iks[x].UUID]++
+		if seen[iks[x].UUID] > 1 {
+			return false
+		}
+	}
+
+	return true
 }
 
 type ConflictedItems []ConflictedItem
@@ -318,7 +366,6 @@ func (cis ConflictedItems) Validate(debug bool) error {
 		case "uuid_conflict":
 			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
 			continue
-			// return fmt.Errorf("uuid_conflict is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2")
 		case "uuid_error":
 			debugPrint(debug, "Sync | client is attempting to sync an item without uuid")
 
@@ -402,8 +449,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		}
 
 	case input.CursorToken == "null":
-		// debugPrint(debug, "syncItemsViaAPI | cursor is null")
-
 		if input.SyncToken == "" {
 			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
 				`,"items":[],"cursor_token":null}`)
@@ -421,18 +466,11 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 			`,"items":[],"compute_integrity":false,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}
 
-	// make the request
-	msrStart := time.Now()
-
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
-
-	msrEnd := time.Since(msrStart)
-	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | makeSyncRequest took: %v", msrEnd))
 
 	if err != nil {
 		return
@@ -462,7 +500,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		var newOutput syncResponse
 
 		input.SyncToken = out.SyncToken
-		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
+		// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
 
 		input.CursorToken = out.CursorToken
 		// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
@@ -492,6 +530,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	out.CursorToken = ""
+
 	return out, err
 }
 

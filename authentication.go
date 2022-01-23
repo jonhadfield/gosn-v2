@@ -104,9 +104,9 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 
 	var signInRespBody []byte
 
-	readStart := time.Now()
+	// readStart := time.Now()
 	signInRespBody, err = ioutil.ReadAll(signInResp.Body)
-	debugPrint(input.debug, fmt.Sprintf("requestToken | response read took %+v", time.Since(readStart)))
+	// debugPrint(input.debug, fmt.Sprintf("requestToken | response read took %+v", time.Since(readStart)))
 
 	if err != nil {
 		return
@@ -471,9 +471,9 @@ type RegisterInput struct {
 	Version     string
 	Origination string
 	Created     int64
-	API         string
-	APIServer   string
-	Debug       bool
+	// API         string
+	APIServer string
+	Debug     bool
 }
 
 func processDoRegisterRequestResponse(response *http.Response, debug bool) (token string, err error) {
@@ -573,7 +573,7 @@ func (input RegisterInput) Register() (token string, err error) {
 	// create an ItemsKey and Sync it
 	ik, err := sio.Session.CreateItemsKey()
 
-	eKey, err := ik.Encrypt(&sio.Session)
+	eKey, err := ik.Encrypt(&sio.Session, true)
 	if err != nil {
 		return
 	}
@@ -596,8 +596,8 @@ func (input RegisterInput) Register() (token string, err error) {
 func (Session) CreateItemsKey() (ItemsKey, error) {
 	ik := NewItemsKey()
 	// creating an items key is done during registration or when exporting, in which case it will always be default
-	ik.Default = true
-	ik.Content.Default = true
+	// ik.Default = true
+	// ik.Content.Default = true
 	ik.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	ik.CreatedAt = time.Now().UTC().Format(timeLayout)
 
@@ -694,15 +694,30 @@ func (s *Session) Valid() bool {
 
 	switch {
 	case s.RefreshToken == "":
+		debugPrint(s.Debug, "session is missing refresh token")
 		return false
 	case s.AccessToken == "":
+		debugPrint(s.Debug, "session is missing access token")
 		return false
 	case s.MasterKey == "":
+		debugPrint(s.Debug, "session is missing master key")
 		return false
 	case s.AccessExpiration == 0:
+		debugPrint(s.Debug, "Access Expiration is 0")
 		return false
 	case s.RefreshExpiration == 0:
+		debugPrint(s.Debug, "Refresh Expiration is 0")
 		return false
+	}
+
+	// check no duplicate item keys
+	seen := make(map[string]int)
+	for x := range s.ItemsKeys {
+		if seen[s.ItemsKeys[x].UUID] > 0 {
+			return false
+		}
+
+		seen[s.ItemsKeys[x].UUID]++
 	}
 
 	return true

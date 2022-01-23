@@ -24,28 +24,29 @@ func (i *Items) Filter(f ItemFilters) {
 	var tags Tags
 
 	// produce list of tags to be used in filters
-	for _, item := range *i {
-		switch t := item.(type) {
+	ix := *i
+	for x := range ix {
+		switch t := ix[x].(type) {
 		case *Tag:
 			tag := t
 			tags = append(tags, *tag)
 		}
 	}
 
-	for _, item := range *i {
-		switch t := item.(type) {
+	for x := range ix {
+		switch t := ix[x].(type) {
 		case *Note:
-			note := item.(*Note)
+			note := ix[x].(*Note)
 			if found := applyNoteFilters(*t, f, tags); found {
 				filtered = append(filtered, note)
 			}
 		case *Tag:
-			tag := item.(*Tag)
+			tag := ix[x].(*Tag)
 			if found := applyTagFilters(*t, f); found {
 				filtered = append(filtered, tag)
 			}
 		case *Component:
-			component := item.(*Component)
+			component := ix[x].(*Component)
 			if found := applyComponentFilters(*t, f); found {
 				filtered = append(filtered, component)
 			}
@@ -136,7 +137,6 @@ func applyNoteTextFilter(f Filter, i Note, matchAny bool) (result, matchedAll, d
 
 func applyNoteTagTitleFilter(f Filter, i Note, tags Tags, matchAny bool) (result, matchedAll, done bool) {
 	var matchesTag bool
-
 	for _, tag := range tags {
 		if tag.Content.Title == "" {
 			matchedAll = false

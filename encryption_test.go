@@ -8,6 +8,91 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
+	s := testSession
+	ik := NewItemsKey()
+	require.False(t, ik.Deleted)
+	require.NotEmpty(t, ik.ItemsKey)
+	time.Sleep(time.Millisecond * 1)
+	require.Greater(t, time.Now().UTC().UnixMicro(), ik.CreatedAtTimestamp)
+
+	note := NewNote()
+	noteContent := NewNoteContent()
+	noteContent.Title = "Note Title"
+	noteContent.Text = "Note Text"
+	note.Content = *noteContent
+
+	items := Items{&note}
+	eItems, err := items.Encrypt(ik, s.MasterKey, true)
+	require.NoError(t, err)
+	require.Len(t, eItems, 1)
+
+	s.DefaultItemsKey = ik
+	s.ItemsKeys = []ItemsKey{ik}
+	di, err := eItems.DecryptAndParse(s)
+	require.NoError(t, err)
+	require.Len(t, di, 1)
+	dn := di[0].(*Note)
+	require.Equal(t, note.Content.Title, dn.Content.Title)
+	require.Equal(t, note.Content.Text, dn.Content.Text)
+
+	eik, err := ik.Encrypt(testSession, true)
+	require.NoError(t, err)
+	eItems = append(eItems, eik)
+
+	so, err := Sync(SyncInput{
+		Session: testSession,
+		Items:   eItems,
+	})
+	require.Equal(t, 2, len(so.SavedItems))
+
+	var foundKey bool
+
+	var foundNote bool
+
+	var noteIndex int
+	for x := range so.SavedItems {
+		if so.SavedItems[x].ContentType == "SN|ItemsKey" {
+			require.Equal(t, ik.UUID, so.SavedItems[x].UUID)
+			require.Less(t, int64(0), so.SavedItems[x].UpdatedAtTimestamp)
+
+			foundKey = true
+		}
+
+		if so.SavedItems[x].ContentType == "Note" {
+			noteIndex = x
+			require.Equal(t, note.UUID, so.SavedItems[x].UUID)
+			require.Less(t, int64(0), so.SavedItems[x].UpdatedAtTimestamp)
+			foundNote = true
+		}
+	}
+
+	require.True(t, foundKey)
+	require.True(t, foundNote)
+
+	var foundSIK bool
+	var numDefaults int
+	for x := range testSession.ItemsKeys {
+		if testSession.ItemsKeys[x].UUID == ik.UUID {
+			if testSession.ItemsKeys[x].Default == true {
+				numDefaults++
+			}
+			foundSIK = true
+		}
+	}
+
+	require.True(t, foundSIK)
+	require.Equal(t, 1, numDefaults)
+	require.Equal(t, ik.UUID, testSession.DefaultItemsKey.UUID)
+	require.Equal(t, ik.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+
+	ei := EncryptedItems{so.SavedItems[noteIndex]}
+	require.Equal(t, "Note", ei[0].ContentType)
+	di, err = ei.DecryptAndParse(testSession)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(di))
+}
+
 func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
 	s := testSession
 	ik := NewItemsKey()
@@ -35,6 +120,15 @@ func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
 	dn := di[0].(*Note)
 	require.Equal(t, note.Content.Title, dn.Content.Title)
 	require.Equal(t, note.Content.Text, dn.Content.Text)
+
+	eik, err := s.DefaultItemsKey.Encrypt(testSession, true)
+	require.NoError(t, err)
+	so, err := Sync(SyncInput{
+		Session: testSession,
+		Items:   EncryptedItems{eik},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(so.SavedItems))
 }
 
 func TestEncryptDecryptOfItemsKey(t *testing.T) {
@@ -44,13 +138,15 @@ func TestEncryptDecryptOfItemsKey(t *testing.T) {
 	require.Equal(t, "SN|ItemsKey", ik.ContentType)
 	require.NotEmpty(t, ik.ItemsKey)
 
-	eik, err := ik.Encrypt(testSession)
+	eik, err := ik.Encrypt(testSession, true)
 	require.NoError(t, err)
 	require.Equal(t, "SN|ItemsKey", eik.ContentType)
 	require.NotEmpty(t, eik.EncItemKey)
 
 	dik, err := DecryptAndParseItemKeys(s.MasterKey, []EncryptedItem{eik})
 	require.NoError(t, err)
+	require.Len(t, dik, 1)
+	require.Greater(t, len(dik[0].ItemsKey), 0)
 	require.Equal(t, ik.ItemsKey, dik[0].ItemsKey)
 	require.NotZero(t, dik[0].CreatedAtTimestamp)
 	require.Equal(t, ik.CreatedAtTimestamp, dik[0].CreatedAtTimestamp)
@@ -87,6 +183,7 @@ func TestDecryptItemKey(t *testing.T) {
 	authData = "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
 	dIKeyContent, err := decryptString(cipherText, rawKey, nonce, authData)
 	require.NoError(t, err)
+
 	var ik ItemsKey
 	err = json.Unmarshal(dIKeyContent, &ik)
 	require.NoError(t, err)
