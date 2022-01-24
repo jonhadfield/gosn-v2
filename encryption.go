@@ -103,26 +103,26 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 }
 
 func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedItem, err error) {
-	//if ik.Content.ItemsKey == "" {
-	//	debugPrint(session.Debug, fmt.Sprintf("ItemsKey Encrypt | skipping %s due to missing Content.ItemsKey", ik.UUID))
-	//
-	//	return
-	//}
+	if ik.Content.ItemsKey == "" {
+		debugPrint(session.Debug, fmt.Sprintf("ItemsKey Encrypt | skipping %s due to missing Content.ItemsKey", ik.UUID))
+
+		return
+	}
 
 	if ik.UUID == "" {
 		panic("ik.UUID is empty")
 	}
 
 	// updated at is set by SN so will be zero for a new key
-	if !new {
-		if ik.UpdatedAt == "" {
-			panic("ik.UpdatedAt is empty")
-		}
-
-		if ik.UpdatedAtTimestamp == 0 {
-			panic("ik.UpdatedAtTimestamp is empty")
-		}
-	}
+	//if !new {
+	//	if ik.UpdatedAt == "" {
+	//		panic("ik.UpdatedAt is empty")
+	//	}
+	//
+	//	if ik.UpdatedAtTimestamp == 0 {
+	//		panic("ik.UpdatedAtTimestamp is empty")
+	//	}
+	//}
 
 	encryptedItem.UUID = ik.UUID
 
