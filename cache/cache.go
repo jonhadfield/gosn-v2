@@ -281,8 +281,38 @@ func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) err
 
 // SaveCacheItems saves Cache Items to the provided database.
 func SaveCacheItems(db *storm.DB, items Items, close bool) error {
-	for i := range items {
-		if err := db.Save(&items[i]); err != nil {
+	if len(items) == 0 {
+		return fmt.Errorf("no items provided to SaveCacheItems")
+	}
+
+	if db == nil {
+		return fmt.Errorf("db not passed to SaveCacheItems")
+	}
+
+	batchSize := 500
+	numItems := len(items)
+	if numItems < 500 {
+		batchSize = numItems
+	}
+
+	total := len(items)
+
+	for i := 0; i < total/batchSize; i++ {
+		tx, err := db.Begin(true)
+		if err != nil {
+			return err
+		}
+
+		for j := 0; j < batchSize; j++ {
+			err = tx.Save(&items[j])
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
 			return err
 		}
 	}
@@ -598,6 +628,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | checking %d gosn.Sync SavedItems for items to add or remove from db", len(gSO.SavedItems)))
 
+	var savedItems Items
 	for _, x := range gSO.SavedItems {
 		// don't add deleted
 		if x.ContentType == "SN|ItemsKey" && x.Deleted {
@@ -639,8 +670,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			panic(fmt.Sprintf("adding deleted item to db: %+v", item))
 		}
 
-		err = db.Save(&item)
-		if err != nil {
+		savedItems = append(savedItems, item)
+	}
+
+	if len(savedItems) > 0 {
+		if err = SaveCacheItems(si.CacheDB, savedItems, false); err != nil {
 			return
 		}
 	}
@@ -724,6 +758,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
+	// TODO: use transaction
 	// remove deleted items from db
 	var allhere Items
 	err = db.All(&allhere)
