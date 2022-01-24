@@ -56,12 +56,12 @@ func TestMain(m *testing.M) {
 		signIn(os.Getenv("SN_SERVER"), os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"))
 	}
 
-	if _, err := Sync(SyncInput{Session: testSession}); err != nil {
-		log.Fatal(err)
+	if strings.ToLower(os.Getenv("SN_DEBUG")) == "true" {
+		testSession.Debug = true
 	}
 
-	if testSession.DefaultItemsKey.ItemsKey == "" {
-		panic("failed in TestMain due to empty default items key")
+	if _, err := Sync(SyncInput{Session: testSession}); err != nil {
+		log.Fatal(err)
 	}
 
 	os.Exit(m.Run())
