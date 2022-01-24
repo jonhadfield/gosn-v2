@@ -467,7 +467,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	var responseBody []byte
+	//fmt.Printf("requestBody: %s\n", string(requestBody))
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
+	//fmt.Printf("responseBody: %s\n", string(responseBody))
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
