@@ -174,12 +174,14 @@ func (s *Session) Import(path string, persist bool) error {
 	}
 
 	debugPrint(s.Debug, fmt.Sprintf("importing from %s", path))
+
 	ii, ifk, err := s.Session.Import(path, syncToken)
 	if err != nil {
 		return err
 	}
 
 	debugPrint(s.Debug, fmt.Sprintf("importing loaded: %d items and %s key", len(ii), ifk.UUID))
+
 	err = so.DB.Close()
 	if err != nil {
 		return err
@@ -386,13 +388,12 @@ func (i Items) Validate() error {
 	return nil
 }
 
-func retrieveItemsKeysFromCache(s *gosn.Session, i Items) error {
-	debugPrint(s.Debug, "attempting to retrieve items key(s) from cache")
-	var encryptedItemKeys gosn.EncryptedItems
+func retrieveItemsKeysFromCache(s *gosn.Session, i Items) (encryptedItemKeys gosn.EncryptedItems, err error) {
+	debugPrint(s.Debug, "retrieveItemsKeysFromCache| attempting to retrieve items key(s) from cache")
 
 	for x := range i {
 		if i[x].ContentType == "SN|ItemsKey" && !i[x].Deleted {
-			// debugPrint(s.Debug, fmt.Sprintf("retrieved items key %s from cache", i[x].UUID))
+			debugPrint(s.Debug, fmt.Sprintf("retrieved items key %s from cache", i[x].UUID))
 
 			encryptedItemKeys = append(encryptedItemKeys, gosn.EncryptedItem{
 				UUID:               i[x].UUID,
@@ -410,17 +411,11 @@ func retrieveItemsKeysFromCache(s *gosn.Session, i Items) error {
 		}
 	}
 
-	var err error
-
-	if len(encryptedItemKeys) > 0 {
-		_, err = encryptedItemKeys.DecryptAndParseItemsKeys(s.MasterKey, false)
-	}
-
-	return err
+	return
 }
 
 // TODO: do I need to return SyncOutput with DB as SyncInput has a session with DB pointer already?
-// Sync will
+// Sync
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
@@ -466,7 +461,13 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	if len(all) > 0 {
-		if err = retrieveItemsKeysFromCache(si.Session.Session, all); err != nil {
+		var cachedKeys gosn.EncryptedItems
+		cachedKeys, err = retrieveItemsKeysFromCache(si.Session.Session, all)
+		if err != nil {
+			return
+		}
+
+		if err = processCachedItemsKeys(si.Session, cachedKeys); err != nil {
 			return
 		}
 	}
@@ -486,6 +487,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// get sync token from previous operation to prevent syncing all data each time
 	var syncTokens []SyncToken
 	err = db.All(&syncTokens)
+
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		// on first ever sync, we won't have a sync token
 
@@ -502,10 +504,13 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	if len(syncTokens) == 1 {
 		syncToken = syncTokens[0].SyncToken
+		debugPrint(si.Session.Debug, fmt.Sprintf("Sync | loaded sync token %s from db", syncToken))
 	}
 
 	// if session doesn't contain items keys then remove sync token so we bring all items in
-	if si.Session.Session.DefaultItemsKey.ItemsKey == "" {
+	if si.Session.DefaultItemsKey.ItemsKey == "" {
+		debugPrint(si.Session.Debug, "Sync | no default items key in session so resetting sync token")
+
 		syncToken = ""
 	}
 
@@ -567,6 +572,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		return
 	}
 
+	debugPrint(si.Session.Debug, fmt.Sprintf("Sync | initial sync retrieved sync token %s from SN", gSO.SyncToken))
+
 	if len(gSO.Conflicts) > 0 {
 		panic("conflicts should have been resolved by gosn sync")
 	}
@@ -606,6 +613,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 				return
 			}
 
+			debugPrint(si.Debug, fmt.Sprintf("Sync | adding %s %s to list of items to delete", x.ContentType, x.UUID))
 			itemsToDeleteFromDB = append(itemsToDeleteFromDB, itemToDeleteFromDB...)
 
 			continue
@@ -638,17 +646,19 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	// remove items from db
-	debugPrint(si.Debug, fmt.Sprintf("removing %d items from db", len(itemsToDeleteFromDB)))
-	// TODO: put this in previous loop. why loop twice?
-	for y := range itemsToDeleteFromDB {
-		debugPrint(si.Debug, fmt.Sprintf("removing %s %s from db", itemsToDeleteFromDB[y].ContentType, itemsToDeleteFromDB[y].UUID))
-		err = db.DeleteStruct(&itemsToDeleteFromDB[y])
+	if len(itemsToDeleteFromDB) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("removing %d items from db", len(itemsToDeleteFromDB)))
+		// TODO: put this in previous loop. why loop twice?
+		for y := range itemsToDeleteFromDB {
+			debugPrint(si.Debug, fmt.Sprintf("removing %s %s from db", itemsToDeleteFromDB[y].ContentType, itemsToDeleteFromDB[y].UUID))
+			err = db.DeleteStruct(&itemsToDeleteFromDB[y])
 
-		if err != nil {
-			if err.Error() == "not found" {
-				err = nil
-			} else {
-				return
+			if err != nil {
+				if err.Error() == "not found" {
+					err = nil
+				} else {
+					return
+				}
 			}
 		}
 	}
@@ -717,6 +727,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// remove deleted items from db
 	var allhere Items
 	err = db.All(&allhere)
+
 	for x := range allhere {
 		for _, uuid := range uuidsToDelete {
 			if allhere[x].UUID == uuid {
@@ -728,41 +739,22 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-	// merge the items keys returned by SN with the items keys in the session
-	debugPrint(si.Debug, fmt.Sprintf("Sync | decrypting and parsing %d ItemsKeys", len(eiks)))
-
-	iks, err := gosn.DecryptAndParseItemKeys(si.MasterKey, eiks)
-	if err != nil {
+	if err = processCachedItemsKeys(si.Session, eiks); err != nil {
 		return
 	}
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | merging %d new ItemsKeys with existing stored in session", len(eiks)))
-	debugPrint(si.Debug, fmt.Sprintf("Sync | pre-merge total of %d ItemsKeys in session", len(si.Session.ItemsKeys)))
-
-	si.Session.ItemsKeys = mergeItemsKeysSlices(si.Session.ItemsKeys, iks)
-	// set default items key to most recent
-	var latestItemsKey gosn.ItemsKey
-	for x := range si.Session.ItemsKeys {
-		if si.Session.ItemsKeys[x].CreatedAtTimestamp > latestItemsKey.CreatedAtTimestamp {
-			latestItemsKey = si.Session.ItemsKeys[x]
-		}
-	}
-
-	si.Session.DefaultItemsKey = latestItemsKey
-
-	debugPrint(si.Debug, fmt.Sprintf("Sync | post-merge total of %d ItemsKeys in session", len(si.Session.ItemsKeys)))
 	debugPrint(si.Debug, "Sync | retrieving all items from db in preparation for decryption")
 
 	err = db.All(&all)
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | retrieved %d items from db in preparation for decryption", len(all)))
 
-	debugPrint(si.Debug, fmt.Sprint("Sync | replacing db SyncToken with latest from gosn.Sync"))
+	debugPrint(si.Debug, fmt.Sprintf("Sync | replacing db SyncToken with latest from gosn.Sync: %s", gSO.SyncToken))
 
 	// drop the SyncToken db if it exists
 	err = db.Drop("SyncToken")
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		err = fmt.Errorf("dropping sync token bucket before replacing synctoken: %w", err)
+		err = fmt.Errorf("dropping sync token bucket before replacing: %w", err)
 
 		return
 	}
@@ -772,6 +764,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	if err = db.Save(&sv); err != nil {
+		debugPrint(si.Session.Debug, fmt.Sprintf("Sync | saving sync token %s to db", sv.SyncToken))
 		err = fmt.Errorf("saving token to db %w", err)
 
 		return
@@ -782,6 +775,35 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	so.DB = db
 
 	return
+}
+
+func processCachedItemsKeys(s *Session, eiks gosn.EncryptedItems) error {
+	// merge the items keys returned by SN with the items keys in the session
+	debugPrint(s.Debug, fmt.Sprintf("Sync | decrypting and parsing %d ItemsKeys", len(eiks)))
+
+	iks, err := gosn.DecryptAndParseItemKeys(s.MasterKey, eiks)
+	if err != nil {
+		return err
+	}
+
+	debugPrint(s.Debug, fmt.Sprintf("Sync | merging %d new ItemsKeys with existing stored in session", len(eiks)))
+	debugPrint(s.Debug, fmt.Sprintf("Sync | pre-merge total of %d ItemsKeys in session", len(s.Session.ItemsKeys)))
+
+	s.Session.ItemsKeys = mergeItemsKeysSlices(s.Session.ItemsKeys, iks)
+	// set default items key to most recent
+	var latestItemsKey gosn.ItemsKey
+	for x := range s.Session.ItemsKeys {
+		if s.Session.ItemsKeys[x].CreatedAtTimestamp > latestItemsKey.CreatedAtTimestamp {
+			latestItemsKey = s.Session.ItemsKeys[x]
+		}
+	}
+
+	debugPrint(s.Debug, fmt.Sprintf("Sync | setting Default Items Key to %s", latestItemsKey.UUID))
+	s.Session.DefaultItemsKey = latestItemsKey
+
+	debugPrint(s.Debug, fmt.Sprintf("Sync | post-merge total of %d ItemsKeys in session", len(s.Session.ItemsKeys)))
+
+	return err
 }
 
 func mergeItemsKeysSlices(sessionList, another []gosn.ItemsKey) (out []gosn.ItemsKey) {
