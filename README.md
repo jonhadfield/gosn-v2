@@ -4,7 +4,7 @@
 
 This release adds support for version 004 of encryption (introduced Nov 2020) and removes support for 003.  
 
-####Note: This is an early release with significant changes. Please take a backup before using with any real data and report any issues you find. 
+#### Note: This is an early release with significant changes. Please take a backup before using with any real data and report any issues you find. 
 
 ## about
 <a href="https://standardnotes.org/" target="_blank">Standard Notes</a> is a service and application for the secure
