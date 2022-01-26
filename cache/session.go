@@ -28,7 +28,7 @@ func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
 		if path == "" {
 			var dbPath string
 
-			dbPath, err = GenCacheDBPath(*s, dbPath, libName)
+			dbPath, err = GenCacheDBPath(*s, dbPath, gosn.LibName)
 			if err != nil {
 				return
 			}
