@@ -143,8 +143,8 @@ func (s *Session) RemoveDB() {
 				panic(err)
 			}
 		}
-
-		if runtime.GOOS == "windows" && !strings.Contains(err.Error(), "cannot find the file specified") {
+		if runtime.GOOS == "windows" && !(strings.Contains(err.Error(), "cannot find the file specified") || strings.Contains(err.Error(), "cannot find the path specified")) {
+			fmt.Printf("ERROR: '%s'\n", err.Error())
 			panic(err)
 		}
 	}
@@ -444,8 +444,7 @@ func retrieveItemsKeysFromCache(s *gosn.Session, i Items) (encryptedItemKeys gos
 	return
 }
 
-// TODO: do I need to return SyncOutput with DB as SyncInput has a session with DB pointer already?
-// Sync
+// Sync will push any dirty items to SN and make database cache consistent with SN
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {

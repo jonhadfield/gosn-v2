@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -954,7 +955,14 @@ const tempDBPath = "test.db"
 
 func removeDB(dbPath string) {
 	if err := os.Remove(dbPath); err != nil {
-		if !strings.Contains(err.Error(), "no such file or directory") {
+		if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+			if !strings.Contains(err.Error(), "no such file or directory") {
+				panic(err)
+			}
+		}
+		
+		if runtime.GOOS == "windows" && !(strings.Contains(err.Error(),
+			"cannot find the file specified") || strings.Contains(err.Error(), "cannot find the path specified")) {
 			panic(err)
 		}
 	}
