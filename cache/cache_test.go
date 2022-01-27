@@ -960,7 +960,7 @@ func removeDB(dbPath string) {
 				panic(err)
 			}
 		}
-		
+
 		if runtime.GOOS == "windows" && !(strings.Contains(err.Error(),
 			"cannot find the file specified") || strings.Contains(err.Error(), "cannot find the path specified")) {
 			panic(err)

@@ -144,7 +144,6 @@ func (s *Session) RemoveDB() {
 			}
 		}
 		if runtime.GOOS == "windows" && !(strings.Contains(err.Error(), "cannot find the file specified") || strings.Contains(err.Error(), "cannot find the path specified")) {
-			fmt.Printf("ERROR: '%s'\n", err.Error())
 			panic(err)
 		}
 	}
