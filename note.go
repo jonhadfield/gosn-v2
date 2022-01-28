@@ -237,12 +237,13 @@ func (n *Note) SetContentSize(s int) {
 }
 
 type NoteContent struct {
-	Title          string         `json:"title"`
-	Text           string         `json:"text"`
-	ItemReferences ItemReferences `json:"references"`
-	AppData        AppDataContent `json:"appData"`
-	PreviewPlain   string         `json:"preview_plain"`
-	PreviewHtml    string         `json:"preview_html"`
+	Title          string             `json:"title"`
+	Text           string             `json:"text"`
+	ItemReferences ItemReferences     `json:"references"`
+	AppData        NoteAppDataContent `json:"appData"`
+	PreviewPlain   string             `json:"preview_plain"`
+	Spellcheck     bool               `json:"spellcheck"`
+	PreviewHtml    string             `json:"preview_html"`
 }
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
@@ -285,11 +286,11 @@ func (noteContent *NoteContent) SetText(text string) {
 	noteContent.Text = text
 }
 
-func (noteContent *NoteContent) GetAppData() AppDataContent {
+func (noteContent *NoteContent) GetAppData() NoteAppDataContent {
 	return noteContent.AppData
 }
 
-func (noteContent *NoteContent) SetAppData(data AppDataContent) {
+func (noteContent *NoteContent) SetAppData(data NoteAppDataContent) {
 	noteContent.AppData = data
 }
 

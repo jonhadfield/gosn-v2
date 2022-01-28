@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type syncResponse struct {
@@ -372,10 +373,19 @@ type ItemReference struct {
 type OrgStandardNotesSNDetail struct {
 	ClientUpdatedAt    string `json:"client_updated_at"`
 	PrefersPlainEditor bool   `json:"prefersPlainEditor"`
+	Pinned             bool   `json:"pinned"`
 }
 
+type OrgStandardNotesSNComponentsDetail map[string]interface{}
+
 type AppDataContent struct {
-	OrgStandardNotesSN OrgStandardNotesSNDetail `json:"org.standardnotes.sn"`
+	OrgStandardNotesSN           OrgStandardNotesSNDetail           `json:"org.standardnotes.sn"`
+	OrgStandardNotesSNComponents OrgStandardNotesSNComponentsDetail `json:"org.standardnotes.sn.components,omitempty"`
+}
+
+type NoteAppDataContent struct {
+	OrgStandardNotesSN           OrgStandardNotesSNDetail           `json:"org.standardnotes.sn"`
+	OrgStandardNotesSNComponents OrgStandardNotesSNComponentsDetail `json:"org.standardnotes.sn.components,omitempty"`
 }
 
 type TagContent struct {
@@ -823,7 +833,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 // Import steps are:
 // - decrypt items in current file (derive master key based on username, password nonce)
 // - create a new items key and reencrypt all items
-// - set items key to be same updatedtimestamp in order to replace existing
+// - set items key to be same updatedtimestamp in order to replace existing.
 func (s *Session) Import(path string, syncToken string) (items EncryptedItems, itemsKey ItemsKey, err error) {
 	initialItemsKey := fmt.Sprintf("Initial DefaultItemsKey %s", s.DefaultItemsKey.ItemsKey)
 
@@ -924,7 +934,6 @@ func (s *Session) Import(path string, syncToken string) (items EncryptedItems, i
 		// retrieve all items
 		SyncToken: "",
 	})
-
 	if err != nil {
 		return
 	}
@@ -1045,7 +1054,6 @@ func (s *Session) Import(path string, syncToken string) (items EncryptedItems, i
 		SyncToken: so.SyncToken,
 		Items:     rEncFinal,
 	})
-
 	if err != nil {
 		return
 	}

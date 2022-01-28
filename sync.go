@@ -225,7 +225,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							}
 
 							di := dis[0]
-							//set new id
+							// set new id
 							di.SetUUID(GenUUID())
 							// re-encrypt to update auth data
 							newdis := Items{di}
@@ -233,7 +233,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							var newis EncryptedItems
 
 							k := input.Session.DefaultItemsKey
-							//if the conflict is during import, then we need to re-encrypt with Importer Key
+							// if the conflict is during import, then we need to re-encrypt with Importer Key
 							if input.Session.ImporterItemsKey.ItemsKey != "" {
 								k = input.Session.ImporterItemsKey
 							}
@@ -318,7 +318,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	case 1:
 		input.Session.DefaultItemsKey = iks[0]
 		input.Session.ItemsKeys = iks
-		//default:
+		// default:
 		//	panic(fmt.Sprintf("synced %d keys when only one should exist", len(iks)))
 	}
 
@@ -467,9 +467,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	var responseBody []byte
-	//fmt.Printf("requestBody: %s\n", string(requestBody))
+	// fmt.Printf("requestBody: %s\n", string(requestBody))
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-	//fmt.Printf("responseBody: %s\n", string(responseBody))
+	// fmt.Printf("responseBody: %s\n", string(responseBody))
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
