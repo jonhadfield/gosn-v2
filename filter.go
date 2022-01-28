@@ -137,6 +137,7 @@ func applyNoteTextFilter(f Filter, i Note, matchAny bool) (result, matchedAll, d
 
 func applyNoteTagTitleFilter(f Filter, i Note, tags Tags, matchAny bool) (result, matchedAll, done bool) {
 	var matchesTag bool
+
 	for _, tag := range tags {
 		if tag.Content.Title == "" {
 			matchedAll = false

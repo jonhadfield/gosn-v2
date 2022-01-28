@@ -244,7 +244,6 @@ func cleanup() {
 	_, err := Sync(SyncInput{
 		Session: testSession,
 	})
-
 	if err != nil {
 		panic(fmt.Sprintf("clean up failed %+v", err))
 	}
@@ -370,7 +369,6 @@ func TestRegisterCreateTagExportImportTwice(t *testing.T) {
 			keyIndex = x
 		}
 	}
-
 }
 
 func TestRegisterCreateTagExportImport(t *testing.T) {
@@ -411,7 +409,6 @@ func TestRegisterCreateTagExportImport(t *testing.T) {
 
 	require.Equal(t, "SN|ItemsKey", items[keyIndex].ContentType)
 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
-
 }
 
 // 1. add a tag to SN (encrypted with initial items key) - KEY1
@@ -642,7 +639,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 
 	e := EncryptedItems{ei}
 	di, err := e.Decrypt(&duplicateSession, ItemsKey{})
-	//di, err := decryptItems(&duplicateSession, EncryptedItems{ei})
+	// di, err := decryptItems(&duplicateSession, EncryptedItems{ei})
 	require.NoError(t, err)
 	require.NotEmpty(t, di)
 

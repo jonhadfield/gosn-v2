@@ -248,7 +248,6 @@ func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
 	if err != nil {
 		return
 	}
-
 	var f ItemsKey
 
 	err = json.Unmarshal(pt1, &f)
@@ -442,7 +441,7 @@ func isUnsupportedType(t string) bool {
 	return strings.HasPrefix(t, "SF|")
 }
 
-// Decrypt
+// Decrypt.
 func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
 
