@@ -103,7 +103,7 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 }
 
 func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedItem, err error) {
-	if ik.Content.ItemsKey == "" {
+	if ik.ItemsKey == "" {
 		debugPrint(session.Debug, fmt.Sprintf("ItemsKey Encrypt | skipping %s due to missing Content.ItemsKey", ik.UUID))
 
 		return
@@ -487,7 +487,7 @@ func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err
 			return
 		}
 
-		version, nonce, cipherText, authData = splitContent(e.Content)
+		_, nonce, cipherText, authData = splitContent(e.Content)
 
 		var content []byte
 
@@ -500,9 +500,11 @@ func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err
 		di.UUID = e.UUID
 		di.ContentType = e.ContentType
 		di.Deleted = e.Deleted
+
 		if e.ItemsKeyID != nil {
 			di.ItemsKeyID = *e.ItemsKeyID
 		}
+
 		di.UpdatedAt = e.UpdatedAt
 		di.CreatedAt = e.CreatedAt
 		di.CreatedAtTimestamp = e.CreatedAtTimestamp
