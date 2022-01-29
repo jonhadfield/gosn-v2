@@ -5,10 +5,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -21,8 +21,8 @@ const (
 	SNServerURL              = "https://api.standardnotes.com"
 	KeyringApplicationName   = "Session"
 	KeyringService           = "StandardNotesCLI"
-	MsgSessionRemovalSuccess = "Session removed successfully"
-	MsgSessionRemovalFailure = "failed to remove Session"
+	MsgSessionRemovalSuccess = "session removed successfully"
+	MsgSessionRemovalFailure = "failed to remove session"
 )
 
 // Session holds authentication and encryption parameters required
@@ -42,6 +42,17 @@ type Session struct {
 	AccessExpiration  int64     `json:"access_expiration"`
 	RefreshExpiration int64     `json:"refresh_expiration"`
 	PasswordNonce     string
+}
+
+type MinimalSession struct {
+	Server            string
+	Token             string
+	MasterKey         string
+	KeyParams         KeyParams `json:"keyParams"`
+	AccessToken       string    `json:"access_token"`
+	RefreshToken      string    `json:"refresh_token"`
+	AccessExpiration  int64     `json:"access_expiration"`
+	RefreshExpiration int64     `json:"refresh_expiration"`
 }
 
 func GetCredentials(inServer string) (email, password, apiServer, errMsg string) {
@@ -131,7 +142,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	if inKey == "." {
 		var byteKey []byte
 
-		fmt.Print("Session key: ")
+		fmt.Print("session key: ")
 
 		byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
 		if err != nil {
@@ -157,18 +168,16 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 
 	var session Session
 
-	var email string
-
-	session, email, err = GetSessionFromUser(snServer, debug)
+	session, _, err = GetSessionFromUser(snServer, debug)
 	if err != nil {
 		return fmt.Sprint("failed to get Session: ", err), err
 	}
 
-	rS := makeSessionString(email, session)
+	rS := makeMinimalSessionString(session)
 
 	if inKey != "" {
 		key := []byte(inKey)
-		rS = Encrypt(key, MakeSessionString(email, session))
+		rS = Encrypt(key, makeMinimalSessionString(session))
 	}
 
 	err = writeSession(rS, k)
@@ -176,7 +185,27 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 		return fmt.Sprint("failed to set Session: ", err), err
 	}
 
-	return "Session added successfully", err
+	return "session added successfully", err
+}
+
+func makeMinimalSessionString(s Session) string {
+	ms := MinimalSession{
+		Server:            s.Server,
+		Token:             s.Token,
+		MasterKey:         s.MasterKey,
+		KeyParams:         s.KeyParams,
+		AccessToken:       s.AccessToken,
+		RefreshToken:      s.RefreshToken,
+		AccessExpiration:  s.AccessExpiration,
+		RefreshExpiration: s.RefreshExpiration,
+	}
+
+	sb, err := json.Marshal(ms)
+	if err != nil {
+		panic("failed to marshall session")
+	}
+
+	return string(sb)
 }
 
 func writeSession(s string, k keyring.Keyring) error {
@@ -187,11 +216,6 @@ func writeSession(s string, k keyring.Keyring) error {
 	return k.Set(KeyringService, KeyringApplicationName, s)
 }
 
-func makeSessionString(email string, session Session) string {
-	return fmt.Sprintf("%s;%s;%s;%s;%d;%s;%d", email, session.Server, session.MasterKey, session.AccessToken,
-		session.AccessExpiration, session.RefreshToken, session.RefreshExpiration)
-}
-
 func SessionExists(k keyring.Keyring) error {
 	s, err := GetSessionFromKeyring(k)
 	if err != nil {
@@ -199,7 +223,7 @@ func SessionExists(k keyring.Keyring) error {
 	}
 
 	if len(s) == 0 {
-		return errors.New("Session is empty")
+		return errors.New("session is empty")
 	}
 
 	return nil
@@ -223,10 +247,6 @@ func RemoveSession(k keyring.Keyring) string {
 	}
 
 	return MsgSessionRemovalSuccess
-}
-
-func MakeSessionString(email string, session Session) string {
-	return fmt.Sprintf("%s;%s;%s;%d;%s;%d;%s", email, session.MasterKey, session.AccessToken, session.AccessExpiration, session.RefreshToken, session.RefreshExpiration, session.PasswordNonce)
 }
 
 func GetSessionFromUser(server string, debug bool) (Session, string, error) {
@@ -268,11 +288,13 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 			return
 		}
 
+		var loadedSession Session
+
 		if !isUnencryptedSession(rawSess) {
 			if sessionKey == "" {
 				var byteKey []byte
 
-				fmt.Print("Session key: ")
+				fmt.Print("session key: ")
 
 				byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
 				if err != nil {
@@ -292,13 +314,21 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 			if rawSess, err = Decrypt([]byte(sessionKey), rawSess); err != nil {
 				return
 			}
+
+			if !isUnencryptedSession(rawSess) {
+				err = fmt.Errorf("incorrect key or invalid session")
+
+				return
+			}
 		}
 
-		email, session, err = ParseSessionString(rawSess)
-
+		loadedSession, err = ParseSessionString(rawSess)
 		if err != nil {
 			return
 		}
+
+		email = loadedSession.KeyParams.Identifier
+		session = loadedSession
 	} else {
 		session, email, err = GetSessionFromUser(server, debug)
 		if err != nil {
@@ -311,52 +341,26 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 	return session, email, err
 }
 
-func isUnencryptedSession(in string) bool {
-	// legacy session format has 7 items
-	if len(strings.Split(in, ";")) == 7 {
-		return true
-	}
+func ParseSessionString(ss string) (sess Session, err error) {
+	var ms MinimalSession
+	err = json.Unmarshal([]byte(ss), &ms)
 
-	return len(strings.Split(in, ";")) == 8
-}
-
-func ParseSessionString(in string) (email string, session Session, err error) {
-	if !isUnencryptedSession(in) {
-		err = errors.New("session invalid, or encrypted and key was not provided")
-		return
-	}
-
-	parts := strings.Split(in, ";")
-	email = parts[0]
-
-	var ae, re int
-
-	ae, err = strconv.Atoi(parts[4])
-	if err != nil {
-		return
-	}
-
-	re, err = strconv.Atoi(parts[6])
-	if err != nil {
-		return
-	}
-
-	pNonce := ""
-	if len(parts) == 8 {
-		pNonce = parts[7]
-	}
-
-	session = Session{
-		Server:            parts[1],
-		MasterKey:         parts[2],
-		AccessToken:       parts[3],
-		AccessExpiration:  int64(ae),
-		RefreshToken:      parts[5],
-		RefreshExpiration: int64(re),
-		PasswordNonce:     pNonce,
-	}
+	sess.Server = ms.Server
+	sess.AccessToken = ms.AccessToken
+	sess.AccessExpiration = ms.AccessExpiration
+	sess.RefreshToken = ms.RefreshToken
+	sess.RefreshExpiration = ms.RefreshExpiration
+	sess.MasterKey = ms.MasterKey
+	sess.Server = ms.Server
+	sess.KeyParams = ms.KeyParams
+	sess.PasswordNonce = ms.KeyParams.PwNonce
 
 	return
+
+}
+
+func isUnencryptedSession(in string) bool {
+	return strings.HasPrefix(in, "{")
 }
 
 // Decrypt from base64 to decrypted string.
@@ -392,8 +396,10 @@ func Decrypt(key []byte, cryptoText string) (pt string, err error) {
 
 func getSessionContent(key, rawSession string) (session string, err error) {
 	// check if Session is encrypted
-	if len(strings.Split(rawSession, ";")) != numRawSessionTokens {
+	if !isUnencryptedSession(rawSession) {
 		if key == "" {
+			fmt.Print("session key: ")
+
 			var byteKey []byte
 			byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
 
@@ -410,12 +416,10 @@ func getSessionContent(key, rawSession string) (session string, err error) {
 			}
 		}
 
-		if session, err = Decrypt([]byte(key), rawSession); err != nil {
-			return
-		}
+		session, err = Decrypt([]byte(key), rawSession)
 
-		if len(strings.Split(session, ";")) != numRawSessionTokens {
-			err = fmt.Errorf("invalid Session or wrong key provided")
+		if err != nil {
+			err = fmt.Errorf("invalid session or wrong key provided")
 		}
 	} else {
 		session = rawSession
@@ -447,14 +451,22 @@ func SessionStatus(sKey string, k keyring.Keyring) (msg string, err error) {
 		return
 	}
 
-	var email string
+	if !isUnencryptedSession(session) {
+		if sKey != "" {
+			err = fmt.Errorf("incorrect key, or session is invalid and needs to be replaced")
+		} else {
+			err = fmt.Errorf("stored session is invalid and needs to be replaced")
+		}
 
-	email, _, err = ParseSessionString(session)
+		return
+	}
+
+	s, err := ParseSessionString(session)
 	if err != nil {
 		msg = fmt.Sprint("failed to parse Session: ", err)
 
 		return
 	}
 
-	return fmt.Sprint("Session found: ", email), err
+	return fmt.Sprint("session found: ", s.KeyParams.Identifier), err
 }

@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -30,7 +31,7 @@ func (k MockKeyRingDefined) Set(user, service, password string) error {
 }
 
 func (k MockKeyRingDefined) Get(service, user string) (r string, err error) {
-	return "someone@example.com;https://sync.standardnotes.org;eyJhbGciOiJKUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c;8f0f5166841ca4dee2975c74cc7e0a4345ce24b54d7b215677a3d540303aa203;1;6d5ffc6f8e337e6e3ae6d0c3201d9e2d00ffee64672bc4fe1886ad31770c19f1;2", nil
+	return "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"5319f9c148ee3dbe78fc149e8643775242d7e83216060ee5e228ab2ec3d88a76\",\"keyParams\":{\"created\":\"1608473387799\",\"identifier\":\"test-user\",\"origination\":\"registration\",\"pw_nonce\":\"yJTyMmLr3KqOc7ifRfe1H7Pu8591n7Sj\",\"version\":\"004\"},\"access_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:Io9MOsc.WDIq0JBt\",\"refresh_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:-ixQV.-RMCCSPG0M\",\"access_expiration\":1648647400000,\"refresh_expiration\":1675020326000}", nil
 }
 
 func (k MockKeyRingDefined) Delete(service, user string) error {
@@ -51,44 +52,13 @@ func (k MockKeyRingUnDefined) Delete(service, user string) error {
 	return nil
 }
 
-// type Session struct {
-//	Debug             bool
-//	Server            string
-//	Token             string
-//	MasterKey         string
-//	ItemsKeys         []ItemsKey
-//	DefaultItemsKey   ItemsKey
-//	AccessToken       string `json:"access_token"`
-//	RefreshToken      string `json:"refresh_token"`
-//	AccessExpiration  int64  `json:"access_expiration"`
-//	RefreshExpiration int64  `json:"refresh_expiration"`
-//}
-
-var (
-	testSessionEmail             = "me@home.com"
-	testSessionServer            = "https://sync.server.com"
-	testSessionMasterKey         = "testsessionmk"
-	testSessionAccessToken       = "testsessionat"
-	testSessionAccessExpiration  = 1
-	testSessionRefreshToken      = "testsessionrt"
-	testSessionRefreshExpiration = 2
-
-	exampleSession = fmt.Sprintf("%s;%s;%s;%s;%d;%s;%d", testSessionEmail, testSessionServer, testSessionMasterKey,
-		testSessionAccessToken, testSessionAccessExpiration, testSessionRefreshToken, testSessionRefreshExpiration)
-)
-
 func TestMakeSessionString(t *testing.T) {
-	sess := Session{
-		Debug:             false,
-		Server:            testSessionServer,
-		MasterKey:         testSessionMasterKey,
-		AccessToken:       "testsessionat",
-		RefreshToken:      "testsessionrt",
-		AccessExpiration:  1,
-		RefreshExpiration: 2,
-	}
-	ss := makeSessionString(testSessionEmail, sess)
-	require.Equal(t, exampleSession, ss)
+	sessionString := "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"5319f9c148ee3dbe78fc149e8643775242d7e83216060ee5e228ab2ec3d88a76\",\"keyParams\":{\"created\":\"1608473387799\",\"identifier\":\"test-user\",\"origination\":\"registration\",\"pw_nonce\":\"yJTyMmLr3KqOc7ifRfe1H7Pu8591n7Sj\",\"version\":\"004\"},\"access_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:Io9MOsc.WDIq0JBt\",\"refresh_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:-ixQV.-RMCCSPG0M\",\"access_expiration\":1648647400000,\"refresh_expiration\":1675020326000}"
+
+	var session Session
+	require.NoError(t, json.Unmarshal([]byte(sessionString), &session))
+	ss := makeMinimalSessionString(session)
+	require.Equal(t, sessionString, ss)
 }
 
 func TestWriteSession(t *testing.T) {
@@ -102,9 +72,9 @@ func TestWriteSession(t *testing.T) {
 }
 
 func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
-	os.Unsetenv("SN_SERVER")
-	os.Unsetenv("SN_EMAIL")
-	os.Unsetenv("SN_PASSWORD")
+	_ = os.Unsetenv("SN_SERVER")
+	_ = os.Unsetenv("SN_EMAIL")
+	_ = os.Unsetenv("SN_PASSWORD")
 
 	serverURL := os.Getenv("SN_SERVER")
 	if serverURL == "" {
@@ -164,7 +134,7 @@ func TestSessionStatus(t *testing.T) {
 	var kDefined MockKeyRingDefined
 	s, err = SessionStatus("", kDefined)
 	require.NoError(t, err)
-	require.Contains(t, s, "Session found: someone@example.com")
+	require.Contains(t, s, "session found: test-user")
 
 	// if stored Session value is not immediately valid
 	// then Session is assumed to be encrypted so ensure
@@ -180,6 +150,6 @@ func TestSessionStatus(t *testing.T) {
 	// Session that cannot be encrypted is flagged
 	s, err = SessionStatus("somekey", kDodgy)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "corrupt")
+	require.Contains(t, err.Error(), "invalid")
 	require.Empty(t, s)
 }
