@@ -487,6 +487,10 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 	var errResp errorResponse
 	_ = json.Unmarshal(body, &errResp)
 
+	debugPrint(debug, fmt.Sprintf("processDoRegisterRequestResponse | status code: %d error %s",
+		response.StatusCode,
+		errResp.Data.Error.Message))
+
 	switch response.StatusCode {
 	case 200:
 		var output registerResponse
@@ -498,6 +502,15 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 		}
 
 		token = output.Token
+	case 400:
+		// unmarshal error response
+		var errResp errorResponse
+
+		err = json.Unmarshal(body, &errResp)
+		if errResp.Data.Error.Message != "" {
+			err = fmt.Errorf("email is already registered")
+			return
+		}
 	case 404:
 		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message))
 		// email address not recognized
