@@ -219,6 +219,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							// decrypt server item
 							is := EncryptedItems{item}
 							var dis Items
+
 							dis, err = is.DecryptAndParse(input.Session)
 							if err != nil {
 								return
@@ -237,10 +238,12 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							if input.Session.ImporterItemsKey.ItemsKey != "" {
 								k = input.Session.ImporterItemsKey
 							}
+
 							newis, err = newdis.Encrypt(k, input.Session.MasterKey, input.Session.Debug)
 							if err != nil {
 								return
 							}
+
 							newi := newis[0]
 							newis[0].DuplicateOf = &conflict.ServerItem.UUID
 							conflictedItem = newi
@@ -300,12 +303,13 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	items.DeDupe()
 
 	var iks ItemsKeys
+
 	if len(output.SavedItems) > 0 {
 		// checking if we've saved a new items key, in which case it should be new default
-		iks, err = output.SavedItems.DecryptAndParseItemsKeys(input.Session.MasterKey, false)
+		iks, err = output.SavedItems.DecryptAndParseItemsKeys(input.Session.MasterKey, input.Session.Debug)
 	} else {
 		// existing items key would be returned on first sync
-		iks, err = output.Items.DecryptAndParseItemsKeys(input.Session.MasterKey, false)
+		iks, err = output.Items.DecryptAndParseItemsKeys(input.Session.MasterKey, input.Session.Debug)
 	}
 
 	if err != nil {
@@ -315,11 +319,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	switch len(iks) {
 	case 0:
 		break
-	case 1:
+	default:
 		input.Session.DefaultItemsKey = iks[0]
 		input.Session.ItemsKeys = iks
-		// default:
-		//	panic(fmt.Sprintf("synced %d keys when only one should exist", len(iks)))
 	}
 
 	return output, err
@@ -368,7 +370,6 @@ func (cis ConflictedItems) Validate(debug bool) error {
 			continue
 		case "uuid_error":
 			debugPrint(debug, "Sync | client is attempting to sync an item without uuid")
-
 			panic("Sync | client is attempting to sync an item without a uuid")
 		default:
 			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
