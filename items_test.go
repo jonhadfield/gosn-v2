@@ -241,14 +241,7 @@ func createTag(title, uuid string) *Tag {
 }
 
 func cleanup() {
-	_, err := Sync(SyncInput{
-		Session: testSession,
-	})
-	if err != nil {
-		panic(fmt.Sprintf("clean up failed %+v", err))
-	}
-
-	if err = _deleteAllTagsNotesComponents(testSession); err != nil {
+	if err := _deleteAllTagsNotesComponents(testSession); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -487,7 +480,6 @@ func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
 
 func TestAddDeleteNote(t *testing.T) {
 	defer cleanup()
-
 	randPara := "TestText"
 
 	newNoteContent := NoteContent{
@@ -503,7 +495,9 @@ func TestAddDeleteNote(t *testing.T) {
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
 	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+
 	var foundItemsKeyInList bool
+
 	for x := range testSession.ItemsKeys {
 		if testSession.ItemsKeys[x].UUID == testSession.DefaultItemsKey.UUID {
 			foundItemsKeyInList = true
