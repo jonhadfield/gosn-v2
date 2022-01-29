@@ -70,8 +70,9 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []It
 	}
 
 	o, err = DecryptAndParseItemKeys(mk, eiks)
+
 	if err != nil {
-		err = fmt.Errorf("gsDecrypt | %w", err)
+		err = fmt.Errorf("DecryptAndParseItemsKeys | %w", err)
 
 		return
 	}
