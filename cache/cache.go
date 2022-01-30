@@ -143,6 +143,7 @@ func (s *Session) RemoveDB() {
 				panic(err)
 			}
 		}
+
 		if runtime.GOOS == "windows" && !(strings.Contains(err.Error(), "cannot find the file specified") || strings.Contains(err.Error(), "cannot find the path specified")) {
 			panic(err)
 		}
@@ -174,7 +175,7 @@ func (s *Session) Import(path string, persist bool) error {
 
 	debugPrint(s.Debug, fmt.Sprintf("importing from %s", path))
 
-	ii, ifk, err := s.Session.Import(path, syncToken)
+	ii, ifk, err := s.Session.Import(path, syncToken, "")
 	if err != nil {
 		return err
 	}
@@ -306,6 +307,56 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 			err = tx.Save(&items[j])
 			if err != nil {
 				tx.Rollback()
+				return err
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			return err
+		}
+	}
+
+	if close {
+		return db.Close()
+	}
+
+	return nil
+}
+
+// DeleteCacheItems saves Cache Items to the provided database.
+func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
+	if len(items) == 0 {
+		return fmt.Errorf("no items provided to DeleteCacheItems")
+	}
+
+	if db == nil {
+		return fmt.Errorf("db not passed to DeleteCacheItems")
+	}
+
+	batchSize := 500
+	numItems := len(items)
+
+	if numItems < 500 {
+		batchSize = numItems
+	}
+
+	total := len(items)
+
+	for i := 0; i < total/batchSize; i++ {
+		tx, err := db.Begin(true)
+		if err != nil {
+			return err
+		}
+
+		for j := 0; j < batchSize; j++ {
+			err = tx.DeleteStruct(&items[j])
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					continue
+				}
+				tx.Rollback()
+
 				return err
 			}
 		}
@@ -490,6 +541,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	if len(all) > 0 {
 		var cachedKeys gosn.EncryptedItems
+
 		cachedKeys, err = retrieveItemsKeysFromCache(si.Session.Session, all)
 		if err != nil {
 			return
@@ -627,6 +679,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	debugPrint(si.Debug, fmt.Sprintf("Sync | checking %d gosn.Sync SavedItems for items to add or remove from db", len(gSO.SavedItems)))
 
 	var savedItems Items
+
 	for _, x := range gSO.SavedItems {
 		// don't add deleted
 		if x.ContentType == "SN|ItemsKey" && x.Deleted {
@@ -643,6 +696,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			}
 
 			debugPrint(si.Debug, fmt.Sprintf("Sync | adding %s %s to list of items to delete", x.ContentType, x.UUID))
+
 			itemsToDeleteFromDB = append(itemsToDeleteFromDB, itemToDeleteFromDB...)
 
 			continue
@@ -721,13 +775,29 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | saving %d items from gosn.Sync Items to db", len(gSO.Items)))
 
-	var uuidsToDelete []string
 	// put new Items in db
+	var itemsToDelete Items
+	var newItems Items
+
 	for _, i := range gSO.Items {
 		// if the item has been deleted in SN, then delete from db
 		if i.Deleted {
-			// debugPrint(si.Debug, fmt.Sprintf("Sync | adding uuid for deletion %s %s and skipping addition to db", i.ContentType, i.UUID))
-			uuidsToDelete = append(uuidsToDelete, i.UUID)
+			debugPrint(si.Debug, fmt.Sprintf("Sync | adding uuid for deletion %s %s and skipping addition to db", i.ContentType, i.UUID))
+
+			di := Item{
+				UUID:               i.UUID,
+				Content:            i.Content,
+				ContentType:        i.ContentType,
+				ItemsKeyID:         i.ItemsKeyID,
+				EncItemKey:         i.EncItemKey,
+				Deleted:            i.Deleted,
+				CreatedAt:          i.CreatedAt,
+				UpdatedAt:          i.UpdatedAt,
+				CreatedAtTimestamp: i.CreatedAtTimestamp,
+				UpdatedAtTimestamp: i.UpdatedAtTimestamp,
+				DuplicateOf:        i.DuplicateOf,
+			}
+			itemsToDelete = append(itemsToDelete, di)
 
 			continue
 		}
@@ -737,12 +807,12 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 
 		item := Item{
-			UUID:        i.UUID,
-			Content:     i.Content,
-			ContentType: i.ContentType,
-			ItemsKeyID:  i.ItemsKeyID,
-			EncItemKey:  i.EncItemKey,
-			// Deleted:          i.Deleted, 		# No need as we exclude deleted items above
+			UUID:               i.UUID,
+			Content:            i.Content,
+			ContentType:        i.ContentType,
+			ItemsKeyID:         i.ItemsKeyID,
+			EncItemKey:         i.EncItemKey,
+			Deleted:            i.Deleted,
 			CreatedAt:          i.CreatedAt,
 			UpdatedAt:          i.UpdatedAt,
 			CreatedAtTimestamp: i.CreatedAtTimestamp,
@@ -750,25 +820,18 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			DuplicateOf:        i.DuplicateOf,
 		}
 
-		err = db.Save(&item)
-		if err != nil {
+		newItems = append(newItems, item)
+	}
+
+	if len(newItems) > 0 {
+		if err = SaveCacheItems(db, newItems, false); err != nil {
 			return
 		}
 	}
 
-	// TODO: use transaction
-	// remove deleted items from db
-	var allhere Items
-	err = db.All(&allhere)
-
-	for x := range allhere {
-		for _, uuid := range uuidsToDelete {
-			if allhere[x].UUID == uuid {
-				err = db.DeleteStruct(&allhere[x])
-				if err != nil {
-					panic(err)
-				}
-			}
+	if len(itemsToDelete) > 0 {
+		if err = DeleteCacheItems(db, itemsToDelete, false); err != nil {
+			return
 		}
 	}
 

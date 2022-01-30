@@ -26,7 +26,7 @@ func parseSFMFA(i DecryptedItem) Item {
 		}
 
 		if content != nil {
-			c.Content = content.(SFMFAContent)
+			c.Content = *content.(*SFMFAContent)
 		}
 	}
 
@@ -164,7 +164,7 @@ func (c SFMFA) GetContent() Content {
 }
 
 func (c *SFMFA) SetContent(cc Content) {
-	c.Content = cc.(SFMFAContent)
+	c.Content = *cc.(*SFMFAContent)
 }
 
 func (c SFMFA) GetItemsKeyID() string {
@@ -328,5 +328,5 @@ func (cc *SFMFAContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *SFMFAContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

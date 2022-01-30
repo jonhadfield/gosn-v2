@@ -26,6 +26,7 @@ type Item interface {
 
 type Content interface {
 	References() ItemReferences
+	SetReferences(ItemReferences)
 }
 
 // ItemCommon contains the fields common to all SN Items.

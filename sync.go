@@ -50,6 +50,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// we need to reset on completion it to avoid it being used in future
 	defer func() { input.Session.ImporterItemsKey = ItemsKey{} }()
 
+	debugPrint(input.Session.Debug, fmt.Sprintf("Sync | called with %d items and syncToken %s", len(input.Items), input.SyncToken))
+
 	debug := input.Session.Debug
 	// if items have been passed but no default items key exists then return error
 	if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
@@ -140,14 +142,13 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	output.SavedItems = sResp.SavedItems
 	output.SavedItems.DeDupe()
 
-	//for _, si := range output.SavedItems {
-	//	debugPrint(debug, fmt.Sprintf("Sync | saved item: %s type: %s updated at timestamp: %d", si.UUID, si.ContentType, si.UpdatedAtTimestamp))
-	//}
-
 	output.Conflicts = sResp.Conflicts
 	output.Conflicts.DeDupe()
 	output.Cursor = sResp.CursorToken
 	output.SyncToken = sResp.SyncToken
+
+	debugPrint(input.Session.Debug, fmt.Sprintf("Sync | SN returned %d items, %d saved items, and %d conflicts, with syncToken %s", len(output.Items), len(output.SavedItems), len(output.Conflicts), output.SyncToken))
+
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
 	// postElapsed := time.Since(postStart)
 	// debugPrint(debug, fmt.Sprintf("Sync | post processing took %v", postElapsed))
@@ -164,8 +165,13 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// Resync any conflicts
 	var conflictsToSync EncryptedItems
 
+	// Store any references that need to be remapped due to conflicts
+	var refReMap map[string]string
+
 	if len(output.Conflicts) > 0 {
 		debugPrint(debug, fmt.Sprintf("Sync | found %d conflicts", len(output.Conflicts)))
+		// create store for old and new uuids in case we need to remap any references to existing items with new uuids
+		refReMap = make(map[string]string)
 
 		for _, conflict := range output.Conflicts {
 			var conflictedItem EncryptedItem
@@ -218,6 +224,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							conflictedItem = item
 							// decrypt server item
 							is := EncryptedItems{item}
+
 							var dis Items
 
 							dis, err = is.DecryptAndParse(input.Session)
@@ -226,8 +233,12 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							}
 
 							di := dis[0]
-							// set new id
-							di.SetUUID(GenUUID())
+							// generate new uuid
+							newUUID := GenUUID()
+							// create remap reference for later
+							refReMap[di.GetUUID()] = newUUID
+							// set new uuid
+							di.SetUUID(newUUID)
 							// re-encrypt to update auth data
 							newdis := Items{di}
 
@@ -236,6 +247,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							k := input.Session.DefaultItemsKey
 							// if the conflict is during import, then we need to re-encrypt with Importer Key
 							if input.Session.ImporterItemsKey.ItemsKey != "" {
+								debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", input.Session.ImporterItemsKey.UUID))
 								k = input.Session.ImporterItemsKey
 							}
 
@@ -263,17 +275,76 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 			}
 
 			if conflict.Type == "uuid_conflict" {
-				// give the item a new UUID
-				conflictedItem = conflict.UnsavedItem
+				var found bool
 
-				debugPrint(debug, "Sync | item has uuid_conflict, so setting item's UUID to a new one")
+				for _, item := range input.Items {
+					if item.UUID == conflict.UnsavedItem.UUID {
+						if item.Deleted {
+							item = conflict.UnsavedItem
+							item.Deleted = true
+							item.Content = ""
+							conflictedItem = item
+							found = true
 
-				conflictedItem.UUID = GenUUID()
+							break
+						}
+
+						conflictedItem = item
+						// decrypt server item
+						is := EncryptedItems{item}
+
+						var dis Items
+
+						dis, err = is.DecryptAndParse(input.Session)
+						if err != nil {
+							return
+						}
+
+						di := dis[0]
+						// generate new uuid
+						newUUID := GenUUID()
+						// create remap reference for later
+						refReMap[di.GetUUID()] = newUUID
+						// set new uuid
+						di.SetUUID(newUUID)
+						// re-encrypt to update auth data
+						newdis := Items{di}
+
+						var newis EncryptedItems
+
+						k := input.Session.DefaultItemsKey
+						// if the conflict is during import, then we need to re-encrypt with Importer Key
+						if input.Session.ImporterItemsKey.ItemsKey != "" {
+							debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", input.Session.ImporterItemsKey.UUID))
+							k = input.Session.ImporterItemsKey
+						}
+
+						newis, err = newdis.Encrypt(k, input.Session.MasterKey, input.Session.Debug)
+						if err != nil {
+							return
+						}
+
+						newi := newis[0]
+						newis[0].DuplicateOf = &conflict.UnsavedItem.UUID
+						conflictedItem = newi
+
+						found = true
+
+						break
+					}
+				}
+
+				if !found {
+					panic("could not find item that failed to sync")
+				}
 
 				conflictsToSync = append(conflictsToSync, conflictedItem)
 			}
 		}
 	}
+
+	// handle uuid reference remaps
+	conflictsToSync, err = updateEncryptedItemRefs(input.Session, conflictsToSync, refReMap)
 
 	if len(conflictsToSync) > 0 {
 		// Call Sync Again and add the output to the output we've already got
@@ -290,6 +361,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		if len(resyncOutput.Conflicts) > 0 {
 			panic(fmt.Sprintf("we didn't expect to get any conflicts now, but got: %d", len(resyncOutput.Conflicts)))
 		}
+
 		// zero the conflicts as we've resolved them
 		output.Conflicts = nil
 
@@ -327,6 +399,85 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	return output, err
 }
 
+func updateEncryptedItemRefs(s *Session, eis EncryptedItems, refReMap map[string]string) (result EncryptedItems, err error) {
+	for _, ei := range eis {
+		if ei.Deleted {
+			continue
+		}
+		if isEncryptedWithMasterKey(ei.ContentType) {
+			result = append(result, ei)
+
+			continue
+		}
+
+		// decrypt
+		if *ei.ItemsKeyID != s.DefaultItemsKey.UUID {
+			panic("not default key")
+		}
+
+		itd := EncryptedItems{ei}
+
+		var dis Items
+
+		dis, err = itd.DecryptAndParse(s)
+		if err != nil {
+			return
+		}
+		// update refs
+		var updatedRefs ItemReferences
+
+		var itemUpdated bool
+
+		di := dis[0]
+		diContent := di.GetContent()
+		itemsReferences := diContent.References()
+
+		for _, ref := range itemsReferences {
+			var found bool
+
+			for k, v := range refReMap {
+				if ref.UUID == k {
+					updatedRefs = append(updatedRefs, ItemReference{
+						UUID:        v,
+						ContentType: ref.ContentType,
+					})
+					itemUpdated = true
+					found = true
+
+					break
+				}
+			}
+
+			if !found {
+				updatedRefs = append(updatedRefs, ref)
+			}
+		}
+
+		if !itemUpdated {
+			// if we haven't amended the item, just add encrypted item to list to return
+			result = append(result, ei)
+
+			continue
+		}
+		// reencrypt
+		itemsReferences = updatedRefs
+		diContent.SetReferences(itemsReferences)
+		di.SetContent(diContent)
+		disNew := Items{di}
+
+		var eisNew EncryptedItems
+
+		eisNew, err = disNew.Encrypt(s.DefaultItemsKey, s.MasterKey, s.Debug)
+		if err != nil {
+			return
+		}
+
+		result = append(result, eisNew[0])
+	}
+
+	return
+}
+
 type ItemsKeys []ItemsKey
 
 func (iks ItemsKeys) Valid() bool {
@@ -344,16 +495,29 @@ func (iks ItemsKeys) Valid() bool {
 type ConflictedItems []ConflictedItem
 
 func (cis *ConflictedItems) DeDupe() {
-	var encountered []string
+	var seenServerItems []string
+
+	var seenUnsavedItems []string
 
 	var deDuped ConflictedItems
 
 	for _, ci := range *cis {
-		if !stringInSlice(ci.ServerItem.UUID, encountered, true) {
-			deDuped = append(deDuped, ci)
+		switch {
+		// check if it's an encounted server item
+		case ci.ServerItem.UUID != "":
+			if !stringInSlice(ci.ServerItem.UUID, seenServerItems, true) {
+				deDuped = append(deDuped, ci)
+				seenServerItems = append(seenServerItems, ci.ServerItem.UUID)
+			}
+		// check if it's an encountered unsaved item
+		case ci.UnsavedItem.UUID != "":
+			if !stringInSlice(ci.UnsavedItem.UUID, seenUnsavedItems, true) {
+				deDuped = append(deDuped, ci)
+				seenUnsavedItems = append(seenUnsavedItems, ci.UnsavedItem.UUID)
+			}
+		default:
+			panic("unexpected conflict")
 		}
-
-		encountered = append(encountered, ci.ServerItem.UUID)
 	}
 
 	*cis = deDuped
@@ -366,7 +530,7 @@ func (cis ConflictedItems) Validate(debug bool) error {
 			debugPrint(debug, fmt.Sprintf("Sync | sync conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
 			continue
 		case "uuid_conflict":
-			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID))
+			debugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.UnsavedItem.ContentType, ci.UnsavedItem.UUID))
 			continue
 		case "uuid_error":
 			debugPrint(debug, "Sync | client is attempting to sync an item without uuid")
@@ -468,9 +632,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	var responseBody []byte
-	// fmt.Printf("requestBody: %s\n", string(requestBody))
+	//fmt.Printf("requestBody: %s\n", string(requestBody))
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-	// fmt.Printf("responseBody: %s\n", string(responseBody))
+	//fmt.Printf("responseBody: %s\n", string(responseBody))
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}

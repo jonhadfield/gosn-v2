@@ -25,7 +25,7 @@ func parseTheme(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(ThemeContent)
+		c.Content = *content.(*ThemeContent)
 	}
 
 	var cAt, uAt time.Time
@@ -162,7 +162,7 @@ func (c Theme) GetContent() Content {
 }
 
 func (c *Theme) SetContent(cc Content) {
-	c.Content = cc.(ThemeContent)
+	c.Content = *cc.(*ThemeContent)
 }
 
 func (c Theme) GetItemsKeyID() string {
@@ -326,5 +326,5 @@ func (cc *ThemeContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *ThemeContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

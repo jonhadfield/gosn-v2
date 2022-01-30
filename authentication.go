@@ -527,6 +527,7 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 	default:
 		debugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message))
 		err = fmt.Errorf("unhandled: %+v", response)
+
 		return
 	}
 

@@ -36,7 +36,7 @@ func parseTag(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		t.Content = content.(TagContent)
+		t.Content = *content.(*TagContent)
 	}
 
 	var cAt, uAt time.Time
@@ -249,7 +249,7 @@ func (t *Tag) SetContentType(ct string) {
 }
 
 func (t *Tag) SetContent(c Content) {
-	t.Content = c.(TagContent)
+	t.Content = *c.(*TagContent)
 }
 
 func (tagContent *TagContent) GetItemAssociations() []string {

@@ -26,7 +26,7 @@ func parseSFExtension(i DecryptedItem) Item {
 		}
 
 		if content != nil {
-			c.Content = content.(SFExtensionContent)
+			c.Content = *content.(*SFExtensionContent)
 		}
 	}
 
@@ -164,7 +164,7 @@ func (c SFExtension) GetContent() Content {
 }
 
 func (c *SFExtension) SetContent(cc Content) {
-	c.Content = cc.(SFExtensionContent)
+	c.Content = *cc.(*SFExtensionContent)
 }
 
 func (c SFExtension) GetItemsKeyID() string {
@@ -328,5 +328,5 @@ func (cc *SFExtensionContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *SFExtensionContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

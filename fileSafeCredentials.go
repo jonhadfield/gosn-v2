@@ -34,7 +34,7 @@ func parseFileSafeCredentials(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(FileSafeCredentialsContent)
+		c.Content = *content.(*FileSafeCredentialsContent)
 	}
 
 	var cAt, uAt time.Time
@@ -162,7 +162,7 @@ func (c FileSafeCredentials) GetContent() Content {
 }
 
 func (c *FileSafeCredentials) SetContent(cc Content) {
-	c.Content = cc.(FileSafeCredentialsContent)
+	c.Content = *cc.(*FileSafeCredentialsContent)
 }
 
 func (c FileSafeCredentials) GetItemsKeyID() string {
@@ -326,5 +326,5 @@ func (cc *FileSafeCredentialsContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *FileSafeCredentialsContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

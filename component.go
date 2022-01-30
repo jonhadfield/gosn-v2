@@ -27,7 +27,7 @@ func parseComponent(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(ComponentContent)
+		c.Content = *content.(*ComponentContent)
 	}
 
 	var cAt, uAt time.Time
@@ -175,7 +175,9 @@ func (c Component) GetContent() Content {
 }
 
 func (c *Component) SetContent(cc Content) {
-	c.Content = cc.(ComponentContent)
+	//c.Content = cc.(ComponentContent)
+	c.Content = *cc.(*ComponentContent)
+
 }
 
 func (c Component) GetItemsKeyID() string {
@@ -339,5 +341,5 @@ func (cc *ComponentContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *ComponentContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

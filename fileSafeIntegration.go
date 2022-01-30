@@ -25,7 +25,7 @@ func parseFileSafeIntegration(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(FileSafeIntegrationContent)
+		c.Content = *content.(*FileSafeIntegrationContent)
 	}
 
 	var cAt, uAt time.Time
@@ -162,7 +162,7 @@ func (c FileSafeIntegration) GetContent() Content {
 }
 
 func (c *FileSafeIntegration) SetContent(cc Content) {
-	c.Content = cc.(FileSafeIntegrationContent)
+	c.Content = *cc.(*FileSafeIntegrationContent)
 }
 
 func (c FileSafeIntegration) GetItemsKeyID() string {
@@ -326,5 +326,5 @@ func (cc *FileSafeIntegrationContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *FileSafeIntegrationContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

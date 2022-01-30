@@ -1,9 +1,8 @@
 package gosn
 
 import (
-	"strings"
-
 	"github.com/google/uuid"
+	"strings"
 )
 
 func stripLineBreak(input string) string {
@@ -43,19 +42,19 @@ func DeleteContent(session *Session) (deleted int, err error) {
 	if err != nil {
 		return
 	}
-
 	var itemsToPut EncryptedItems
 
 	for _, item := range so.Items {
 		if stringInSlice(item.ContentType, []string{"Note", "Tag", "SN|Component"}, true) {
 			item.Deleted = true
+			item.Content = ""
 			itemsToPut = append(itemsToPut, item)
 		}
 	}
 
 	si.Items = itemsToPut
 
-	_, err = Sync(si)
+	so, err = Sync(si)
 
 	return len(itemsToPut), err
 }
