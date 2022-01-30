@@ -26,7 +26,7 @@ func parseUserPreferences(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(UserPreferencesContent)
+		c.Content = *content.(*UserPreferencesContent)
 	}
 
 	var cAt, uAt time.Time
@@ -178,7 +178,7 @@ func (c UserPreferences) GetContent() Content {
 }
 
 func (c *UserPreferences) SetContent(cc Content) {
-	c.Content = cc.(UserPreferencesContent)
+	c.Content = *cc.(*UserPreferencesContent)
 }
 
 func (c UserPreferences) GetItemsKeyID() string {

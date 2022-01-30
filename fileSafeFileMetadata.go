@@ -34,7 +34,7 @@ func parseFileSafeFileMetadata(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(FileSafeFileMetaDataContent)
+		c.Content = *content.(*FileSafeFileMetaDataContent)
 	}
 
 	var cAt, uAt time.Time
@@ -162,7 +162,7 @@ func (c FileSafeFileMetaData) GetContent() Content {
 }
 
 func (c *FileSafeFileMetaData) SetContent(cc Content) {
-	c.Content = cc.(FileSafeFileMetaDataContent)
+	c.Content = *cc.(*FileSafeFileMetaDataContent)
 }
 
 func (c FileSafeFileMetaData) GetItemsKeyID() string {
@@ -326,5 +326,5 @@ func (cc *FileSafeFileMetaDataContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *FileSafeFileMetaDataContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

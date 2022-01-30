@@ -27,7 +27,7 @@ func parseExtension(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(ExtensionContent)
+		c.Content = *content.(*ExtensionContent)
 	}
 
 	var cAt, uAt time.Time
@@ -164,7 +164,7 @@ func (c Extension) GetContent() Content {
 }
 
 func (c *Extension) SetContent(cc Content) {
-	c.Content = cc.(ExtensionContent)
+	c.Content = *cc.(*ExtensionContent)
 }
 
 func (c Extension) GetItemsKeyID() string {
@@ -328,5 +328,5 @@ func (cc *ExtensionContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *ExtensionContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

@@ -155,6 +155,9 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 				return
 			}
 
+			eik.Content = ""
+			eik.ItemsKeyID = nil
+			eik.EncItemKey = ""
 			eik.Deleted = true
 
 			toDel = append(toDel, eik)
@@ -162,18 +165,27 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 	}
 
 	for _, item := range so.Items {
+		var del bool
 		switch item.ContentType {
 		case "Note":
-			item.Deleted = true
-			toDel = append(toDel, item)
+			del = true
 		case "Tag":
-			item.Deleted = true
-			toDel = append(toDel, item)
+			del = true
 		case "SN|Component":
-			item.Deleted = true
-			toDel = append(toDel, item)
+			del = true
+		case "SN|UserPreferences":
+			del = true
+
 		default:
 			continue
+		}
+
+		if del {
+			item.Deleted = true
+			item.EncItemKey = ""
+			item.Content = ""
+			item.ItemsKeyID = nil
+			toDel = append(toDel, item)
 		}
 	}
 
@@ -338,7 +350,7 @@ func TestRegisterCreateTagExportImportTwice(t *testing.T) {
 	tmpfn := tempFilePath()
 	require.NoError(t, testSession.Export(tmpfn))
 
-	items, key, err := testSession.Import(tmpfn, "")
+	items, key, err := testSession.Import(tmpfn, "", "")
 	require.NoError(t, err)
 	require.Len(t, items, 2)
 
@@ -353,7 +365,7 @@ func TestRegisterCreateTagExportImportTwice(t *testing.T) {
 	require.Equal(t, "SN|ItemsKey", items[keyIndex].ContentType)
 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
 
-	items, key, err = testSession.Import(tmpfn, "")
+	items, key, err = testSession.Import(tmpfn, "", "")
 	require.NoError(t, err)
 	require.Len(t, items, 2)
 
@@ -390,7 +402,7 @@ func TestRegisterCreateTagExportImport(t *testing.T) {
 	tmpfn := tempFilePath()
 	require.NoError(t, testSession.Export(tmpfn))
 
-	items, key, err := testSession.Import(tmpfn, "")
+	items, key, err := testSession.Import(tmpfn, "", "")
 	require.NoError(t, err)
 
 	var keyIndex int
@@ -448,7 +460,7 @@ func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
 	require.Equal(t, 1, len(so2.SavedItems))
 	require.Equal(t, 0, len(so2.Items))
 
-	items, key, err := testSession.Import(tmpfn, so.SyncToken)
+	items, key, err := testSession.Import(tmpfn, so.SyncToken, "")
 	require.NoError(t, err)
 
 	require.Len(t, testSession.ItemsKeys, 1)
@@ -480,6 +492,7 @@ func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
 
 func TestAddDeleteNote(t *testing.T) {
 	defer cleanup()
+
 	randPara := "TestText"
 
 	newNoteContent := NoteContent{
@@ -516,7 +529,8 @@ func TestAddDeleteNote(t *testing.T) {
 	var so SyncOutput
 	so, err = Sync(si)
 	require.NoError(t, err, "Sync Failed", err)
-	require.Len(t, so.SavedItems, 1, "expected 1")
+	require.Len(t, so.SavedItems, 1, "expected one")
+	require.Len(t, so.Conflicts, 0, "expected none")
 	uuidOfNewItem := so.SavedItems[0].UUID
 	si = SyncInput{
 		Session: testSession,
@@ -526,11 +540,11 @@ func TestAddDeleteNote(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, items)
 
-	var foundCreatedItem bool
+	var foundItem Item
 
 	for i := range items {
 		if items[i].GetUUID() == uuidOfNewItem {
-			foundCreatedItem = true
+			foundItem = items[i]
 
 			ni := items[i].(*Note)
 
@@ -550,16 +564,23 @@ func TestAddDeleteNote(t *testing.T) {
 		}
 	}
 
-	if !foundCreatedItem {
+	if foundItem.GetUUID() == "" {
 		t.Errorf("failed to get created Item by UUID")
 	}
 
-	newNote.Deleted = true
-	newNote.EncryptedItemKey = ""
-	newNote.ItemsKeyID = ""
-	is := Items{&newNote}
+	is := Items{foundItem}
 	eis, err := is.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	require.Len(t, eis, 1)
+	itemToDelete := eis[0]
+	itemToDelete.Deleted = true
+	itemToDelete.Content = ""
+	itemToDelete.EncItemKey = ""
+	itemToDelete.ItemsKeyID = nil
+	eis = EncryptedItems{
+		itemToDelete,
+	}
 	require.NoError(t, err)
+
 	st := so.SyncToken
 	so, err = Sync(SyncInput{
 		Session:   testSession,
@@ -658,6 +679,40 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	// require.Empty(t, dn.du)
 }
 
+func TestImportFromFile(t *testing.T) {
+	cleanup()
+	defer cleanup()
+
+	numItemsKeys := len(testSession.ItemsKeys)
+	itemsKeyPre := testSession.DefaultItemsKey.ItemsKey
+	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
+
+	_, itemsKey, err := testSession.Import("testuser-encrypted-backup.txt", "", "testuser")
+	require.NoError(t, err)
+	require.NotEmpty(t, itemsKey)
+	//require.Len(t, items, 5)
+	require.Len(t, testSession.ItemsKeys, numItemsKeys)
+	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
+	require.NotEqual(t, itemsKeyPre, testSession.DefaultItemsKey.ItemsKey)
+	require.Equal(t, itemsKey.ItemsKey, testSession.ItemsKeys[0].ItemsKey)
+
+	// fresh sync and check items exist
+	so, err := Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+	dis, err := so.Items.DecryptAndParse(testSession)
+	require.NoError(t, err)
+	var noteFound bool
+	for _, d := range dis {
+		if d.GetContentType() == "Note" {
+			noteFound = true
+		}
+	}
+
+	require.True(t, noteFound)
+}
+
 func TestExportImportOfNote(t *testing.T) {
 	cleanup()
 	defer cleanup()
@@ -690,7 +745,7 @@ func TestExportImportOfNote(t *testing.T) {
 	require.GreaterOrEqual(t, len(itemsToExport), 1)
 	require.NoError(t, testSession.Export(path))
 
-	importedItems, _, err := testSession.Import(path, so.SyncToken)
+	importedItems, _, err := testSession.Import(path, so.SyncToken, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, importedItems)
 
@@ -822,7 +877,7 @@ func TestDecryptionOfImportedItemsKey(t *testing.T) {
 	testSession.DefaultItemsKey = preExportDefaultItemsKey
 	testSession.ItemsKeys = preExportItemsKeys
 
-	importedItems, _, err := testSession.Import(path, "")
+	importedItems, _, err := testSession.Import(path, "", "")
 	require.NoError(t, err)
 	require.NotEmpty(t, importedItems)
 
@@ -1293,7 +1348,7 @@ func TestNoteCopy(t *testing.T) {
 	initialNoteContent := NewNoteContent()
 	initialNoteContent.Title = initialNoteTitle
 	initialNoteContent.Text = "Text"
-	initialNote.SetContent(*initialNoteContent)
+	initialNote.SetContent(initialNoteContent)
 	dupeNote := initialNote.Copy()
 	require.Equal(t, initialNote.Content.GetTitle(), initialNoteTitle)
 	require.NotNil(t, dupeNote.Content)
@@ -1310,7 +1365,7 @@ func TestTagCopy(t *testing.T) {
 	initialTag := NewTag()
 	initialTagContent := NewTagContent()
 	initialTagContent.Title = "Title"
-	initialTag.SetContent(*initialTagContent)
+	initialTag.SetContent(initialTagContent)
 	dupeTag := initialTag.Copy()
 	require.NotNil(t, dupeTag.Content)
 	require.Equal(t, dupeTag.UUID, initialTag.UUID)

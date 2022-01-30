@@ -25,7 +25,7 @@ func parsePrivileges(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(PrivilegesContent)
+		c.Content = *content.(*PrivilegesContent)
 	}
 
 	var cAt, uAt time.Time
@@ -162,7 +162,7 @@ func (c Privileges) GetContent() Content {
 }
 
 func (c *Privileges) SetContent(cc Content) {
-	c.Content = cc.(PrivilegesContent)
+	c.Content = *cc.(*PrivilegesContent)
 }
 
 func (c Privileges) GetItemsKeyID() string {
@@ -326,5 +326,5 @@ func (cc *PrivilegesContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *PrivilegesContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

@@ -39,7 +39,7 @@ func parseNote(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		n.Content = content.(NoteContent)
+		n.Content = *content.(*NoteContent)
 	}
 
 	var cAt, uAt time.Time
@@ -193,7 +193,7 @@ func (n *Note) SetContentType(ct string) {
 }
 
 func (n *Note) SetContent(c Content) {
-	n.Content = c.(NoteContent)
+	n.Content = *c.(*NoteContent)
 }
 
 func (n Note) GetCreatedAt() string {

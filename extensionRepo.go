@@ -27,7 +27,7 @@ func parseExtensionRepo(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(ExtensionRepoContent)
+		c.Content = *content.(*ExtensionRepoContent)
 	}
 
 	var cAt, uAt time.Time
@@ -165,7 +165,7 @@ func (c ExtensionRepo) GetContent() Content {
 }
 
 func (c *ExtensionRepo) SetContent(cc Content) {
-	c.Content = cc.(ExtensionRepoContent)
+	c.Content = *cc.(*ExtensionRepoContent)
 }
 
 func (c ExtensionRepo) GetItemsKeyID() string {
@@ -329,5 +329,5 @@ func (cc *ExtensionRepoContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *ExtensionRepoContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

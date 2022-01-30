@@ -193,17 +193,17 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 			dbItemsKeyCount++
 		}
 
-		var gsoMatch gosn.EncryptedItem
-
-		var dbMatch Item
+		//var gsoMatch gosn.EncryptedItem
+		//
+		//var dbMatch Item
 
 		var found bool
 
 		for y := range gso.Items {
 			if api[x].UUID == gso.Items[y].UUID {
 				found = true
-				gsoMatch = gso.Items[y]
-				dbMatch = api[x]
+				//gsoMatch = gso.Items[y]
+				//dbMatch = api[x]
 
 				break
 			}
@@ -211,10 +211,10 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 
 		require.True(t, found)
 
-		switch {
-		case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
-			fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
-		}
+		//switch {
+		//case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
+		//	fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
+		//}
 	}
 
 	var snItemsKeyCount int
@@ -224,17 +224,17 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 			snItemsKeyCount++
 		}
 
-		var gsoMatch gosn.EncryptedItem
+		//var gsoMatch gosn.EncryptedItem
 
-		var dbMatch Item
+		//var dbMatch Item
 
 		var found bool
 
 		for y := range allPersistedItems {
 			if gso.Items[x].UUID == allPersistedItems[y].UUID {
 				found = true
-				gsoMatch = gso.Items[x]
-				dbMatch = allPersistedItems[y]
+				//gsoMatch = gso.Items[x]
+				//dbMatch = allPersistedItems[y]
 
 				break
 			}
@@ -244,15 +244,15 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 			panic(fmt.Sprintf("item %+v not found in DB", gso.Items[x]))
 		}
 
-		switch {
-		case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
-			fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
-		}
+		//switch {
+		//case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
+		//	fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
+		//}
 	}
 
-	if snItemsKeyCount != dbItemsKeyCount {
-		fmt.Printf("SN ItemsKey count: %d DB ItemsKey count: %d\n", snItemsKeyCount, dbItemsKeyCount)
-	}
+	//if snItemsKeyCount != dbItemsKeyCount {
+	//	fmt.Printf("SN ItemsKey count: %d DB ItemsKey count: %d\n", snItemsKeyCount, dbItemsKeyCount)
+	//}
 }
 
 func TestSyncWithoutDatabase(t *testing.T) {
@@ -832,11 +832,11 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 		md := items[x]
 		switch md.GetContentType() {
 		case "Note":
-			md.SetContent(*gosn.NewNoteContent())
+			md.SetContent(gosn.NewNoteContent())
 		case "Tag":
-			md.SetContent(*gosn.NewTagContent())
+			md.SetContent(gosn.NewTagContent())
 		case "SN|Component":
-			md.SetContent(*gosn.NewComponentContent())
+			md.SetContent(gosn.NewComponentContent())
 		}
 
 		md.SetDeleted(true)

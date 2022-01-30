@@ -25,7 +25,7 @@ func parseSmartTag(i DecryptedItem) Item {
 			panic(err)
 		}
 
-		c.Content = content.(SmartTagContent)
+		c.Content = *content.(*SmartTagContent)
 	}
 
 	var cAt, uAt time.Time
@@ -162,7 +162,7 @@ func (c SmartTag) GetContent() Content {
 }
 
 func (c *SmartTag) SetContent(cc Content) {
-	c.Content = cc.(SmartTagContent)
+	c.Content = *cc.(*SmartTagContent)
 }
 
 func (c SmartTag) GetItemsKeyID() string {
@@ -326,5 +326,5 @@ func (cc *SmartTagContent) UpsertReferences(input ItemReferences) {
 }
 
 func (cc *SmartTagContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

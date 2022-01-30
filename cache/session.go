@@ -54,8 +54,6 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 		return
 	}
 
-	fmt.Sprintf("In gosn.GetSession with gosn.Session: %+v\n", gs)
-
 	cs := Session{
 		Session: &gosn.Session{
 			Debug:             gs.Debug,

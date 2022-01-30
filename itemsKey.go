@@ -83,8 +83,6 @@ type EIT struct {
 
 // NewItemsKey returns an Item of type ItemsKey without content.
 func NewItemsKey() ItemsKey {
-	// {"itemsKey":"c3e86701398ef809b13661b75037299cbf4ab6707e36aebbd6afa343fc9ebe39","version":"004","references":[],"appData":{"org.standardnotes.sn":{"client_updated_at":"2022-01-02T16:04:03.303Z"}},"isDefault":true}
-	// {UUID:b0da94a4-0614-40e3-8f01-d22b9531fbe1 EncryptedItemKey: ContentType:SN|ItemsKey Deleted:false CreatedAt:2022-01-02T16:04:03.302000Z UpdatedAt:2022-01-02T19:07:03.827838Z CreatedAtTimestamp:1641139443302000 UpdatedAtTimestamp:1641150423827838 ItemsKey:c3e86701398ef809b13661b75037299cbf4ab6707e36aebbd6afa343fc9ebe39 Version:004 ItemReferences:[] AppData:{OrgStandardNotesSN:{ClientUpdatedAt:2022-01-02T16:04:03.303Z PrefersPlainEditor:false}} Default:true Content:{ItemsKey: Version: ItemReferences:[] AppData:{OrgStandardNotesSN:{ClientUpdatedAt: PrefersPlainEditor:false}} Default:false} ContentSize:0}
 	now := time.Now().UTC().Format(timeLayout)
 
 	var c ItemsKey
