@@ -733,19 +733,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// remove items from db
 	if len(itemsToDeleteFromDB) > 0 {
-		debugPrint(si.Debug, fmt.Sprintf("removing %d items from db", len(itemsToDeleteFromDB)))
-		// TODO: put this in previous loop. why loop twice?
-		for y := range itemsToDeleteFromDB {
-			debugPrint(si.Debug, fmt.Sprintf("removing %s %s from db", itemsToDeleteFromDB[y].ContentType, itemsToDeleteFromDB[y].UUID))
-			err = db.DeleteStruct(&itemsToDeleteFromDB[y])
-
-			if err != nil {
-				if err.Error() == "not found" {
-					err = nil
-				} else {
-					return
-				}
-			}
+		if err = DeleteCacheItems(db, itemsToDeleteFromDB, false); err != nil {
+			return
 		}
 	}
 
@@ -755,7 +744,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	for _, d := range dirty {
 		if d.Deleted {
 			// deleted items have been removed by now
-
 			continue
 		}
 
