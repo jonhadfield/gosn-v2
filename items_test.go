@@ -116,17 +116,21 @@ func _createTags(session *Session, input []string) (output SyncOutput, err error
 		newTagContent.SetUpdateTime(time.Now())
 		newTag.Content = newTagContent
 
-		dItems := Items{&newTag}
-		eItems, _ := dItems.Encrypt(session.DefaultItemsKey, session.MasterKey, session.Debug)
+		var eItem EncryptedItem
+		eItem, err = EncryptItem(&newTag, session.DefaultItemsKey, session)
+		if err != nil {
+			return
+		}
 
 		si := SyncInput{
 			Session: session,
-			Items:   eItems,
+			Items:   EncryptedItems{eItem},
 		}
 		output, err = Sync(si)
 
 		if err != nil {
 			err = fmt.Errorf("PutItems Failed: %v", err)
+
 			return
 		}
 	}
@@ -166,6 +170,7 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 
 	for _, item := range so.Items {
 		var del bool
+
 		switch item.ContentType {
 		case "Note":
 			del = true
@@ -273,6 +278,7 @@ func TestReEncrypt(t *testing.T) {
 	}
 
 	localTestMain()
+
 	defer cleanup()
 
 	_, err := Sync(SyncInput{
@@ -281,21 +287,22 @@ func TestReEncrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	tag := createTag("test", GenUUID())
-	itemsToEncrypt := Items{tag}
-	itr, err := itemsToEncrypt.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, true)
+
+	itr, err := EncryptItem(tag, testSession.DefaultItemsKey, testSession)
 	require.NoError(t, err)
 
 	nik := NewItemsKey()
-	nie, err := itr.ReEncrypt(testSession, testSession.DefaultItemsKey, nik, testSession.MasterKey)
+	nie, err := ReEncryptItem(itr, testSession.DefaultItemsKey, nik, testSession.MasterKey, testSession)
 	require.NoError(t, err)
-	require.Equal(t, nie[0].UUID, itr[0].UUID)
-	require.NotEqual(t, nie[0].ItemsKeyID, itr[0].ItemsKeyID)
+	require.Equal(t, nie.UUID, itr.UUID)
+	require.NotEqual(t, nie.ItemsKeyID, itr.ItemsKeyID)
 
 	testSession.ItemsKeys = append(testSession.ItemsKeys, nik)
-	ni2, err := nie.DecryptAndParse(testSession)
+
+	ni2, err := DecryptAndParseItem(nie, testSession)
 	require.NoError(t, err)
 	require.Len(t, ni2, 1)
-	rt := ni2[0].(*Tag)
+	rt := ni2.(*Tag)
 	require.Equal(t, rt.Content.Title, tag.Content.Title)
 }
 
@@ -579,6 +586,7 @@ func TestAddDeleteNote(t *testing.T) {
 	eis = EncryptedItems{
 		itemToDelete,
 	}
+
 	require.NoError(t, err)
 
 	st := so.SyncToken
@@ -623,7 +631,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	nc.Text = "test content"
 	n.Content = *nc
 
-	ei, err := encryptItem(&n, ik, nil)
+	ei, err := EncryptItem(&n, ik, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, ei.UUID)
 	require.NotEmpty(t, ei.CreatedAtTimestamp)
@@ -654,7 +662,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 
 	e := EncryptedItems{ei}
 	di, err := e.Decrypt(&duplicateSession, ItemsKey{})
-	// di, err := decryptItems(&duplicateSession, EncryptedItems{ei})
+
 	require.NoError(t, err)
 	require.NotEmpty(t, di)
 
@@ -726,14 +734,12 @@ func TestExportImportOfNote(t *testing.T) {
 	path := "./test.json"
 
 	// sync new note to SN before export
-	ite := Items{&n}
-	eis, err := ite.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, true)
+	ei, err := EncryptItem(&n, testSession.DefaultItemsKey, testSession)
 	require.NoError(t, err)
-	require.Greater(t, len(eis), 0)
 
 	so, err := Sync(SyncInput{
 		Session: testSession,
-		Items:   eis,
+		Items:   EncryptedItems{ei},
 	})
 
 	require.NoError(t, err)
@@ -753,10 +759,13 @@ func TestExportImportOfNote(t *testing.T) {
 
 	for x := range importedItems {
 		if importedItems[x].ContentType == "Note" {
-			eis := EncryptedItems{importedItems[x]}
-			i, err := eis.DecryptAndParse(testSession)
+			var i Item
+			i, err = DecryptAndParseItem(importedItems[x], testSession)
+
 			require.NoError(t, err)
-			in := i[0].(*Note)
+
+			in := i.(*Note)
+
 			require.Equal(t, n.Content.Title, in.Content.Title)
 			require.Equal(t, n.Content.Text, in.Content.Text)
 
@@ -885,12 +894,12 @@ func TestDecryptionOfImportedItemsKey(t *testing.T) {
 
 	for x := range importedItems {
 		if importedItems[x].ContentType == "Note" {
-			eis := EncryptedItems{importedItems[x]}
-			i, err := eis.DecryptAndParse(testSession)
+			var i Item
+			i, err = DecryptAndParseItem(importedItems[x], testSession)
 
 			require.NoError(t, err)
 
-			in := i[0].(*Note)
+			in := i.(*Note)
 
 			require.Equal(t, n.Content.Title, in.Content.Title)
 			require.Equal(t, n.Content.Text, in.Content.Text)

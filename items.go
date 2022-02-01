@@ -122,6 +122,30 @@ func (ei *EncryptedItems) Validate() error {
 	return err
 }
 
+func ReEncryptItem(ei EncryptedItem, decryptionItemsKey ItemsKey, newItemsKey ItemsKey, newMasterKey string, s *Session) (o EncryptedItem, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("ReEncrypt | item to re-encrypt %s %s", ei.ContentType, ei.UUID))
+
+	var di DecryptedItem
+
+	di, err = DecryptItem(ei, s, decryptionItemsKey)
+
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
+		return
+	}
+
+	var itemToEncrypt Item
+
+	itemToEncrypt, err = ParseItem(di)
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
+
+		return
+	}
+
+	return EncryptItem(itemToEncrypt, newItemsKey, s)
+}
+
 func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newItemsKey ItemsKey, newMasterKey string) (o EncryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("ReEncrypt | items: %d", len(ei)))
 
@@ -138,12 +162,56 @@ func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newI
 
 	itemsToEncrypt, err = di.Parse()
 	if err != nil {
-		err = fmt.Errorf("DecryptAndParse | Parse | %w", err)
+		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
 
 		return
 	}
 
 	return itemsToEncrypt.Encrypt(newItemsKey, newMasterKey, s.Debug)
+}
+
+func DecryptAndParseItem(ei EncryptedItem, s *Session) (o Item, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %s %s", ei.ContentType, ei.UUID))
+
+	var di DecryptedItem
+
+	if s.ImporterItemsKey.ItemsKey != "" {
+		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKey")
+		di, err = DecryptItem(ei, s, s.ImporterItemsKey)
+	} else {
+		di, err = DecryptItem(ei, s, ItemsKey{})
+	}
+
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
+		return
+	}
+
+	o, err = ParseItem(di)
+	if err != nil {
+		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
+
+		return
+	}
+
+	return
+}
+
+func DecryptAndParseItems(ei EncryptedItems, s *Session) (o Items, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)))
+
+	for x := range ei {
+		var di Item
+
+		di, err = DecryptAndParseItem(ei[x], s)
+		if err != nil {
+			return
+		}
+
+		o = append(o, di)
+	}
+
+	return
 }
 
 func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
@@ -152,7 +220,7 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 	var di DecryptedItems
 
 	if s.ImporterItemsKey.ItemsKey != "" {
-		debugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | using ImportersItemsKey"))
+		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKey")
 		di, err = ei.Decrypt(s, s.ImporterItemsKey)
 	} else {
 		di, err = ei.Decrypt(s, ItemsKey{})
@@ -165,7 +233,7 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 
 	o, err = di.Parse()
 	if err != nil {
-		err = fmt.Errorf("DecryptAndParse | Parse | %w", err)
+		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
 
 		return
 	}
@@ -199,7 +267,7 @@ func (i *Items) Encrypt(ik ItemsKey, masterKey string, debug bool) (e EncryptedI
 		return
 	}
 
-	e, err = encryptItems(i, ik, masterKey, debug)
+	e, err = encryptItems(i, ik, debug)
 	if err != nil {
 		return
 	}
@@ -408,6 +476,48 @@ func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 type ItemReferences []ItemReference
 
 type Items []Item
+
+func ParseItem(di DecryptedItem) (p Item, err error) {
+	var pi Item
+
+	switch di.ContentType {
+	case "SN|ItemsKey":
+		// TODO: To be implemented separately so we don't parse as a normal item and,
+		// most importantly, don't return as a normal Item
+	case "Note":
+		pi = parseNote(di)
+	case "Tag":
+		pi = parseTag(di)
+	case "SN|Component":
+		pi = parseComponent(di)
+	case "SN|Theme":
+		pi = parseTheme(di)
+	case "SN|Privileges":
+		pi = parsePrivileges(di)
+	case "Extension":
+		pi = parseExtension(di)
+	case "SF|Extension":
+		pi = parseSFExtension(di)
+	case "SF|MFA":
+		pi = parseSFMFA(di)
+	case "SN|SmartTag":
+		pi = parseSmartTag(di)
+	case "SN|FileSafe|FileMetadata":
+		pi = parseFileSafeFileMetadata(di)
+	case "SN|FileSafe|Integration":
+		pi = parseFileSafeIntegration(di)
+	case "SN|UserPreferences":
+		pi = parseUserPreferences(di)
+	case "SN|ExtensionRepo":
+		pi = parseExtensionRepo(di)
+	case "SN|FileSafe|Credentials":
+		pi = parseFileSafeCredentials(di)
+	default:
+		return nil, fmt.Errorf("unhandled type '%s'", di.ContentType)
+	}
+
+	return pi, err
+}
 
 func (di *DecryptedItems) Parse() (p Items, err error) {
 	for _, i := range *di {
