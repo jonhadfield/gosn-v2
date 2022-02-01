@@ -129,6 +129,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 func processDoAuthRequestResponse(response *http.Response, debug bool) (output doAuthRequestOutput, errResp errorResponse, err error) {
 	var body []byte
 	body, err = ioutil.ReadAll(response.Body)
+
 	switch response.StatusCode {
 	case 200:
 		err = json.Unmarshal(body, &output)
