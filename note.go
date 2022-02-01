@@ -98,7 +98,7 @@ func (n *Notes) Encrypt(s Session) (e EncryptedItems, err error) {
 	}
 
 	// get default items key
-	e, err = encryptItems(&ite, s.DefaultItemsKey, s.MasterKey, s.Debug)
+	e, err = encryptItems(&ite, s.DefaultItemsKey, s.Debug)
 
 	return
 }

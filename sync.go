@@ -223,16 +223,14 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 							conflictedItem = item
 							// decrypt server item
-							is := EncryptedItems{item}
 
-							var dis Items
+							var di Item
 
-							dis, err = is.DecryptAndParse(input.Session)
+							di, err = DecryptAndParseItem(item, input.Session)
 							if err != nil {
 								return
 							}
 
-							di := dis[0]
 							// generate new uuid
 							newUUID := GenUUID()
 							// create remap reference for later
@@ -291,16 +289,13 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 						conflictedItem = item
 						// decrypt server item
-						is := EncryptedItems{item}
+						var di Item
 
-						var dis Items
-
-						dis, err = is.DecryptAndParse(input.Session)
+						di, err = DecryptAndParseItem(item, input.Session)
 						if err != nil {
 							return
 						}
 
-						di := dis[0]
 						// generate new uuid
 						newUUID := GenUUID()
 						// create remap reference for later
@@ -415,20 +410,18 @@ func updateEncryptedItemRefs(s *Session, eis EncryptedItems, refReMap map[string
 			panic("not default key")
 		}
 
-		itd := EncryptedItems{ei}
+		var di Item
 
-		var dis Items
-
-		dis, err = itd.DecryptAndParse(s)
+		di, err = DecryptAndParseItem(ei, s)
 		if err != nil {
 			return
 		}
+
 		// update refs
 		var updatedRefs ItemReferences
 
 		var itemUpdated bool
 
-		di := dis[0]
 		diContent := di.GetContent()
 		itemsReferences := diContent.References()
 

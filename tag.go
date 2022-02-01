@@ -94,7 +94,7 @@ func (t *Tags) Encrypt(s Session) (e EncryptedItems, err error) {
 		ite = append(ite, &g)
 	}
 
-	e, err = encryptItems(&ite, s.DefaultItemsKey, s.MasterKey, s.Debug)
+	e, err = encryptItems(&ite, s.DefaultItemsKey, s.Debug)
 
 	return
 }

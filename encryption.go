@@ -267,11 +267,11 @@ func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
 	return
 }
 
-func encryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem EncryptedItem, err error) {
+func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem EncryptedItem, err error) {
 	var contentEncryptionKey string
 
 	if ik.UUID == "" {
-		panic("in encryptItem with invalid items key (missing UUID)")
+		panic("in EncryptItem with invalid items key (missing UUID)")
 	}
 
 	ikid := ik.UUID
@@ -307,6 +307,7 @@ func encryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	} else {
 		authData = "{\"u\":\"" + item.GetUUID() + "\",\"v\":\"004\"}"
 	}
+
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 
 	// generate nonce
@@ -441,6 +442,95 @@ func isUnsupportedType(t string) bool {
 	return strings.HasPrefix(t, "SF|")
 }
 
+func DecryptItems(eis EncryptedItems, s *Session, ik ItemsKey) (dis DecryptedItems, err error) {
+	for x := range eis {
+		var di DecryptedItem
+		di, err = DecryptItem(eis[x], s, ik)
+		if err != nil {
+			return
+		}
+
+		dis = append(dis, di)
+	}
+
+	return
+}
+
+func DecryptItem(e EncryptedItem, s *Session, ik ItemsKey) (o DecryptedItem, err error) {
+	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %s %s", e.ContentType, e.UUID))
+
+	if e.Deleted {
+		err = fmt.Errorf(fmt.Sprintf("cannot decrypt deleted item: %s %s", e.ContentType, e.UUID))
+
+		return
+	}
+
+	var contentEncryptionKey string
+
+	switch {
+	case ik.ItemsKey != "":
+		// passed when re-encrypting an export
+		contentEncryptionKey = ik.ItemsKey
+	case e.ItemsKeyID == nil && e.ContentType != "SN|ItemsKey":
+		err = fmt.Errorf(fmt.Sprintf("cannot decrypt item without items key id specified: %s %s", e.ContentType, e.UUID))
+
+		return
+	case isEncryptedWithMasterKey(e.ContentType):
+		contentEncryptionKey = s.MasterKey
+	default:
+		if e.ItemsKeyID == nil {
+			debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType))
+			err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID", e.Deleted, e.UUID, e.ContentType)
+			return
+		}
+
+		contentEncryptionKey = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
+		if contentEncryptionKey == "" {
+			err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s", e.Deleted, e.UUID, e.ContentType, *e.ItemsKeyID)
+			return
+		}
+	}
+
+	version, nonce, cipherText, authData := splitContent(e.EncItemKey)
+	if version != "004" {
+		err = fmt.Errorf("your account contains an item (uuid: \"%s\" type: \"%s\" encryption version: \"%s\") encrypted with an earlier version of Standard Notes\nto upgrade your encryption, perform a backup and restore via the official app", e.UUID, e.ContentType, version)
+		return
+	}
+
+	var itemKey []byte
+
+	itemKey, err = decryptString(cipherText, contentEncryptionKey, nonce, authData)
+	if err != nil {
+		return
+	}
+
+	_, nonce, cipherText, authData = splitContent(e.Content)
+
+	var content []byte
+
+	content, err = decryptString(cipherText, string(itemKey), nonce, authData)
+	if err != nil {
+		return
+	}
+
+	var di DecryptedItem
+	di.UUID = e.UUID
+	di.ContentType = e.ContentType
+	di.Deleted = e.Deleted
+
+	if e.ItemsKeyID != nil {
+		di.ItemsKeyID = *e.ItemsKeyID
+	}
+
+	di.UpdatedAt = e.UpdatedAt
+	di.CreatedAt = e.CreatedAt
+	di.CreatedAtTimestamp = e.CreatedAtTimestamp
+	di.UpdatedAtTimestamp = e.UpdatedAtTimestamp
+	di.Content = string(content)
+
+	return di, err
+}
+
 // Decrypt.
 func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
@@ -516,13 +606,13 @@ func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err
 	return
 }
 
-func encryptItems(decItems *Items, ik ItemsKey, masterKey string, debug bool) (encryptedItems EncryptedItems, err error) {
+func encryptItems(decItems *Items, ik ItemsKey, debug bool) (encryptedItems EncryptedItems, err error) {
 	debugPrint(debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
 	d := *decItems
 
 	for _, decItem := range d {
 		var e EncryptedItem
-		e, err = encryptItem(decItem, ik, nil)
+		e, err = EncryptItem(decItem, ik, nil)
 		encryptedItems = append(encryptedItems, e)
 	}
 

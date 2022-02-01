@@ -22,28 +22,35 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	noteContent.Text = "Note Text"
 	note.Content = *noteContent
 
-	items := Items{&note}
-	eItems, err := items.Encrypt(ik, s.MasterKey, true)
+	eItem, err := EncryptItem(&note, ik, s)
 	require.NoError(t, err)
-	require.Len(t, eItems, 1)
+	require.NotEmpty(t, eItem.ItemsKeyID)
+	require.Equal(t, "Note", eItem.ContentType)
 
 	s.DefaultItemsKey = ik
 	s.ItemsKeys = []ItemsKey{ik}
-	di, err := eItems.DecryptAndParse(s)
+	di, err := DecryptAndParseItem(eItem, s)
 	require.NoError(t, err)
-	require.Len(t, di, 1)
-	dn := di[0].(*Note)
+	require.NotEmpty(t, di.GetUUID())
+
+	dn := di.(*Note)
+
 	require.Equal(t, note.Content.Title, dn.Content.Title)
 	require.Equal(t, note.Content.Text, dn.Content.Text)
 
 	eik, err := ik.Encrypt(testSession, true)
 	require.NoError(t, err)
-	eItems = append(eItems, eik)
+	require.NotEmpty(t, eik.Content)
+
+	eItems := EncryptedItems{eItem, eik}
+
+	require.Len(t, eItems, 2)
 
 	so, err := Sync(SyncInput{
 		Session: testSession,
 		Items:   eItems,
 	})
+	require.NoError(t, err)
 	require.Equal(t, 2, len(so.SavedItems))
 
 	var foundKey bool
@@ -51,6 +58,7 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	var foundNote bool
 
 	var noteIndex int
+
 	for x := range so.SavedItems {
 		if so.SavedItems[x].ContentType == "SN|ItemsKey" {
 			require.Equal(t, ik.UUID, so.SavedItems[x].UUID)
@@ -63,6 +71,7 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 			noteIndex = x
 			require.Equal(t, note.UUID, so.SavedItems[x].UUID)
 			require.Less(t, int64(0), so.SavedItems[x].UpdatedAtTimestamp)
+
 			foundNote = true
 		}
 	}
@@ -71,12 +80,15 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	require.True(t, foundNote)
 
 	var foundSIK bool
+
 	var numDefaults int
+
 	for x := range testSession.ItemsKeys {
 		if testSession.ItemsKeys[x].UUID == ik.UUID {
 			if testSession.ItemsKeys[x].Default == true {
 				numDefaults++
 			}
+
 			foundSIK = true
 		}
 	}
@@ -85,12 +97,10 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	require.Equal(t, 1, numDefaults)
 	require.Equal(t, ik.UUID, testSession.DefaultItemsKey.UUID)
 	require.Equal(t, ik.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+	require.Equal(t, "Note", so.SavedItems[noteIndex].ContentType)
 
-	ei := EncryptedItems{so.SavedItems[noteIndex]}
-	require.Equal(t, "Note", ei[0].ContentType)
-	di, err = ei.DecryptAndParse(testSession)
+	di, err = DecryptAndParseItem(so.SavedItems[noteIndex], testSession)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(di))
 }
 
 func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
