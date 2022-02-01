@@ -290,6 +290,7 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	}
 
 	batchSize := 500
+
 	numItems := len(items)
 	if numItems < 500 {
 		batchSize = numItems
@@ -363,6 +364,74 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 
 		err = tx.Commit()
 		if err != nil {
+			return err
+		}
+	}
+
+	if close {
+		return db.Close()
+	}
+
+	return nil
+}
+
+// CleanCacheItems marks Cache Items as clean (Dirty = false) and resets dirtied date to the provided database.
+func CleanCacheItems(db *storm.DB, items Items, close bool) error {
+	if len(items) == 0 {
+		return fmt.Errorf("no items provided to CleanCacheItems")
+	}
+
+	// strip deleted
+	var stripped Items
+
+	for x := range items {
+		if items[x].Deleted {
+			continue
+		}
+
+		stripped = append(stripped, items[x])
+	}
+
+	items = stripped
+
+	if db == nil {
+		return fmt.Errorf("db not passed to CleanCacheItems")
+	}
+
+	batchSize := 500
+	numItems := len(items)
+
+	if numItems < 500 {
+		batchSize = numItems
+	}
+
+	total := len(items)
+
+	for i := 0; i < total/batchSize; i++ {
+		tx, err := db.Begin(true)
+		if err != nil {
+			return err
+		}
+
+		for j := 0; j < batchSize; j++ {
+			uuid := items[j].UUID
+
+			err = tx.Update(&Item{UUID: uuid, Dirty: false, DirtiedDate: time.Time{}})
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+
+					continue
+				}
+
+				err = tx.Rollback()
+
+				return err
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+
 			return err
 		}
 	}
@@ -741,19 +810,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	debugPrint(si.Debug, fmt.Sprintf("Sync | removing dirty flag on %d db items now synced back to SN", len(dirty)))
 
 	// unset dirty flag and date on anything that has now been synced back to SN
-	for _, d := range dirty {
-		if d.Deleted {
-			// deleted items have been removed by now
-			continue
-		}
-
-		err = db.UpdateField(&Item{UUID: d.UUID}, "Dirty", false)
-		if err != nil {
-			return
-		}
-
-		err = db.UpdateField(&Item{UUID: d.UUID}, "DirtiedDate", time.Time{})
-		if err != nil {
+	if len(dirty) > 0 {
+		if err = CleanCacheItems(db, dirty, false); err != nil {
 			return
 		}
 	}
@@ -765,6 +823,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// put new Items in db
 	var itemsToDelete Items
+
 	var newItems Items
 
 	for _, i := range gSO.Items {
