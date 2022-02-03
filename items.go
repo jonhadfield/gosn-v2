@@ -134,20 +134,7 @@ func ReEncryptItem(ei EncryptedItem, decryptionItemsKey ItemsKey, newItemsKey It
 		return
 	}
 
-	//encr
-
-	//var itemToEncrypt Item
-	//
-	//itemToEncrypt, err = ParseItem(di)
-	//if err != nil {
-	//	err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
-	//
-	//	return
-	//}
-
-	//return EncryptItem(itemToEncrypt, newItemsKey, s)
 	return di.Encrypt(newItemsKey, s)
-
 }
 
 func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newItemsKey ItemsKey, newMasterKey string) (o EncryptedItems, err error) {
@@ -158,20 +145,29 @@ func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newI
 	di, err = ei.Decrypt(s, decryptionItemsKey)
 
 	if err != nil {
-		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
+		err = fmt.Errorf("ReEncrypt | Decrypt | %w", err)
 		return
 	}
 
-	var itemsToEncrypt Items
+	for x := range di {
+		// items key handled separately
+		if di[x].ContentType == "SN|ItemsKey" {
+			continue
+		}
 
-	itemsToEncrypt, err = di.Parse()
-	if err != nil {
-		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
+		var ri EncryptedItem
 
-		return
+		ri, err = di[x].Encrypt(newItemsKey, s)
+		if err != nil {
+			err = fmt.Errorf("ReEncrypt | Encrypt | %w", err)
+
+			return
+		}
+
+		o = append(o, ri)
 	}
 
-	return itemsToEncrypt.Encrypt(newItemsKey, newMasterKey, s.Debug)
+	return o, err
 }
 
 func DecryptAndParseItem(ei EncryptedItem, s *Session) (o Item, err error) {
@@ -767,7 +763,8 @@ func (di *DecryptedItems) RemoveDeleted() {
 }
 
 func (s *Session) Export(path string) error {
-	// we must export all items or otherwise we will update the encryption key for non exported items so they can no longer be encrypted
+	// we must export all items, or otherwise we will update the encryption key
+	// for non exported items so they can no longer be encrypted
 	so, err := Sync(SyncInput{
 		Session: s,
 	})
@@ -839,10 +836,9 @@ type EncryptedItemExport struct {
 }
 
 type writeJSONConfig struct {
-	session   Session
-	plainText bool
-	Path      string
-	Debug     bool
+	session Session
+	Path    string
+	Debug   bool
 }
 
 func writeJSON(c writeJSONConfig, items EncryptedItems) error {
