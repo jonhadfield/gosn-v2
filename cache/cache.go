@@ -128,12 +128,7 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 func (s *Session) Export(path string) error {
 	debugPrint(s.Debug, fmt.Sprintf("Exporting to path: %s", path))
 
-	err := s.Session.Export(path)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.Session.Export(path)
 }
 
 func (s *Session) RemoveDB() {
@@ -381,19 +376,6 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 		return fmt.Errorf("no items provided to CleanCacheItems")
 	}
 
-	// strip deleted
-	var stripped Items
-
-	for x := range items {
-		if items[x].Deleted {
-			continue
-		}
-
-		stripped = append(stripped, items[x])
-	}
-
-	items = stripped
-
 	if db == nil {
 		return fmt.Errorf("db not passed to CleanCacheItems")
 	}
@@ -416,12 +398,20 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 		for j := 0; j < batchSize; j++ {
 			uuid := items[j].UUID
 
-			err = tx.Update(&Item{UUID: uuid, Dirty: false, DirtiedDate: time.Time{}})
-			if err != nil {
+			if err = tx.UpdateField(&Item{UUID: uuid}, "Dirty", false); err != nil {
 				if strings.Contains(err.Error(), "not found") {
-
 					continue
 				}
+			}
+
+			if err = tx.UpdateField(&Item{UUID: uuid}, "DirtiedDate", time.Time{}); err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					continue
+				}
+			}
+
+			if err != nil {
+				fmt.Println(err)
 
 				err = tx.Rollback()
 
@@ -431,7 +421,6 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 
 		err = tx.Commit()
 		if err != nil {
-
 			return err
 		}
 	}
@@ -563,7 +552,7 @@ func retrieveItemsKeysFromCache(s *gosn.Session, i Items) (encryptedItemKeys gos
 	return
 }
 
-// Sync will push any dirty items to SN and make database cache consistent with SN
+// Sync will push any dirty items to SN and make database cache consistent with SN.
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {

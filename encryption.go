@@ -114,7 +114,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 	}
 
 	// updated at is set by SN so will be zero for a new key
-	//if !new {
+	// if !new {
 	//	if ik.UpdatedAt == "" {
 	//		panic("ik.UpdatedAt is empty")
 	//	}
@@ -265,6 +265,87 @@ func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
 	ik = f
 
 	return
+}
+
+func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem EncryptedItem, err error) {
+	var contentEncryptionKey string
+
+	if ik.UUID == "" {
+		panic("in EncryptItem with invalid items key (missing UUID)")
+	}
+
+	ikid := ik.UUID
+
+	encryptedItem.ItemsKeyID = &ikid
+	contentEncryptionKey = ik.ItemsKey
+	encryptedItem.UUID = di.UUID
+	encryptedItem.ContentType = di.ContentType
+	encryptedItem.UpdatedAt = di.UpdatedAt
+	encryptedItem.CreatedAt = di.CreatedAt
+	encryptedItem.Deleted = di.Deleted
+	encryptedItem.UpdatedAtTimestamp = di.UpdatedAtTimestamp
+	encryptedItem.CreatedAtTimestamp = di.CreatedAtTimestamp
+	// Generate Item Key
+	itemKeyBytes := make([]byte, 64)
+
+	_, err = crand.Read(itemKeyBytes)
+	if err != nil {
+		panic(err)
+	}
+
+	itemKey := hex.EncodeToString(itemKeyBytes)
+	// get Item Encryption Key
+	itemEncryptionKey := itemKey[:len(itemKey)/2]
+	// encrypt Item content
+	var encryptedContent string
+
+	mContent, _ := json.Marshal(di.Content)
+
+	var authData string
+	if di.Content == "SN|ItemsKey" {
+		authData = "{\"kp\":{\"identifier\":\"" + session.KeyParams.Identifier + "\",\"pw_nonce\":\"" + session.KeyParams.PwNonce + "\",\"version\":\"" + session.KeyParams.Version + "\",\"origination\":\"" + session.KeyParams.Origination + "\",\"created\",\"" + session.KeyParams.Created + "\"},\"u\":\"" + di.UUID + "\",\"v\":\"" + session.KeyParams.Version + "\"}"
+	} else {
+		authData = "{\"u\":\"" + di.UUID + "\",\"v\":\"004\"}"
+	}
+
+	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
+
+	// generate nonce
+	bNonce := make([]byte, chacha20poly1305.NonceSizeX)
+
+	_, err = crand.Read(bNonce)
+	if err != nil {
+		panic(err)
+	}
+
+	nonce := hex.EncodeToString(bNonce)
+
+	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData)
+	if err != nil {
+		panic(err)
+
+		return
+	}
+
+	content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
+
+	encryptedItem.Content = content
+
+	// generate nonce
+	_, err = crand.Read(bNonce)
+	if err != nil {
+		panic(err)
+	}
+
+	nonce = hex.EncodeToString(bNonce)
+
+	// encrypt content encryption key
+	var encryptedContentKey string
+	encryptedContentKey, err = encryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData)
+	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
+	encryptedItem.EncItemKey = encItemKey
+
+	return encryptedItem, err
 }
 
 func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem EncryptedItem, err error) {

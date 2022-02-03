@@ -496,7 +496,7 @@ func (cis *ConflictedItems) DeDupe() {
 
 	for _, ci := range *cis {
 		switch {
-		// check if it's an encounted server item
+		// check if it's an encountered server item
 		case ci.ServerItem.UUID != "":
 			if !stringInSlice(ci.ServerItem.UUID, seenServerItems, true) {
 				deDuped = append(deDuped, ci)
@@ -625,9 +625,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	}
 
 	var responseBody []byte
-	//fmt.Printf("requestBody: %s\n", string(requestBody))
+
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-	//fmt.Printf("responseBody: %s\n", string(responseBody))
+
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}

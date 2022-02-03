@@ -356,7 +356,6 @@ func ParseSessionString(ss string) (sess Session, err error) {
 	sess.PasswordNonce = ms.KeyParams.PwNonce
 
 	return
-
 }
 
 func isUnencryptedSession(in string) bool {
