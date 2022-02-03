@@ -306,7 +306,7 @@ func TestReEncrypt(t *testing.T) {
 	require.Equal(t, rt.Content.Title, tag.Content.Title)
 }
 
-//func TestRegisterExportImport(t *testing.T) {
+// func TestRegisterExportImport(t *testing.T) {
 //	if !strings.Contains(testSession.Server, "ramea") {
 //		return
 //	}
@@ -698,7 +698,7 @@ func TestImportFromFile(t *testing.T) {
 	_, itemsKey, err := testSession.Import("testuser-encrypted-backup.txt", "", "testuser")
 	require.NoError(t, err)
 	require.NotEmpty(t, itemsKey)
-	//require.Len(t, items, 5)
+
 	require.Len(t, testSession.ItemsKeys, numItemsKeys)
 	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
 	require.NotEqual(t, itemsKeyPre, testSession.DefaultItemsKey.ItemsKey)
@@ -778,7 +778,7 @@ func TestExportImportOfNote(t *testing.T) {
 	require.True(t, foundNote)
 }
 
-//func TestExportImportOfNoteWithSync(t *testing.T) {
+// func TestExportImportOfNoteWithSync(t *testing.T) {
 //	cleanup()
 //	defer cleanup()
 //	syncOutput, err := Sync(SyncInput{
@@ -914,7 +914,7 @@ func TestDecryptionOfImportedItemsKey(t *testing.T) {
 }
 
 //
-//func TestExportImportOfEncryptedNote(t *testing.T) {
+// func TestExportImportOfEncryptedNote(t *testing.T) {
 //	n := NewNote()
 //	nc := NewNoteContent()
 //	nc.Title = "test title"

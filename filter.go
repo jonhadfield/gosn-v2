@@ -37,6 +37,7 @@ func (i *Items) Filter(f ItemFilters) {
 		switch t := ix[x].(type) {
 		case *Note:
 			note := ix[x].(*Note)
+
 			if found := applyNoteFilters(*t, f, tags); found {
 				filtered = append(filtered, note)
 			}

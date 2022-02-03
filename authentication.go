@@ -578,7 +578,7 @@ func (input RegisterInput) Register() (token string, err error) {
 
 	// create an ItemsKey and Sync it
 	sio, err := SignIn(SignInInput{
-		//_, err = SignIn(SignInInput{
+		// _, err = SignIn(SignInInput{
 		Email:     input.Email,
 		Password:  input.Password,
 		APIServer: input.APIServer,

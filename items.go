@@ -130,20 +130,24 @@ func ReEncryptItem(ei EncryptedItem, decryptionItemsKey ItemsKey, newItemsKey It
 	di, err = DecryptItem(ei, s, decryptionItemsKey)
 
 	if err != nil {
-		err = fmt.Errorf("DecryptAndParse | Decrypt | %w", err)
+		err = fmt.Errorf("ReEncryptItem | Decrypt | %w", err)
 		return
 	}
 
-	var itemToEncrypt Item
+	//encr
 
-	itemToEncrypt, err = ParseItem(di)
-	if err != nil {
-		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
+	//var itemToEncrypt Item
+	//
+	//itemToEncrypt, err = ParseItem(di)
+	//if err != nil {
+	//	err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
+	//
+	//	return
+	//}
 
-		return
-	}
+	//return EncryptItem(itemToEncrypt, newItemsKey, s)
+	return di.Encrypt(newItemsKey, s)
 
-	return EncryptItem(itemToEncrypt, newItemsKey, s)
 }
 
 func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newItemsKey ItemsKey, newMasterKey string) (o EncryptedItems, err error) {
@@ -934,7 +938,6 @@ func compareItems(input CompareItemsInput) (same, unsupported bool, err error) {
 
 		if len(t1Refs) == len(t2Refs) {
 			for x := range t1Refs {
-
 				if t1Refs[x] != t2Refs[x] {
 					refsDiffer = true
 					break
@@ -996,7 +999,6 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 
 		if len(t1Refs) == len(t2Refs) {
 			for x := range t1Refs {
-
 				if t1Refs[x] != t2Refs[x] {
 					refsDiffer = true
 					break
@@ -1013,7 +1015,6 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 }
 
 func decryptExport(s *Session, path, password string) (items Items, err error) {
-	//initialItemsKey := fmt.Sprintf("Initial DefaultItemsKey %s", s.DefaultItemsKey.ItemsKey)
 
 	encItemsToImport, keyParams, err := readJSON(path)
 	if err != nil {
@@ -1132,7 +1133,6 @@ func (s *Session) Import(path string, syncToken string, password string) (items 
 	debugPrint(s.Debug, fmt.Sprintf("Import | export file returned %d items", len(exportItems)))
 
 	// This is already set when decrypting Export
-	//s.ImporterItemsKey = exportsItemsKey
 
 	// retrieve all existing items from SN
 	so, err := Sync(SyncInput{
@@ -1180,9 +1180,9 @@ func (s *Session) Import(path string, syncToken string, password string) (items 
 					identical, unsupported, err = compareItems(CompareItemsInput{
 						Session:   s,
 						FirstItem: existingItems[x],
-						//FirstItemsKey:  s.DefaultItemsKey,
+						// FirstItemsKey:  s.DefaultItemsKey,
 						SecondItem: exportItems[y],
-						//SecondItemsKey: exportsItemsKey,
+						// SecondItemsKey: exportsItemsKey,
 					})
 					if err != nil {
 						return

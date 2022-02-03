@@ -193,17 +193,15 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 			dbItemsKeyCount++
 		}
 
-		//var gsoMatch gosn.EncryptedItem
+		// var gsoMatch gosn.EncryptedItem
 		//
-		//var dbMatch Item
+		// var dbMatch Item
 
 		var found bool
 
 		for y := range gso.Items {
 			if api[x].UUID == gso.Items[y].UUID {
 				found = true
-				//gsoMatch = gso.Items[y]
-				//dbMatch = api[x]
 
 				break
 			}
@@ -211,10 +209,6 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 
 		require.True(t, found)
 
-		//switch {
-		//case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
-		//	fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
-		//}
 	}
 
 	var snItemsKeyCount int
@@ -224,17 +218,11 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 			snItemsKeyCount++
 		}
 
-		//var gsoMatch gosn.EncryptedItem
-
-		//var dbMatch Item
-
 		var found bool
 
 		for y := range allPersistedItems {
 			if gso.Items[x].UUID == allPersistedItems[y].UUID {
 				found = true
-				//gsoMatch = gso.Items[x]
-				//dbMatch = allPersistedItems[y]
 
 				break
 			}
@@ -244,15 +232,7 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 			panic(fmt.Sprintf("item %+v not found in DB", gso.Items[x]))
 		}
 
-		//switch {
-		//case gsoMatch.ItemsKeyID != nil && dbMatch.ItemsKeyID != nil && *gsoMatch.ItemsKeyID != *dbMatch.ItemsKeyID:
-		//	fmt.Printf("Mismatched ItemsKeyID for uuid %s type %s. db has %s and SN has %s\n", gsoMatch.UUID, gsoMatch.ContentType, *dbMatch.ItemsKeyID, *gsoMatch.ItemsKeyID)
-		//}
 	}
-
-	//if snItemsKeyCount != dbItemsKeyCount {
-	//	fmt.Printf("SN ItemsKey count: %d DB ItemsKey count: %d\n", snItemsKeyCount, dbItemsKeyCount)
-	//}
 }
 
 func TestSyncWithoutDatabase(t *testing.T) {
@@ -567,38 +547,12 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 	defer removeDB(tempDBPath)
 	require.NoError(t, err)
 	require.Len(t, syncTokens, 1)
-
-	//
-	//// get all items
-	//var allPersistedItems []Item
-	//
-	//err = so.DB.All(&allPersistedItems)
-	//require.NoError(t, err)
-	//
-	//var syncTokens []SyncToken
-	//err = so.DB.All(&syncTokens)
-	//require.NoError(t, err)
-	//require.NotEmpty(t, syncTokens)
-	//
-	//err = so.DB.All(&allPersistedItems)
-	//
-	//require.Greater(t, len(allPersistedItems), 0)
-	//
-	//var foundNotes int
-	//
-	//for _, pi := range allPersistedItems {
-	//	if pi.ContentType == "Note" && pi.UUID == newNote.UUID {
-	//		foundNotes++
-	//	}
-	//}
-	//
-	//require.Equal(t, 1, foundNotes)
 }
 
 // create a note in SN directly
 // call persist, Sync, and check DB contains the note
 // update new note, sync to SN, then check new content is persisted.
-//func TestSyncUpdateExisting(t *testing.T) {
+// func TestSyncUpdateExisting(t *testing.T) {
 //	defer cleanup(testSession.Session)
 //	defer removeDB(testSession.CacheDBPath)
 //	// cache sync to retrieve items and store sync token
@@ -764,33 +718,33 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	require.Equal(t, "Modified Text", uNote.Content.GetText())
 //}
 
-func checkItemInDBTemp(db *storm.DB, inNote gosn.Note, title, text string) (found bool) {
-	var allPersistedItems Items
-
-	err := db.All(&allPersistedItems)
-	if err != nil {
-		panic(fmt.Sprintf("couldn't get items from db: %+v", err))
-	}
-
-	// require.Equal(t, len(allPersistedItems), 1)
-	items, err := allPersistedItems.ToItems(testSession)
-	if err != nil {
-		panic("couldn't turn cache items to gosn items")
-	}
-
-	for x := range items {
-		if items[x].GetContentType() == "Note" && items[x].GetUUID() == inNote.UUID {
-			// panic("found new note in cache")
-			foundNote := *items[x].(*gosn.Note)
-
-			if foundNote.Content.Title == title && foundNote.Content.Text == text {
-				return true
-			}
-		}
-	}
-
-	return false
-}
+//func checkItemInDBTemp(db *storm.DB, inNote gosn.Note, title, text string) (found bool) {
+//	var allPersistedItems Items
+//
+//	err := db.All(&allPersistedItems)
+//	if err != nil {
+//		panic(fmt.Sprintf("couldn't get items from db: %+v", err))
+//	}
+//
+//	// require.Equal(t, len(allPersistedItems), 1)
+//	items, err := allPersistedItems.ToItems(testSession)
+//	if err != nil {
+//		panic("couldn't turn cache items to gosn items")
+//	}
+//
+//	for x := range items {
+//		if items[x].GetContentType() == "Note" && items[x].GetUUID() == inNote.UUID {
+//			// panic("found new note in cache")
+//			foundNote := *items[x].(*gosn.Note)
+//
+//			if foundNote.Content.Title == title && foundNote.Content.Text == text {
+//				return true
+//			}
+//		}
+//	}
+//
+//	return false
+//}
 
 func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	gnf := gosn.Filter{
