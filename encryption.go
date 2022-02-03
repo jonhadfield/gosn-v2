@@ -299,9 +299,10 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem En
 	// encrypt Item content
 	var encryptedContent string
 
-	mContent, _ := json.Marshal(di.Content)
+	mContent := []byte(di.Content)
 
 	var authData string
+
 	if di.Content == "SN|ItemsKey" {
 		authData = "{\"kp\":{\"identifier\":\"" + session.KeyParams.Identifier + "\",\"pw_nonce\":\"" + session.KeyParams.PwNonce + "\",\"version\":\"" + session.KeyParams.Version + "\",\"origination\":\"" + session.KeyParams.Origination + "\",\"created\",\"" + session.KeyParams.Created + "\"},\"u\":\"" + di.UUID + "\",\"v\":\"" + session.KeyParams.Version + "\"}"
 	} else {
