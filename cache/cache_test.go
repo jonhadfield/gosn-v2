@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -54,6 +55,65 @@ func testSetup() {
 func TestMain(m *testing.M) {
 	testSetup()
 	os.Exit(m.Run())
+}
+
+// Create 600 notes in and sync to SN
+// Bring them into Cache and check all exist
+func TestSync600Notes(t *testing.T) {
+	defer cleanup(testSession.Session)
+
+	var originalNotes gosn.Notes
+
+	for i := 0; i < 600; i++ {
+		newNote, _ := createNote(strconv.Itoa(i), fmt.Sprintf("%d - this is some text", i))
+
+		time.Sleep(1 * time.Millisecond)
+
+		originalNotes = append(originalNotes, newNote)
+	}
+
+	eNotes, err := originalNotes.Encrypt(*testSession.Session)
+	require.NoError(t, err)
+	require.Len(t, eNotes, 600)
+
+	var so gosn.SyncOutput
+	so, err = gosn.Sync(gosn.SyncInput{
+		Session: testSession.Session,
+		Items:   eNotes,
+	})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(so.SavedItems), 600)
+
+	// bring into cache
+	var cso SyncOutput
+	cso, err = Sync(SyncInput{
+		Session: testSession,
+	})
+	require.NoError(t, err)
+
+	var allPersistedItems Items
+
+	require.NoError(t, cso.DB.All(&allPersistedItems))
+	require.GreaterOrEqual(t, len(allPersistedItems), 600)
+	gItems, err := allPersistedItems.ToItems(testSession)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(gItems), 600)
+
+	seen := make(map[string]string)
+
+	for x := range gItems {
+		if gItems[x].GetContentType() == "Note" && !gItems[x].IsDeleted() {
+			item := gItems[x]
+			note := item.(*gosn.Note)
+			noteContent := note.Content
+			seen[noteContent.Title] = noteContent.Text
+		}
+	}
+
+	// check all items are there
+	for x := range originalNotes {
+		require.Equal(t, originalNotes[x].Content.Text, seen[originalNotes[x].Content.Title])
+	}
 }
 
 // Create a note in cache and sync to SN
@@ -158,6 +218,7 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 	require.NoError(t, so.DB.Close())
 
 	tmpfn := filepath.Join(dir, "tmpfile")
+
 	require.NoError(t, err)
 
 	err = testSession.Export(tmpfn)
@@ -208,7 +269,6 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 		}
 
 		require.True(t, found)
-
 	}
 
 	var snItemsKeyCount int
@@ -231,7 +291,6 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 		if !found && gso.Items[x].ContentType != "SN|ItemsKey" {
 			panic(fmt.Sprintf("item %+v not found in DB", gso.Items[x]))
 		}
-
 	}
 }
 
@@ -506,6 +565,7 @@ func TestSyncOneExisting(t *testing.T) {
 	require.NotEmpty(t, syncTokens)
 
 	err = so.DB.All(&allPersistedItems)
+	require.NoError(t, err)
 
 	require.Greater(t, len(allPersistedItems), 0)
 

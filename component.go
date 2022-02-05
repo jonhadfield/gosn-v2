@@ -175,7 +175,6 @@ func (c Component) GetContent() Content {
 }
 
 func (c *Component) SetContent(cc Content) {
-
 	c.Content = *cc.(*ComponentContent)
 }
 

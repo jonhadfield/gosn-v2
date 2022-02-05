@@ -31,6 +31,7 @@ func stringInSlice(inStr string, inSlice []string, matchCase bool) bool {
 	return false
 }
 
+// DeleteContent will remove all Notes, Tags, and Components from SN.
 func DeleteContent(session *Session) (deleted int, err error) {
 	si := SyncInput{
 		Session: session,
@@ -42,13 +43,14 @@ func DeleteContent(session *Session) (deleted int, err error) {
 	if err != nil {
 		return
 	}
+
 	var itemsToPut EncryptedItems
 
-	for _, item := range so.Items {
-		if stringInSlice(item.ContentType, []string{"Note", "Tag", "SN|Component"}, true) {
-			item.Deleted = true
-			item.Content = ""
-			itemsToPut = append(itemsToPut, item)
+	for x := range so.Items {
+		if stringInSlice(so.Items[x].ContentType, []string{"Note", "Tag", "SN|Component"}, true) {
+			so.Items[x].Deleted = true
+			so.Items[x].Content = ""
+			itemsToPut = append(itemsToPut, so.Items[x])
 		}
 	}
 
@@ -56,5 +58,5 @@ func DeleteContent(session *Session) (deleted int, err error) {
 
 	so, err = Sync(si)
 
-	return len(itemsToPut), err
+	return len(so.SavedItems), err
 }
