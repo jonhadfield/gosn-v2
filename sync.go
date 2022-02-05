@@ -141,7 +141,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	output.Unsaved.DeDupe()
 	output.SavedItems = sResp.SavedItems
 	output.SavedItems.DeDupe()
-
 	output.Conflicts = sResp.Conflicts
 	output.Conflicts.DeDupe()
 	output.Cursor = sResp.CursorToken
@@ -399,6 +398,7 @@ func updateEncryptedItemRefs(s *Session, eis EncryptedItems, refReMap map[string
 		if ei.Deleted {
 			continue
 		}
+
 		if isEncryptedWithMasterKey(ei.ContentType) {
 			result = append(result, ei)
 
@@ -554,6 +554,7 @@ func lesserOf(first, second int) int {
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
+	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)))
 
 	// determine how many items to retrieve with each call
 	var limit int
@@ -569,7 +570,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	out.PutLimitUsed = limit
 
-	var encItemJSON []byte
+	encItemJSON := []byte("[]")
 
 	itemsToPut := input.Items
 
@@ -609,10 +610,12 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	case input.CursorToken == "null":
 		if input.SyncToken == "" {
 			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
-				`,"items":[],"cursor_token":null}`)
+				`,"items":` + string(encItemJSON) +
+				`,"cursor_token":null}`)
 		} else {
 			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
-				`,"items":[],"sync_token":"` + newST + `","cursor_token":null}`)
+				`,"items":` + string(encItemJSON) +
+				`,"sync_token":"` + newST + `","cursor_token":null}`)
 		}
 
 	case input.CursorToken != "":
@@ -620,13 +623,17 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 		input.SyncToken = stripLineBreak(rawST)
 
-		requestBody = []byte(`{"limit":` + strconv.Itoa(limit) +
-			`,"items":[],"compute_integrity":false,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
+		requestBody = []byte(`{"api":"20200115", "limit":` + strconv.Itoa(limit) +
+			`,"items":` + string(encItemJSON) +
+			`,"compute_integrity":false,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}
 
 	var responseBody []byte
-
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
+
+	//fmt.Printf("requestBody: %s\n", string(requestBody))
+	//
+	//fmt.Printf("responseBody: %s\n", string(responseBody))
 
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
@@ -660,10 +667,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		var newOutput syncResponse
 
 		input.SyncToken = out.SyncToken
-		// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)))
 
 		input.CursorToken = out.CursorToken
-		// debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
+		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)))
 
 		input.PageSize = limit
 		// sync was successful so set new item

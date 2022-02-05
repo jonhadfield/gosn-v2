@@ -286,23 +286,22 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 
 	batchSize := 500
 
-	numItems := len(items)
-	if numItems < 500 {
-		batchSize = numItems
-	}
-
 	total := len(items)
 
-	for i := 0; i < total/batchSize; i++ {
-		tx, err := db.Begin(true)
-		if err != nil {
-			return err
+	for i := 0; i < total; i += batchSize {
+		j := i + batchSize
+		if j > total {
+			j = total
 		}
 
-		for j := 0; j < batchSize; j++ {
-			err = tx.Save(&items[j])
+		tx, err := db.Begin(true)
+		sl := items[i:j]
+
+		for v := range sl {
+			err = tx.Save(&sl[v])
 			if err != nil {
 				tx.Rollback()
+
 				return err
 			}
 		}
@@ -331,27 +330,38 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 	}
 
 	batchSize := 500
-	numItems := len(items)
-
-	if numItems < 500 {
-		batchSize = numItems
-	}
 
 	total := len(items)
 
-	for i := 0; i < total/batchSize; i++ {
+	for i := 0; i < total; i += batchSize {
+		j := i + batchSize
+		if j > total {
+			j = total
+		}
+
 		tx, err := db.Begin(true)
 		if err != nil {
 			return err
 		}
 
-		for j := 0; j < batchSize; j++ {
-			err = tx.DeleteStruct(&items[j])
+		sl := items[i:j]
+
+		for v := range sl {
+			err = tx.DeleteStruct(&sl[v])
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					continue
 				}
-				tx.Rollback()
+
+				err = fmt.Errorf("rolling back due to: %+v", err)
+
+				if tx.Rollback() != nil {
+					origErr := err
+					err = fmt.Errorf("%+v and rollback failed with: %+v", err, origErr)
+
+					return err
+				}
+				//tx.Rollback()
 
 				return err
 			}
@@ -373,30 +383,32 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 // CleanCacheItems marks Cache Items as clean (Dirty = false) and resets dirtied date to the provided database.
 func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
-		return fmt.Errorf("no items provided to CleanCacheItems")
+		return fmt.Errorf("no items provided to DeleteCacheItems")
 	}
 
 	if db == nil {
-		return fmt.Errorf("db not passed to CleanCacheItems")
+		return fmt.Errorf("db not passed to DeleteCacheItems")
 	}
 
 	batchSize := 500
-	numItems := len(items)
-
-	if numItems < 500 {
-		batchSize = numItems
-	}
 
 	total := len(items)
 
-	for i := 0; i < total/batchSize; i++ {
+	for i := 0; i < total; i += batchSize {
+		j := i + batchSize
+		if j > total {
+			j = total
+		}
+
 		tx, err := db.Begin(true)
 		if err != nil {
 			return err
 		}
 
-		for j := 0; j < batchSize; j++ {
-			uuid := items[j].UUID
+		sl := items[i:j]
+
+		for v := range sl {
+			uuid := sl[v].UUID
 
 			if err = tx.UpdateField(&Item{UUID: uuid}, "Dirty", false); err != nil {
 				if strings.Contains(err.Error(), "not found") {
@@ -411,9 +423,12 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 			}
 
 			if err != nil {
-				fmt.Println(err)
+				err = fmt.Errorf("rolling back due to: %+v", err)
 
-				err = tx.Rollback()
+				if tx.Rollback() != nil {
+					origErr := err
+					err = fmt.Errorf("%+v and rollback failed with: %+v", err, origErr)
+				}
 
 				return err
 			}
@@ -432,20 +447,20 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 	return nil
 }
 
-// UpdateCacheItems updates Cache Items in the provided database.
-func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
-	for _, i := range items {
-		if err := db.Update(&i); err != nil {
-			return err
-		}
-	}
-
-	if close {
-		return db.Close()
-	}
-
-	return nil
-}
+//// UpdateCacheItems updates Cache Items in the provided database.
+//func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
+//	for _, i := range items {
+//		if err := db.Update(&i); err != nil {
+//			return err
+//		}
+//	}
+//
+//	if close {
+//		return db.Close()
+//	}
+//
+//	return nil
+//}
 
 type CleanInput struct {
 	*Session
@@ -453,55 +468,55 @@ type CleanInput struct {
 	UnreferencedItemsKeys bool
 }
 
-func Clean(ci CleanInput) (err error) {
-	// check session is valid
-	if ci.Session == nil || !ci.Session.Valid() {
-		err = fmt.Errorf("invalid session")
-		return
-	}
-
-	// only path should be passed
-	if ci.Session.CacheDBPath == "" {
-		err = fmt.Errorf("database path is required")
-		return
-	}
-
-	var db *storm.DB
-
-	// open DB if path provided
-	if ci.Session.CacheDBPath != "" {
-		debugPrint(ci.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", ci.Session.CacheDBPath))
-
-		db, err = storm.Open(ci.Session.CacheDBPath)
-		if err != nil {
-			return
-		}
-
-		ci.CacheDB = db
-
-		if ci.Close {
-			defer func(db *storm.DB) {
-				if err = db.Close(); err != nil {
-					panic(err)
-				}
-			}(db)
-		}
-	}
-
-	var all []Item
-	err = db.All(&all)
-	debugPrint(ci.Session.Debug, fmt.Sprintf("Sync | retrieved %d existing Items from db", len(all)))
-
-	seenItems := make(map[string]int)
-	for x := range all {
-		if seenItems[all[x].UUID] > 0 {
-			panic(fmt.Sprintf("duplicate item in cache: %s %s", all[x].ContentType, all[x].UUID))
-		}
-		seenItems[all[x].UUID]++
-	}
-
-	return
-}
+//func Clean(ci CleanInput) (err error) {
+//	// check session is valid
+//	if ci.Session == nil || !ci.Session.Valid() {
+//		err = fmt.Errorf("invalid session")
+//		return
+//	}
+//
+//	// only path should be passed
+//	if ci.Session.CacheDBPath == "" {
+//		err = fmt.Errorf("database path is required")
+//		return
+//	}
+//
+//	var db *storm.DB
+//
+//	// open DB if path provided
+//	if ci.Session.CacheDBPath != "" {
+//		debugPrint(ci.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", ci.Session.CacheDBPath))
+//
+//		db, err = storm.Open(ci.Session.CacheDBPath)
+//		if err != nil {
+//			return
+//		}
+//
+//		ci.CacheDB = db
+//
+//		if ci.Close {
+//			defer func(db *storm.DB) {
+//				if err = db.Close(); err != nil {
+//					panic(err)
+//				}
+//			}(db)
+//		}
+//	}
+//
+//	var all []Item
+//	err = db.All(&all)
+//	debugPrint(ci.Session.Debug, fmt.Sprintf("Sync | retrieved %d existing Items from db", len(all)))
+//
+//	seenItems := make(map[string]int)
+//	for x := range all {
+//		if seenItems[all[x].UUID] > 0 {
+//			panic(fmt.Sprintf("duplicate item in cache: %s %s", all[x].ContentType, all[x].UUID))
+//		}
+//		seenItems[all[x].UUID]++
+//	}
+//
+//	return
+//}
 
 func (i Items) Validate() error {
 	for x := range i {
@@ -858,6 +873,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 		newItems = append(newItems, item)
 	}
+
+	debugPrint(si.Debug, fmt.Sprintf("Sync | %d new items to saved to db", len(newItems)))
 
 	if len(newItems) > 0 {
 		if err = SaveCacheItems(db, newItems, false); err != nil {

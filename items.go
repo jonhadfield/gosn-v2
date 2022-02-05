@@ -1011,7 +1011,6 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 }
 
 func decryptExport(s *Session, path, password string) (items Items, err error) {
-
 	encItemsToImport, keyParams, err := readJSON(path)
 	if err != nil {
 		return
