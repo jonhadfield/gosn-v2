@@ -114,6 +114,10 @@ func TestSync600Notes(t *testing.T) {
 	for x := range originalNotes {
 		require.Equal(t, originalNotes[x].Content.Text, seen[originalNotes[x].Content.Title])
 	}
+
+	if err = cso.DB.Close(); err != nil {
+		return
+	}
 }
 
 // Create a note in cache and sync to SN
