@@ -136,7 +136,7 @@ func TestSyncThenExportImport(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 
 	var allPersistedItems []Item
@@ -189,7 +189,7 @@ func TestSyncThenExportImportCompare(t *testing.T) {
 	require.NoError(t, dItems.Validate())
 
 	// encrypt note
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	require.Len(t, eItems, 1)
 
@@ -411,7 +411,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 
 	var so SyncOutput
@@ -470,7 +470,7 @@ func TestSyncWithNewNoteExportReauthenticateImport(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 
 	var so SyncOutput
@@ -532,7 +532,7 @@ func TestSyncOneExisting(t *testing.T) {
 	dItems := gosn.Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 
 	require.NoError(t, err)
 	require.NoError(t, eItems.Validate())
@@ -862,7 +862,7 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	}
 
 	if len(toDel) > 0 {
-		eToDel, err := toDel.Encrypt(session.DefaultItemsKey, session.MasterKey, session.Debug)
+		eToDel, err := toDel.Encrypt(testSession.Session, session.DefaultItemsKey)
 		si = gosn.SyncInput{
 			Session: session,
 			Items:   eToDel,
@@ -883,16 +883,7 @@ func createNote(title, content string) (note gosn.Note, text string) {
 		text = testParas[randInt(0, len(testParas))]
 	}
 
-	newNoteContent := gosn.NoteContent{
-		Title:          title,
-		Text:           text,
-		ItemReferences: nil,
-	}
-
-	newNoteContent.SetUpdateTime(time.Now())
-
-	newNote := gosn.NewNote()
-	newNote.Content = newNoteContent
+	newNote, _ := gosn.NewNote(title, text, nil)
 
 	return newNote, text
 }

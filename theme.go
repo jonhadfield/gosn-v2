@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -48,12 +49,16 @@ func parseTheme(i DecryptedItem) Item {
 }
 
 type ThemeContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
+	HostedURL          string          `json:"hosted_url"`
+	LocalURL           string          `json:"local_url"`
+	PackageInfo        json.RawMessage `json:"package_info"`
+	ValidUntil         string          `json:"valid_until"`
+	ItemReferences     ItemReferences  `json:"references"`
+	AppData            AppDataContent  `json:"appData"`
+	Name               string          `json:"name"`
+	DissociatedItemIds []string        `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string        `json:"associatedItemIds"`
+	Active             interface{}     `json:"active"`
 }
 
 type Theme struct {

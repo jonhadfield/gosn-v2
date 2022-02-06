@@ -1,17 +1,19 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
 
 type FileSafeFileMetaDataContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
+	ServerMetadata     json.RawMessage `json:"serverMetadata"`
+	ItemReferences     ItemReferences  `json:"references"`
+	AppData            AppDataContent  `json:"appData"`
+	Name               string          `json:"name"`
+	DissociatedItemIds []string        `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string        `json:"associatedItemIds"`
+	Active             interface{}     `json:"active"`
 }
 
 func parseFileSafeFileMetadata(i DecryptedItem) Item {

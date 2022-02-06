@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -82,16 +83,12 @@ func _createNotes(session *Session, input map[string]string) (so SyncOutput, err
 	var newNotes Items
 
 	for k, v := range input {
-		newNote := NewNote()
-		newNoteContent := NewNoteContent()
-		newNoteContent.Title = k
-		newNoteContent.Text = v
-		newNote.Content = *newNoteContent
+		newNote, _ := NewNote(k, v, nil)
 		newNotes = append(newNotes, &newNote)
 	}
 
 	if len(newNotes) > 0 {
-		eNotes, _ := newNotes.Encrypt(session.DefaultItemsKey, session.MasterKey, session.Debug)
+		eNotes, _ := newNotes.Encrypt(testSession, session.DefaultItemsKey)
 
 		si := SyncInput{
 			Session: session,
@@ -109,12 +106,12 @@ func _createNotes(session *Session, input map[string]string) (so SyncOutput, err
 
 func _createTags(session *Session, input []string) (output SyncOutput, err error) {
 	for _, tt := range input {
-		newTag := NewTag()
-		newTagContent := TagContent{
-			Title: tt,
-		}
-		newTagContent.SetUpdateTime(time.Now())
-		newTag.Content = newTagContent
+		newTag, _ := NewTag(tt, nil)
+		// newTagContent := TagContent{
+		//	Title: tt,
+		//}
+		//newTagContent.SetUpdateTime(time.Now())
+		//newTag.Content = newTagContent
 
 		var eItem EncryptedItem
 		eItem, err = EncryptItem(&newTag, session.DefaultItemsKey, session)
@@ -231,30 +228,30 @@ func _getItems(session *Session, itemFilters ItemFilters) (items Items, err erro
 }
 
 func createNote(title, text, uuid string) *Note {
-	note := NewNote()
+	note, _ := NewNote(title, text, nil)
 	if uuid != "" {
 		note.UUID = uuid
 	}
 
-	content := NewNoteContent()
-	content.Title = title
-	content.Text = text
-	note.Content = *content
-
 	return &note
 }
 
-func createTag(title, uuid string) *Tag {
-	tag := NewTag()
+func createTag(title, uuid string, refs ItemReferences) (tagp *Tag, err error) {
+	tag, err := NewTag(title, refs)
+	if err != nil {
+		return
+	}
+
 	if uuid != "" {
 		tag.UUID = uuid
 	}
 
 	content := NewTagContent()
 	content.Title = title
+	content.ItemReferences = refs
 	tag.Content = *content
 
-	return &tag
+	return &tag, err
 }
 
 func cleanup() {
@@ -286,7 +283,7 @@ func TestReEncrypt(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	tag := createTag("test", GenUUID())
+	tag, _ := createTag("test", GenUUID(), nil)
 
 	itr, err := EncryptItem(tag, testSession.DefaultItemsKey, testSession)
 	require.NoError(t, err)
@@ -301,7 +298,7 @@ func TestReEncrypt(t *testing.T) {
 
 	ni2, err := DecryptAndParseItem(nie, testSession)
 	require.NoError(t, err)
-	require.Len(t, ni2, 1)
+	//require.Len(t, ni2, 1)
 	rt := ni2.(*Tag)
 	require.Equal(t, rt.Content.Title, tag.Content.Title)
 }
@@ -338,12 +335,12 @@ func TestRegisterCreateTagExportImportTwice(t *testing.T) {
 
 	defer cleanup()
 
-	tag := createTag("test-title", "")
+	tag, _ := createTag("test-title", "", nil)
 
 	var initItems Items
 	initItems = append(initItems, tag)
 
-	encInitItems, err := initItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	so, err := Sync(SyncInput{
 		Session: testSession,
@@ -390,12 +387,12 @@ func TestRegisterCreateTagExportImport(t *testing.T) {
 
 	defer cleanup()
 
-	tag := createTag("test-title", "")
+	tag, _ := createTag("test-title", "", nil)
 
 	var initItems Items
 	initItems = append(initItems, tag)
 
-	encInitItems, err := initItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	so, err := Sync(SyncInput{
 		Session: testSession,
@@ -423,6 +420,106 @@ func TestRegisterCreateTagExportImport(t *testing.T) {
 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
 }
 
+func TestRegisterCreateTagExportImportIntoNewAccount(t *testing.T) {
+	if !strings.Contains(testSession.Server, "ramea") {
+		return
+	}
+
+	defer cleanup()
+
+	// create a tag and sync it to SN using the test session
+	tag, _ := createTag("test-title", "", nil)
+
+	var initItems Items
+	initItems = append(initItems, tag)
+
+	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
+	require.NoError(t, err)
+	so, err := Sync(SyncInput{
+		Session: testSession,
+		Items:   encInitItems,
+	})
+	require.NoError(t, err)
+
+	initKey := testSession.DefaultItemsKey
+
+	require.Equal(t, 1, len(so.SavedItems))
+	require.Equal(t, "Tag", so.SavedItems[0].ContentType)
+
+	tmpfn := tempFilePath()
+	require.NoError(t, testSession.Export(tmpfn))
+
+	// now register and sign in as a new user
+	secondUserEmail := fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
+	secondUserPassword := "secretsanta2"
+
+	ri := RegisterInput{
+		Password:  secondUserPassword,
+		Email:     secondUserEmail,
+		APIServer: "http://ramea:3000",
+		Debug:     true,
+	}
+
+	_, err = ri.Register()
+	require.NoError(t, err)
+	o, err := SignIn(SignInInput{
+		Email:     secondUserEmail,
+		Password:  "secretsanta2",
+		APIServer: "http://ramea:3000",
+		Debug:     true,
+	})
+	require.NoError(t, err)
+
+	newSession := o.Session
+
+	// importing with wrong password should fail
+	_, _, err = newSession.Import(tmpfn, "", "secretsanta1")
+	require.Error(t, err)
+
+	// importing with correct password should succeed
+	items, key, err := newSession.Import(tmpfn, "", "secretsanta")
+	require.NoError(t, err)
+
+	var keyIndex int
+
+	for x := range items {
+		if items[x].ContentType == "SN|ItemsKey" {
+			keyIndex = x
+		}
+	}
+
+	require.Equal(t, "SN|ItemsKey", items[keyIndex].ContentType)
+	require.NotEqual(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
+
+	// now sync and decrypt
+	so, err = Sync(SyncInput{
+		Session: &newSession,
+	})
+
+	require.NoError(t, err)
+
+	dis, err := so.Items.DecryptAndParse(&newSession)
+	require.NoError(t, err)
+
+	var found bool
+	for x := range dis {
+		if dis[x].GetContentType() == "Tag" {
+			nt := dis[x].(*Tag)
+			require.Equal(t, nt.Content.Title, tag.Content.Title)
+			// these won't be equal as we're importing an item with the same UUID as
+			// the original tag, resulting in a uuid_conflict, so we generate a new one
+			require.NotEqual(t, nt.UUID, tag.UUID)
+
+			found = true
+
+			break
+		}
+	}
+
+	require.True(t, found)
+
+}
+
 // 1. add a tag to SN (encrypted with initial items key) - KEY1
 // 2. take export (generate new items key, encrypt tag and new items key, and write to file only)
 // 3. add another tag to SN (encrypted with initial items key) - KEY1
@@ -438,11 +535,11 @@ func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
 
 	defer cleanup()
 
-	tag := createTag("test-title", "")
+	tag, _ := createTag("test-title", "", nil)
 	var initItems Items
 	initItems = append(initItems, tag)
 
-	encInitItems, _ := initItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	encInitItems, _ := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	so, _ := Sync(SyncInput{
 		Session: testSession,
 		Items:   encInitItems,
@@ -453,10 +550,10 @@ func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
 
 	tmpfn := tempFilePath()
 	require.NoError(t, testSession.Export(tmpfn))
-	tag2 := createTag("another-test-title", "")
+	tag2, _ := createTag("another-test-title", "", nil)
 	var items2 Items
 	items2 = append(items2, tag2)
-	encItems2, _ := items2.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	encItems2, _ := items2.Encrypt(testSession, testSession.DefaultItemsKey)
 
 	so2, _ := Sync(SyncInput{
 		Session:   testSession,
@@ -501,20 +598,10 @@ func TestAddDeleteNote(t *testing.T) {
 	defer cleanup()
 
 	randPara := "TestText"
-
-	newNoteContent := NoteContent{
-		Title:          "TestTitle",
-		Text:           randPara,
-		ItemReferences: nil,
-	}
-
-	newNoteContent.SetUpdateTime(time.Now())
-
-	newNote := NewNote()
-	newNote.Content = newNoteContent
+	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 
 	var foundItemsKeyInList bool
 
@@ -576,7 +663,7 @@ func TestAddDeleteNote(t *testing.T) {
 	}
 
 	is := Items{foundItem}
-	eis, err := is.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eis, err := is.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.Len(t, eis, 1)
 	itemToDelete := eis[0]
 	itemToDelete.Deleted = true
@@ -625,13 +712,8 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	require.Empty(t, ik.UpdatedAtTimestamp)
 	require.Empty(t, ik.UpdatedAt)
 
-	n := NewNote()
-	nc := NewNoteContent()
-	nc.Title = "test title"
-	nc.Text = "test content"
-	n.Content = *nc
-
-	ei, err := EncryptItem(&n, ik, nil)
+	n, _ := NewNote("test title", "test content", nil)
+	ei, err := EncryptItem(&n, ik, testSession)
 	require.NoError(t, err)
 	require.NotEmpty(t, ei.UUID)
 	require.NotEmpty(t, ei.CreatedAtTimestamp)
@@ -725,12 +807,7 @@ func TestExportImportOfNote(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	n := NewNote()
-	nc := NewNoteContent()
-	nc.Title = "test title"
-	nc.Text = "test content"
-	n.Content = *nc
-
+	n, _ := NewNote("test title", "test content", nil)
 	path := "./test.json"
 
 	// sync new note to SN before export
@@ -856,12 +933,7 @@ func TestDecryptionOfImportedItemsKey(t *testing.T) {
 		Session: testSession,
 	})
 
-	n := NewNote()
-	nc := NewNoteContent()
-	nc.Title = "test title"
-	nc.Text = "test content"
-	n.Content = *nc
-
+	n, _ := NewNote("test title", "test content", nil)
 	path := "./test.json"
 
 	var preExportItemsKeys []ItemsKey
@@ -870,7 +942,7 @@ func TestDecryptionOfImportedItemsKey(t *testing.T) {
 
 	items := Items{&n}
 
-	eis, err := items.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, true)
+	eis, err := items.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 
 	_, err = Sync(SyncInput{
@@ -962,14 +1034,9 @@ func TestEncryptDecryptItemWithItemsKeyWithExportedMethods(t *testing.T) {
 	require.Empty(t, ik.UpdatedAtTimestamp)
 	require.Empty(t, ik.UpdatedAt)
 
-	n := NewNote()
-	nc := NewNoteContent()
-	nc.Title = "test title"
-	nc.Text = "test content"
-	n.Content = *nc
-
+	n, _ := NewNote("test title", "test content", nil)
 	eis := Items{&n}
-	encItems, err := eis.Encrypt(ik, testSession.MasterKey, testSession.Debug)
+	encItems, err := eis.Encrypt(testSession, ik)
 	require.NoError(t, err)
 	require.NotEmpty(t, encItems[0].UUID)
 	require.NotEmpty(t, encItems[0].CreatedAtTimestamp)
@@ -1011,20 +1078,10 @@ func TestCreateAddUseItemsKey(t *testing.T) {
 	require.NotEmpty(t, ik.ItemsKey)
 
 	randPara := "TestText"
-
-	newNoteContent := NoteContent{
-		Title:          "TestTitle",
-		Text:           randPara,
-		ItemReferences: nil,
-	}
-
-	newNoteContent.SetUpdateTime(time.Now())
-
-	newNote := NewNote()
-	newNote.Content = newNoteContent
+	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
@@ -1101,22 +1158,12 @@ func TestDecryptItemsKeys(t *testing.T) {
 
 func TestEncryptDecryptItem(t *testing.T) {
 	randPara := testParas[randInt(0, len(testParas))]
-
-	newNoteContent := NoteContent{
-		Title:          "TestTitle",
-		Text:           randPara,
-		ItemReferences: nil,
-	}
-
-	newNoteContent.SetUpdateTime(time.Now())
-
-	newNote := NewNote()
-	newNote.Content = newNoteContent
+	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
 
 	// eItems, err := dItems.Encrypt(*testSession)
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
@@ -1131,20 +1178,10 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	defer cleanup()
 
 	randPara := "TestText"
-
-	newNoteContent := NoteContent{
-		Title:          "TestTitle",
-		Text:           randPara,
-		ItemReferences: nil,
-	}
-
-	newNoteContent.SetUpdateTime(time.Now())
-
-	newNote := NewNote()
-	newNote.Content = newNoteContent
+	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
 	require.NoError(t, dItems.Validate())
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
@@ -1158,13 +1195,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	require.NoError(t, err, "Sync Failed", err)
 	require.Len(t, so.SavedItems, 1, "expected 1")
 	uuidOfNewItem := so.SavedItems[0].UUID
-	si = SyncInput{
-		Session: testSession,
-	}
-
-	// so, err = Sync(si)
-	// require.NoError(t, err, "Sync Failed", err)
-
 	items, err := so.SavedItems.DecryptAndParse(testSession)
 
 	require.NoError(t, err)
@@ -1231,7 +1261,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	dItems := Items{&newComponent}
 	require.NoError(t, dItems.Validate())
 
-	eItems, err := dItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 
 	syncInput := SyncInput{
@@ -1266,12 +1296,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 }
 
 func TestItemsRemoveDeleted(t *testing.T) {
-	noteContent := NewNoteContent()
-	noteContent.Title = "Title"
-	noteContent.Text = "Text"
-
-	noteOne := NewNote()
-	noteOne.Content = *noteContent
+	noteOne, _ := NewNote("Title", "Text", nil)
 	noteTwo := noteOne.Copy()
 	noteTwo.UUID += "a"
 	noteThree := noteOne.Copy()
@@ -1341,7 +1366,7 @@ func TestNoteContentCopy(t *testing.T) {
 
 func TestTagContentCopy(t *testing.T) {
 	initialTagTitle := "Title"
-	initialTagContent := NewNoteContent()
+	initialTagContent := NewTagContent()
 	initialTagContent.Title = initialTagTitle
 	dupeNoteContent := initialTagContent.Copy()
 	// update initial to ensure copy
@@ -1353,11 +1378,7 @@ func TestTagContentCopy(t *testing.T) {
 
 func TestNoteCopy(t *testing.T) {
 	initialNoteTitle := "Title"
-	initialNote := NewNote()
-	initialNoteContent := NewNoteContent()
-	initialNoteContent.Title = initialNoteTitle
-	initialNoteContent.Text = "Text"
-	initialNote.SetContent(initialNoteContent)
+	initialNote, _ := NewNote(initialNoteTitle, "Text", nil)
 	dupeNote := initialNote.Copy()
 	require.Equal(t, initialNote.Content.GetTitle(), initialNoteTitle)
 	require.NotNil(t, dupeNote.Content)
@@ -1371,10 +1392,7 @@ func TestNoteCopy(t *testing.T) {
 }
 
 func TestTagCopy(t *testing.T) {
-	initialTag := NewTag()
-	initialTagContent := NewTagContent()
-	initialTagContent.Title = "Title"
-	initialTag.SetContent(initialTagContent)
+	initialTag, _ := NewTag("Title", nil)
 	dupeTag := initialTag.Copy()
 	require.NotNil(t, dupeTag.Content)
 	require.Equal(t, dupeTag.UUID, initialTag.UUID)
@@ -1387,11 +1405,9 @@ func TestTagCopy(t *testing.T) {
 
 func TestTagComparison(t *testing.T) {
 	xUUID := GenUUID()
-	one := NewTag()
+	one, _ := NewTag("one", nil)
 	one.UUID = xUUID
-	one.Content = *NewTagContent()
-	two := NewTag()
-	two.Content = *NewTagContent()
+	two, _ := NewTag("one", nil)
 	two.UUID = xUUID
 	require.True(t, one.Equals(two))
 
@@ -1411,7 +1427,7 @@ func TestNoteTagging(t *testing.T) {
 	// create base notes
 	newNotes := genNotes(10, 2)
 	require.NoError(t, newNotes.Validate())
-	eItems, err := newNotes.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err := newNotes.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	_, err = Sync(SyncInput{
 		Session: testSession,
@@ -1425,7 +1441,7 @@ func TestNoteTagging(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", GenUUID())
 	spiderNote := createNote("Spiders", "Are not welcome", GenUUID())
 	// tag dog and gnu note with animal tag
-	animalFactsTag := createTag("Animal Facts", GenUUID())
+	animalFactsTag, _ := createTag("Animal Facts", GenUUID(), nil)
 
 	updatedAnimalTagsInput := UpdateItemRefsInput{
 		Items: Items{animalFactsTag},
@@ -1446,7 +1462,7 @@ func TestNoteTagging(t *testing.T) {
 	}
 
 	// tag cheese note with food tag
-	foodFactsTag := createTag("Food Facts", GenUUID())
+	foodFactsTag, _ := createTag("Food Facts", GenUUID(), nil)
 
 	updatedFoodTagsInput := UpdateItemRefsInput{
 		Items: Items{foodFactsTag},
@@ -1486,7 +1502,7 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
 
 	require.NoError(t, allItems.Validate())
-	eItems, err = allItems.Encrypt(testSession.DefaultItemsKey, testSession.MasterKey, testSession.Debug)
+	eItems, err = allItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 
 	_, err = Sync(SyncInput{
@@ -1843,18 +1859,8 @@ func genRandomText(paragraphs int) string {
 
 func genNotes(num int, textParas int) (notes Items) {
 	for i := 1; i <= num; i++ {
-		time.Sleep(3 * time.Millisecond)
-
-		noteContent := &NoteContent{
-			Title:          fmt.Sprintf("-%d-,%s", i, "Title"),
-			Text:           fmt.Sprintf("%d,%s", i, genRandomText(textParas)),
-			ItemReferences: ItemReferences{},
-		}
-		noteContent.SetUpdateTime(time.Now())
-
-		newNote := NewNote()
-
-		newNote.Content = *noteContent
+		time.Sleep(2 * time.Millisecond)
+		newNote, _ := NewNote(fmt.Sprintf("-%d-,%s", i, "Title"), fmt.Sprintf("%d,%s", i, genRandomText(textParas)), nil)
 
 		notes = append(notes, &newNote)
 	}

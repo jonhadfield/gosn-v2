@@ -46,11 +46,11 @@ func TestFilterNoteByTagUUID(t *testing.T) {
 	foodTagUUID := GenUUID()
 	sportNoteUUID := GenUUID()
 
-	animalTag := createTag("Animal", animalTagUUID)
+	animalTag, _ := createTag("Animal", animalTagUUID, nil)
 	gnuNote := createNote("GNU", "Is not Unix", gnuNoteUUID)
 	sportNote := createNote("Sport", "Is dull", sportNoteUUID)
 
-	foodTag := createTag("Food", foodTagUUID)
+	foodTag, _ := createTag("Food", foodTagUUID, nil)
 	cheeseNote := createNote("Cheese", "Is not a vegetable", cheeseNoteUUID)
 
 	gnuRef := ItemReference{
@@ -160,11 +160,11 @@ func TestFilterNoteByTagTitle(t *testing.T) {
 	foodTagUUID := GenUUID()
 	sportNoteUUID := GenUUID()
 
-	animalTag := createTag("Animal", animalTagUUID)
+	animalTag, _ := createTag("Animal", animalTagUUID, nil)
 	gnuNote := createNote("GNU", "Is not Unix", gnuNoteUUID)
 	sportNote := createNote("Sport", "Is dull", sportNoteUUID)
 
-	foodTag := createTag("Food", foodTagUUID)
+	foodTag, _ := createTag("Food", foodTagUUID, nil)
 	cheeseNote := createNote("Cheese", "Is not a vegetable", cheeseNoteUUID)
 
 	gnuRef := ItemReference{
@@ -414,7 +414,7 @@ func TestFilterNoteTitleByRegex(t *testing.T) {
 }
 
 func TestFilterTagTitle(t *testing.T) {
-	gnuTag := createTag("GNU", GenUUID())
+	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "Title",
@@ -431,7 +431,7 @@ func TestFilterTagTitle(t *testing.T) {
 
 func TestFilterTagUUID(t *testing.T) {
 	uuid := GenUUID()
-	gnuTag := createTag("GNU", uuid)
+	gnuTag, _ := createTag("GNU", uuid, nil)
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "UUID",
@@ -447,7 +447,7 @@ func TestFilterTagUUID(t *testing.T) {
 }
 
 func TestFilterTagTitleByRegex(t *testing.T) {
-	gnuTag := createTag("GNU", GenUUID())
+	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "Title",
@@ -463,7 +463,7 @@ func TestFilterTagTitleByRegex(t *testing.T) {
 }
 
 func TestFilterTagTitleByNotEqualTo(t *testing.T) {
-	gnuTag := createTag("GNU", GenUUID())
+	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
 		Type:       "Tag",
 		Key:        "Title",

@@ -2,6 +2,7 @@ package gosn
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -97,23 +98,31 @@ func (n *Notes) Encrypt(s Session) (e EncryptedItems, err error) {
 		ite = append(ite, &g)
 	}
 
-	// get default items key
-	e, err = encryptItems(&ite, s.DefaultItemsKey, s.Debug)
+	e, err = encryptItems(&s, &ite, s.DefaultItemsKey)
 
 	return
 }
 
-// NewNote returns an Item of type Note without content.
-func NewNote() Note {
+// NewNote returns an Item of type Note.
+func NewNote(title string, text string, references ItemReferences) (note Note, err error) {
 	now := time.Now().UTC().Format(timeLayout)
 
-	var note Note
+	note.UUID = GenUUID()
 	note.ContentType = "Note"
+
+	if strings.TrimSpace(title) == "" {
+		return note, fmt.Errorf("title cannot be empty")
+	}
+
+	note.Content = *NewNoteContent()
+	note.Content.SetUpdateTime(time.Now().UTC())
+	note.Content.Title = title
+	note.Content.Text = text
+	note.Content.ItemReferences = references
 	note.CreatedAt = now
 	note.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
-	note.UUID = GenUUID()
 
-	return note
+	return note, err
 }
 
 // NewNoteContent returns an empty Note content instance.
@@ -367,7 +376,7 @@ func (noteContent NoteContent) Copy() NoteContent {
 }
 
 func (n Note) Copy() Note {
-	c := NewNote()
+	c, _ := NewNote("", "", nil)
 	tContent := n.Content
 	c.Content = tContent.Copy()
 	c.UpdatedAt = n.UpdatedAt

@@ -50,9 +50,11 @@ func parseComponent(i DecryptedItem) Item {
 }
 
 type ComponentContent struct {
+	Identifier         string         `json:"identifier"`
 	LegacyURL          string         `json:"legacy_url"`
 	HostedURL          string         `json:"hosted_url"`
 	LocalURL           string         `json:"local_url"`
+	URL                string         `json:"url"`
 	ValidUntil         string         `json:"valid_until"`
 	OfflineOnly        bool           `json:"offlineOnly"`
 	Name               string         `json:"name"`

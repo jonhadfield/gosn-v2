@@ -16,11 +16,7 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	time.Sleep(time.Millisecond * 1)
 	require.Greater(t, time.Now().UTC().UnixMicro(), ik.CreatedAtTimestamp)
 
-	note := NewNote()
-	noteContent := NewNoteContent()
-	noteContent.Title = "Note Title"
-	noteContent.Text = "Note Text"
-	note.Content = *noteContent
+	note, _ := NewNote("Note Title", "Note Text", nil)
 
 	eItem, err := EncryptItem(&note, ik, s)
 	require.NoError(t, err)
@@ -111,14 +107,10 @@ func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
 	time.Sleep(time.Millisecond * 1)
 	require.Greater(t, time.Now().UTC().UnixMicro(), ik.CreatedAtTimestamp)
 
-	note := NewNote()
-	noteContent := NewNoteContent()
-	noteContent.Title = "Note Title"
-	noteContent.Text = "Note Text"
-	note.Content = *noteContent
+	note, _ := NewNote("Note Title", "Note Text", nil)
 
 	items := Items{&note}
-	eItems, err := items.Encrypt(ik, s.MasterKey, true)
+	eItems, err := items.Encrypt(s, ik)
 	require.NoError(t, err)
 	require.Len(t, eItems, 1)
 

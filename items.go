@@ -261,21 +261,15 @@ func (i *Items) Append(x []interface{}) {
 	*i = all
 }
 
-func (i *Items) Encrypt(ik ItemsKey, masterKey string, debug bool) (e EncryptedItems, err error) {
+func (i *Items) Encrypt(s *Session, ik ItemsKey) (e EncryptedItems, err error) {
 	// return empty if no items provided
 	if len(*i) == 0 {
 		return
 	}
 
-	e, err = encryptItems(i, ik, debug)
+	e, err = encryptItems(s, i, ik)
 	if err != nil {
 		return
-	}
-
-	for x := range e {
-		if e[x].ContentType == "SN|ItemsKey" {
-			panic("pantyhose")
-		}
 	}
 
 	if err = e.Validate(); err != nil {
@@ -1232,7 +1226,7 @@ func (s *Session) Import(path string, syncToken string, password string) (items 
 	// combine all items to reencrypt
 	f := append(exportedToReencrypt, existingToReencrypt...)
 
-	rf, err := f.Encrypt(nik, s.MasterKey, s.Debug)
+	rf, err := f.Encrypt(s, nik)
 	if err != nil {
 		return
 	}

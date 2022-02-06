@@ -37,8 +37,7 @@ func (i *Items) Filter(f ItemFilters) {
 		switch t := ix[x].(type) {
 		case *Note:
 			note := ix[x].(*Note)
-
-			if found := applyNoteFilters(*t, f, tags); found {
+			if found := applyNoteFilters(*note, f, tags); found {
 				filtered = append(filtered, note)
 			}
 		case *Tag:
@@ -48,7 +47,7 @@ func (i *Items) Filter(f ItemFilters) {
 			}
 		case *Component:
 			component := ix[x].(*Component)
-			if found := applyComponentFilters(*t, f); found {
+			if found := applyComponentFilters(*component, f); found {
 				filtered = append(filtered, component)
 			}
 		}

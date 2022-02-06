@@ -48,12 +48,17 @@ func parseFileSafeIntegration(i DecryptedItem) Item {
 }
 
 type FileSafeIntegrationContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
+	Source                string         `json:"source"`
+	Authorization         string         `json:"authorization"`
+	RelayURL              string         `json:"relayUrl"`
+	RawCode               string         `json:"rawCode"`
+	IsDefaultUploadSource bool           `json:"isDefaultUploadSource"`
+	ItemReferences        ItemReferences `json:"references"`
+	AppData               AppDataContent `json:"appData"`
+	Name                  string         `json:"name"`
+	DissociatedItemIds    []string       `json:"disassociatedItemIds"`
+	AssociatedItemIds     []string       `json:"associatedItemIds"`
+	Active                interface{}    `json:"active"`
 }
 
 type FileSafeIntegration struct {
@@ -67,7 +72,7 @@ func (c FileSafeIntegration) IsDefault() bool {
 
 func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
 	for _, x := range i {
-		if x.GetContentType() == "FileSafeIntegration" {
+		if stringInSlice(x.GetContentType(), []string{"FileSafeIntegration", "SN|FileSafe|Integration"}, true) {
 			component := x.(*FileSafeIntegration)
 			c = append(c, *component)
 		}

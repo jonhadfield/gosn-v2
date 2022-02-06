@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"strings"
@@ -82,4 +83,22 @@ func DeleteContent(session *Session, everything bool) (deleted int, err error) {
 	so, err = Sync(si)
 
 	return len(so.SavedItems), err
+}
+
+func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
+	// TODO: There should be an IsValid method on each item that includes this check if SN|ItemsKey
+	err = json.Unmarshal(input, &output)
+	if err != nil {
+		return
+	}
+
+	// check no items keys have an items key
+	for _, item := range output.Items {
+		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
+			err = fmt.Errorf("SN|ItemsKey %s has an ItemsKeyID set", item.UUID)
+			return
+		}
+	}
+
+	return
 }

@@ -22,12 +22,11 @@ func localTestMain() {
 	testUserPassword = "secretsanta"
 
 	rInput := RegisterInput{
-		Password:   testUserPassword,
-		Email:      testUserEmail,
-		Identifier: testUserEmail,
-		APIServer:  localServer,
-		Version:    defaultSNVersion,
-		Debug:      true,
+		Password:  testUserPassword,
+		Email:     testUserEmail,
+		APIServer: localServer,
+		Version:   defaultSNVersion,
+		Debug:     true,
 	}
 
 	_, err := rInput.Register()
