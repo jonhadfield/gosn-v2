@@ -248,7 +248,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 								k = input.Session.ImporterItemsKey
 							}
 
-							newis, err = newdis.Encrypt(k, input.Session.MasterKey, input.Session.Debug)
+							newis, err = newdis.Encrypt(input.Session, k)
 							if err != nil {
 								return
 							}
@@ -313,7 +313,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 							k = input.Session.ImporterItemsKey
 						}
 
-						newis, err = newdis.Encrypt(k, input.Session.MasterKey, input.Session.Debug)
+						newis, err = newdis.Encrypt(input.Session, k)
 						if err != nil {
 							return
 						}
@@ -460,7 +460,7 @@ func updateEncryptedItemRefs(s *Session, eis EncryptedItems, refReMap map[string
 
 		var eisNew EncryptedItems
 
-		eisNew, err = disNew.Encrypt(s.DefaultItemsKey, s.MasterKey, s.Debug)
+		eisNew, err = disNew.Encrypt(s, s.DefaultItemsKey)
 		if err != nil {
 			return
 		}
@@ -631,9 +631,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
 
-	//fmt.Printf("requestBody: %s\n", string(requestBody))
+	// fmt.Printf("requestBody: %s\n", string(requestBody))
 	//
-	//fmt.Printf("responseBody: %s\n", string(responseBody))
+	// fmt.Printf("responseBody: %s\n", string(responseBody))
 
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)

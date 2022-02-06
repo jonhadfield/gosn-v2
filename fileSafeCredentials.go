@@ -1,17 +1,21 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
 
 type FileSafeCredentialsContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
+	Keys               json.RawMessage `json:"keys"`
+	AuthParams         json.RawMessage `json:"authParams"`
+	IsDefault          json.RawMessage `json:"isDefault"`
+	ItemReferences     ItemReferences  `json:"references"`
+	AppData            AppDataContent  `json:"appData"`
+	Name               string          `json:"name"`
+	DissociatedItemIds []string        `json:"disassociatedItemIds"`
+	AssociatedItemIds  []string        `json:"associatedItemIds"`
+	Active             interface{}     `json:"active"`
 }
 
 func parseFileSafeCredentials(i DecryptedItem) Item {

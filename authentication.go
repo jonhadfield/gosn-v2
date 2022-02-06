@@ -467,14 +467,12 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 type RegisterInput struct {
 	Password    string
 	Email       string
-	Identifier  string
 	PWNonce     string
 	Version     string
 	Origination string
 	Created     int64
-	// API         string
-	APIServer string
-	Debug     bool
+	APIServer   string
+	Debug       bool
 }
 
 func processDoRegisterRequestResponse(response *http.Response, debug bool) (token string, err error) {
@@ -541,6 +539,7 @@ func (input RegisterInput) Register() (token string, err error) {
 	if input.APIServer == "" {
 		input.APIServer = apiServer
 	}
+
 	var pwNonce, serverPassword string
 	_, pwNonce, _, serverPassword, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
 

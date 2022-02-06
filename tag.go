@@ -2,6 +2,7 @@ package gosn
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -94,22 +95,29 @@ func (t *Tags) Encrypt(s Session) (e EncryptedItems, err error) {
 		ite = append(ite, &g)
 	}
 
-	e, err = encryptItems(&ite, s.DefaultItemsKey, s.Debug)
+	e, err = encryptItems(&s, &ite, s.DefaultItemsKey)
 
 	return
 }
 
 // NewTag returns an Item of type Tag without content.
-func NewTag() Tag {
+func NewTag(title string, refs ItemReferences) (tag Tag, err error) {
 	now := time.Now().UTC().Format(timeLayout)
 
-	var tag Tag
+	if strings.TrimSpace(title) == "" {
+		return tag, fmt.Errorf("title cannot be empty")
+	}
+
+	c := NewTagContent()
+	c.Title = title
+	c.ItemReferences = refs
+	tag.Content = *c
 	tag.ContentType = "Tag"
 	tag.CreatedAt = now
 	tag.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	tag.UUID = GenUUID()
 
-	return tag
+	return tag, err
 }
 
 // NewTagContent returns an empty Tag content instance.
@@ -326,7 +334,7 @@ func (tagContent TagContent) Copy() TagContent {
 }
 
 func (t Tag) Copy() Tag {
-	c := NewTag()
+	c, _ := NewTag("", nil)
 	tContent := t.Content
 	c.Content = tContent.Copy()
 	c.UpdatedAt = t.UpdatedAt
