@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"strings"
 )
@@ -32,7 +33,7 @@ func stringInSlice(inStr string, inSlice []string, matchCase bool) bool {
 }
 
 // DeleteContent will remove all Notes, Tags, and Components from SN.
-func DeleteContent(session *Session) (deleted int, err error) {
+func DeleteContent(session *Session, everything bool) (deleted int, err error) {
 	si := SyncInput{
 		Session: session,
 	}
@@ -46,12 +47,34 @@ func DeleteContent(session *Session) (deleted int, err error) {
 
 	var itemsToPut EncryptedItems
 
+	typesToDelete := []string{
+		"Note",
+		"Tag",
+	}
+	if everything {
+		typesToDelete = append(typesToDelete, []string{
+			"SN|Component",
+			"SN|FileSafe|FileMetaData",
+			"SN|FileSafe|Credentials",
+			"SN|FileSafe|Integration",
+			"SN|Theme",
+			"SN|ExtensionRepo",
+			"SN|Privileges",
+			"Extension",
+			"SN|UserPreferences",
+		}...)
+	}
+
 	for x := range so.Items {
-		if stringInSlice(so.Items[x].ContentType, []string{"Note", "Tag", "SN|Component"}, true) {
+		if !so.Items[x].Deleted && stringInSlice(so.Items[x].ContentType, typesToDelete, true) {
 			so.Items[x].Deleted = true
 			so.Items[x].Content = ""
 			itemsToPut = append(itemsToPut, so.Items[x])
 		}
+	}
+
+	if len(itemsToPut) > 0 {
+		debugPrint(session.Debug, fmt.Sprintf("DeleteContent | removing %d items", len(itemsToPut)))
 	}
 
 	si.Items = itemsToPut
