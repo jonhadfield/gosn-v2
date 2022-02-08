@@ -107,7 +107,7 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 
 func generateAuthData(ct, uuid string, kp KeyParams) string {
 	if ct == "SN|ItemsKey" {
-		return "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\",\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
+		return "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\":\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
 	}
 
 	return "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
