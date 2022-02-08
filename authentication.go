@@ -589,6 +589,9 @@ func (input RegisterInput) Register() (token string, err error) {
 
 	// create an ItemsKey and Sync it
 	ik, err := sio.Session.CreateItemsKey()
+	if err != nil {
+		return
+	}
 
 	eKey, err := ik.Encrypt(&sio.Session, true)
 	if err != nil {
