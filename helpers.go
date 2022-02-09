@@ -3,8 +3,8 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"strings"
+
 )
 
 func stripLineBreak(input string) string {

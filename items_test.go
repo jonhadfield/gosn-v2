@@ -110,7 +110,7 @@ func _createTags(session *Session, input []string) (output SyncOutput, err error
 		// newTagContent := TagContent{
 		//	Title: tt,
 		//}
-		//newTagContent.SetUpdateTime(time.Now())
+		// newTagContent.SetUpdateTime(time.Now())
 		//newTag.Content = newTagContent
 
 		var eItem EncryptedItem
@@ -298,7 +298,7 @@ func TestReEncrypt(t *testing.T) {
 
 	ni2, err := DecryptAndParseItem(nie, testSession)
 	require.NoError(t, err)
-	//require.Len(t, ni2, 1)
+
 	rt := ni2.(*Tag)
 	require.Equal(t, rt.Content.Title, tag.Content.Title)
 }
@@ -517,7 +517,6 @@ func TestRegisterCreateTagExportImportIntoNewAccount(t *testing.T) {
 	}
 
 	require.True(t, found)
-
 }
 
 // 1. add a tag to SN (encrypted with initial items key) - KEY1
@@ -743,7 +742,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	duplicateSession.ItemsKeys = append(duplicateSession.ItemsKeys, ik)
 
 	e := EncryptedItems{ei}
-	di, err := e.Decrypt(&duplicateSession, ItemsKey{})
+	di, err := e.Decrypt(&duplicateSession, ItemsKeys{})
 
 	require.NoError(t, err)
 	require.NotEmpty(t, di)
@@ -1047,7 +1046,7 @@ func TestEncryptDecryptItemWithItemsKeyWithExportedMethods(t *testing.T) {
 	require.Empty(t, encItems[0].DuplicateOf)
 
 	testSession.ItemsKeys = append(testSession.ItemsKeys, ik)
-	di, err := encItems.Decrypt(testSession, ItemsKey{})
+	di, err := encItems.Decrypt(testSession, ItemsKeys{})
 	require.NoError(t, err)
 	require.NotEmpty(t, di)
 
@@ -1607,7 +1606,7 @@ func TestSearchNotesByUUID(t *testing.T) {
 
 	var di DecryptedItems
 
-	di, err = cnO.SavedItems.Decrypt(testSession, ItemsKey{})
+	di, err = cnO.SavedItems.Decrypt(testSession, ItemsKeys{})
 	require.NoError(t, err)
 
 	var dis Items
