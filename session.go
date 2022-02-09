@@ -33,8 +33,8 @@ type Session struct {
 	Token     string
 	MasterKey string
 	ItemsKeys []ItemsKey
-	// ImporterItemsKey is the key used to encrypt exported items and set during import only
-	ImporterItemsKey  ItemsKey
+	// ImporterItemsKeys is the key used to encrypt exported items and set during import only
+	ImporterItemsKeys ItemsKeys
 	DefaultItemsKey   ItemsKey
 	KeyParams         KeyParams `json:"keyParams"`
 	AccessToken       string    `json:"access_token"`
@@ -42,6 +42,17 @@ type Session struct {
 	AccessExpiration  int64     `json:"access_expiration"`
 	RefreshExpiration int64     `json:"refresh_expiration"`
 	PasswordNonce     string
+}
+
+func (iks ItemsKeys) Latest() ItemsKey {
+	var l ItemsKey
+	for _, ik := range iks {
+		if ik.CreatedAtTimestamp > l.CreatedAtTimestamp {
+			l = ik
+		}
+	}
+
+	return l
 }
 
 type MinimalSession struct {

@@ -122,6 +122,7 @@ func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 
 	mContent, _ := json.Marshal(item.GetContent())
 	authData := generateAuthData(item.GetContentType(), item.GetUUID(), session.KeyParams)
+
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 	nonce := hex.EncodeToString(generateNonce())
 
@@ -178,6 +179,7 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem En
 	mContent := []byte(di.Content)
 
 	authData := generateAuthData(di.ContentType, di.UUID, session.KeyParams)
+
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 	nonce := hex.EncodeToString(generateNonce())
 

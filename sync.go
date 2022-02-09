@@ -48,7 +48,7 @@ type ConflictedItem struct {
 func Sync(input SyncInput) (output SyncOutput, err error) {
 	// a different items key may be provided in case the items being synced are encrypted with a non-default items key
 	// we need to reset on completion it to avoid it being used in future
-	defer func() { input.Session.ImporterItemsKey = ItemsKey{} }()
+	defer func() { input.Session.ImporterItemsKeys = ItemsKeys{} }()
 
 	debugPrint(input.Session.Debug, fmt.Sprintf("Sync | called with %d items and syncToken %s", len(input.Items), input.SyncToken))
 
@@ -243,9 +243,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 							k := input.Session.DefaultItemsKey
 							// if the conflict is during import, then we need to re-encrypt with Importer Key
-							if input.Session.ImporterItemsKey.ItemsKey != "" {
-								debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", input.Session.ImporterItemsKey.UUID))
-								k = input.Session.ImporterItemsKey
+							if len(input.Session.ImporterItemsKeys) > 0 {
+								debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", k.UUID))
+								k = input.Session.ImporterItemsKeys.Latest()
 							}
 
 							newis, err = newdis.Encrypt(input.Session, k)
@@ -308,9 +308,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 						k := input.Session.DefaultItemsKey
 						// if the conflict is during import, then we need to re-encrypt with Importer Key
-						if input.Session.ImporterItemsKey.ItemsKey != "" {
-							debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", input.Session.ImporterItemsKey.UUID))
-							k = input.Session.ImporterItemsKey
+						if input.Session.ImporterItemsKeys.Latest().Content.ItemsKey != "" {
+							k = input.Session.ImporterItemsKeys.Latest()
+							debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", k.UUID))
 						}
 
 						newis, err = newdis.Encrypt(input.Session, k)

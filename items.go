@@ -127,7 +127,7 @@ func ReEncryptItem(ei EncryptedItem, decryptionItemsKey ItemsKey, newItemsKey It
 
 	var di DecryptedItem
 
-	di, err = DecryptItem(ei, s, decryptionItemsKey)
+	di, err = DecryptItem(ei, s, ItemsKeys{decryptionItemsKey})
 
 	if err != nil {
 		err = fmt.Errorf("ReEncryptItem | Decrypt | %w", err)
@@ -142,7 +142,7 @@ func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newI
 
 	var di DecryptedItems
 
-	di, err = ei.Decrypt(s, decryptionItemsKey)
+	di, err = ei.Decrypt(s, ItemsKeys{decryptionItemsKey})
 
 	if err != nil {
 		err = fmt.Errorf("ReEncrypt | Decrypt | %w", err)
@@ -175,11 +175,13 @@ func DecryptAndParseItem(ei EncryptedItem, s *Session) (o Item, err error) {
 
 	var di DecryptedItem
 
-	if s.ImporterItemsKey.ItemsKey != "" {
+	if len(s.ImporterItemsKeys) > 0 {
 		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKey")
-		di, err = DecryptItem(ei, s, s.ImporterItemsKey)
+		ik := getMatchingItem(*ei.ItemsKeyID, s.ImporterItemsKeys)
+
+		di, err = DecryptItem(ei, s, ItemsKeys{ik})
 	} else {
-		di, err = DecryptItem(ei, s, ItemsKey{})
+		di, err = DecryptItem(ei, s, ItemsKeys{})
 	}
 
 	if err != nil {
@@ -219,11 +221,12 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 
 	var di DecryptedItems
 
-	if s.ImporterItemsKey.ItemsKey != "" {
-		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKey")
-		di, err = ei.Decrypt(s, s.ImporterItemsKey)
+	if len(s.ImporterItemsKeys) > 0 && s.ImporterItemsKeys.Latest().UUID != "" {
+		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKeys")
+		di, err = ei.Decrypt(s, s.ImporterItemsKeys)
 	} else {
-		di, err = ei.Decrypt(s, ItemsKey{})
+		debugPrint(s.Debug, "DecryptAndParse | using Session's ItemsKeys")
+		di, err = ei.Decrypt(s, ItemsKeys{})
 	}
 
 	if err != nil {
@@ -295,7 +298,11 @@ type EncryptedItem struct {
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
-	return *ei.ItemsKeyID
+	if ei.ItemsKeyID != nil {
+		return *ei.ItemsKeyID
+	}
+
+	return ""
 }
 
 func (ei EncryptedItem) IsDeleted() bool {
@@ -948,7 +955,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 		return false, unsupported, nil
 	}
 
-	fDec, err := EncryptedItems{input.FirstItem}.Decrypt(input.Session, input.FirstItemsKey)
+	fDec, err := EncryptedItems{input.FirstItem}.Decrypt(input.Session, ItemsKeys{input.FirstItemsKey})
 	if err != nil {
 		return
 	}
@@ -958,7 +965,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 		return
 	}
 
-	sDec, err := EncryptedItems{input.SecondItem}.Decrypt(input.Session, input.SecondItemsKey)
+	sDec, err := EncryptedItems{input.SecondItem}.Decrypt(input.Session, ItemsKeys{input.SecondItemsKey})
 	if err != nil {
 		return
 	}
@@ -1081,30 +1088,22 @@ func decryptExport(s *Session, path, password string) (items Items, err error) {
 		return
 	}
 
-	var exportsItemsKey ItemsKey
+	var exportsItemsKeys ItemsKeys
 
-	switch len(exportsEncItemsKeys) {
-	case 0:
-		err = fmt.Errorf("invalid export: missing ItemsKey %w", err)
-		return
-	case 1:
-		var exportsItemsKeys ItemsKeys
-
-		exportsItemsKeys, err = exportsEncItemsKeys.DecryptAndParseItemsKeys(mk, false)
-		if err != nil {
-			err = fmt.Errorf("invalid export: failed to decrypt ItemsKey %w", err)
-			return
-		}
-
-		exportsItemsKey = exportsItemsKeys[0]
-	default:
-		err = fmt.Errorf("invalid export: only one ItemsKey expected but %d found", len(exportsEncItemsKeys))
+	if len(exportsEncItemsKeys) == 0 {
+		err = fmt.Errorf("invalid export: no ItemsKey %v", err)
 		return
 	}
 
-	s.ImporterItemsKey = exportsItemsKey
+	exportsItemsKeys, err = exportsEncItemsKeys.DecryptAndParseItemsKeys(mk, s.Debug)
+	if err != nil {
+		err = fmt.Errorf("invalid export: failed to decrypt ItemsKey %w", err)
+		return
+	}
+
+	s.ImporterItemsKeys = exportsItemsKeys
 	items, err = exportedEncItems.DecryptAndParse(s)
-	s.ImporterItemsKey = ItemsKey{}
+	s.ImporterItemsKeys = ItemsKeys{}
 
 	return
 }

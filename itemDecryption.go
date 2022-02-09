@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func DecryptItem(e EncryptedItem, s *Session, ik ItemsKey) (o DecryptedItem, err error) {
+func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %s %s", e.ContentType, e.UUID))
 
 	if e.Deleted {
@@ -16,14 +16,11 @@ func DecryptItem(e EncryptedItem, s *Session, ik ItemsKey) (o DecryptedItem, err
 
 	var contentEncryptionKey string
 
+	ik := getMatchingItem(e.GetItemsKeyID(), iks)
+
 	switch {
 	case ik.ItemsKey != "":
-		// passed when re-encrypting an export
 		contentEncryptionKey = ik.ItemsKey
-	// case e.ItemsKeyID == nil && e.ContentType != "SN|ItemsKey":
-	//	err = fmt.Errorf(fmt.Sprintf("cannot decrypt item without items key id specified: %s %s", e.ContentType, e.UUID))
-	//
-	//	return
 	case isEncryptedWithMasterKey(e.ContentType):
 		contentEncryptionKey = s.MasterKey
 	default:
@@ -116,7 +113,7 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 }
 
 // Decrypt.
-func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err error) {
+func (ei EncryptedItems) Decrypt(s *Session, iks ItemsKeys) (o DecryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
 
 	for x := range ei {
@@ -126,7 +123,7 @@ func (ei EncryptedItems) Decrypt(s *Session, ik ItemsKey) (o DecryptedItems, err
 
 		var di DecryptedItem
 
-		di, err = DecryptItem(ei[x], s, ik)
+		di, err = DecryptItem(ei[x], s, iks)
 		if err != nil {
 			return
 		}
