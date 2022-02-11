@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 }
 
 // Create 600 notes in and sync to SN
-// Bring them into Cache and check all exist
+// Bring them into Cache and check all exist.
 func TestSync600Notes(t *testing.T) {
 	defer cleanup(testSession.Session)
 
@@ -782,7 +782,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	require.Equal(t, "Modified Text", uNote.Content.GetText())
 //}
 
-//func checkItemInDBTemp(db *storm.DB, inNote gosn.Note, title, text string) (found bool) {
+// func checkItemInDBTemp(db *storm.DB, inNote gosn.Note, title, text string) (found bool) {
 //	var allPersistedItems Items
 //
 //	err := db.All(&allPersistedItems)

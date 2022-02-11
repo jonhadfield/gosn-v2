@@ -189,6 +189,7 @@ func DecryptAndParseItem(ei EncryptedItem, s *Session) (o Item, err error) {
 		return
 	}
 
+	fmt.Printf("Parsing: %+v\n", di)
 	o, err = ParseItem(di)
 	if err != nil {
 		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
@@ -479,6 +480,7 @@ type ItemReferences []ItemReference
 type Items []Item
 
 func ParseItem(di DecryptedItem) (p Item, err error) {
+	fmt.Printf("Going to Parse Item: %+v\n", di)
 	var pi Item
 
 	switch di.ContentType {
