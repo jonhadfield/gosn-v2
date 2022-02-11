@@ -3,8 +3,9 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func stripLineBreak(input string) string {
@@ -69,7 +70,6 @@ func DeleteContent(session *Session, everything bool) (deleted int, err error) {
 	for x := range so.Items {
 		if !so.Items[x].Deleted && stringInSlice(so.Items[x].ContentType, typesToDelete, true) {
 			so.Items[x].Deleted = true
-			so.Items[x].Content = ""
 			itemsToPut = append(itemsToPut, so.Items[x])
 		}
 	}

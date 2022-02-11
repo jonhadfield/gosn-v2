@@ -72,16 +72,20 @@ func hexDecodeBytes(in []byte, noBytes int) (dn []byte, err error) {
 	return
 }
 
-func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
+func DecryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
+	fmt.Printf("RAW KEY: %+v\n", rawKey)
 	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
 	if e1 != nil {
+		fmt.Println("dead ddd")
 		panic(e1)
 	}
 
 	masterKeyBytes := []byte(rawKey)
-
+	fmt.Printf("Decoding: %s\n", rawKey)
+	fmt.Println(rawKey)
 	dst1, err := hexDecodeBytes(masterKeyBytes, KeySize)
 	if err != nil {
+		fmt.Println("dead eee")
 		return
 	}
 
@@ -106,11 +110,19 @@ func decryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (resu
 }
 
 func generateAuthData(ct, uuid string, kp KeyParams) string {
+	var ad string
+
 	if ct == "SN|ItemsKey" {
-		return "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\":\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
+		ad = "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\":\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
+		fmt.Printf("AUTHDATA: %s\n", ad)
+
+		return ad
 	}
 
-	return "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
+	ad = "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
+	fmt.Printf("AUTHDATA: %s\n", ad)
+
+	return ad
 }
 
 func generateItemKey() string {
@@ -158,13 +170,13 @@ func isUnsupportedType(t string) bool {
 func decryptEncryptedItemKey(e EncryptedItem, encryptionKey string) (itemKey []byte, err error) {
 	_, nonce, cipherText, authData := splitContent(e.EncItemKey)
 
-	return decryptString(cipherText, encryptionKey, nonce, authData)
+	return DecryptString(cipherText, encryptionKey, nonce, authData)
 }
 
 func decryptContent(e EncryptedItem, encryptionKey string) (content []byte, err error) {
 	_, nonce, cipherText, authData := splitContent(e.Content)
 
-	content, err = decryptString(cipherText, encryptionKey, nonce, authData)
+	content, err = DecryptString(cipherText, encryptionKey, nonce, authData)
 	if err != nil {
 		return
 	}

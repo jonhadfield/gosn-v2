@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/asdine/storm/v3 v3.2.1
 	github.com/fatih/color v1.13.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.1.2
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/viper v1.10.1

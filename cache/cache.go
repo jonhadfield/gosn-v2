@@ -361,7 +361,7 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 
 					return err
 				}
-				//tx.Rollback()
+
 
 				return err
 			}
@@ -448,7 +448,7 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 }
 
 //// UpdateCacheItems updates Cache Items in the provided database.
-//func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
+// func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
 //	for _, i := range items {
 //		if err := db.Update(&i); err != nil {
 //			return err
@@ -468,7 +468,7 @@ type CleanInput struct {
 	UnreferencedItemsKeys bool
 }
 
-//func Clean(ci CleanInput) (err error) {
+// func Clean(ci CleanInput) (err error) {
 //	// check session is valid
 //	if ci.Session == nil || !ci.Session.Valid() {
 //		err = fmt.Errorf("invalid session")

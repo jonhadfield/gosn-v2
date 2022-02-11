@@ -111,7 +111,7 @@ func _createTags(session *Session, input []string) (output SyncOutput, err error
 		//	Title: tt,
 		//}
 		// newTagContent.SetUpdateTime(time.Now())
-		//newTag.Content = newTagContent
+		// newTag.Content = newTagContent
 
 		var eItem EncryptedItem
 		eItem, err = EncryptItem(&newTag, session.DefaultItemsKey, session)

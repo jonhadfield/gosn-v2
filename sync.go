@@ -378,6 +378,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		iks, err = output.Items.DecryptAndParseItemsKeys(input.Session.MasterKey, input.Session.Debug)
 	}
 
+	for x := range iks {
+		fmt.Printf("*** GOT ItemsKey: %+v\n", iks[x])
+	}
+
 	if err != nil {
 		return
 	}
@@ -528,6 +532,10 @@ func (cis ConflictedItems) Validate(debug bool) error {
 		case "uuid_error":
 			debugPrint(debug, "Sync | client is attempting to sync an item without uuid")
 			panic("Sync | client is attempting to sync an item without a uuid")
+		case "content_error":
+			debugPrint(debug, "Sync | client is attempting to sync an item with invalid content")
+			fmt.Printf("invalid item: %+v\n", ci)
+			panic("Sync | client is attempting to sync an item without a uuid")
 		default:
 			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
 		}
@@ -631,9 +639,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
 
-	// fmt.Printf("requestBody: %s\n", string(requestBody))
+	fmt.Printf("requestBody: %s\n", string(requestBody))
 	//
-	// fmt.Printf("responseBody: %s\n", string(responseBody))
+	fmt.Printf("responseBody: %s\n", string(responseBody))
 
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)

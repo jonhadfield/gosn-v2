@@ -442,6 +442,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	output.KeyParams = tokenResp.Data.KeyParams
 	output.User = tokenResp.Data.User
 	output.Session.MasterKey = mk
+	fmt.Printf("\nSET MasterKey to: '%s'\n\n", output.Session.MasterKey)
 	output.Session.KeyParams = tokenResp.Data.KeyParams
 	output.Session.Debug = input.Debug
 	output.Session.Token = tokenResp.Data.Session.Token
