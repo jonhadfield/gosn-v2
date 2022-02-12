@@ -1195,6 +1195,9 @@ func (s *Session) Import(path string, syncToken string, password string) (items 
 
 		// if we didn't find a match for the item in the export (and it's not a key) then add to final list
 		if !match && existingItems[x].GetContentType() != "SN|ItemsKey" {
+			debugPrint(s.Debug, fmt.Sprintf("Import | no match found for existing item %s %s so add to items to re-encrypt",
+				existingItems[x].GetContentType(),
+				existingItems[x].GetUUID()))
 			existingToReencrypt = append(existingToReencrypt, existingItems[x])
 		}
 	}
