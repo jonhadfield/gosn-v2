@@ -57,12 +57,8 @@ func parseNote(i DecryptedItem) Item {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("i.UpdatedAt: %+v\n", i.UpdatedAt)
-
-	fmt.Printf("uAT: %+v\n", uAt)
 
 	n.UpdatedAt = uAt.Format(timeLayout)
-	fmt.Printf("n.UpdatedAt: %+v\n", n.UpdatedAt)
 
 	return &n
 }
