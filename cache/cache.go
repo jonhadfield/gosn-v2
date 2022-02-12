@@ -231,18 +231,6 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 	return
 }
 
-// SaveItems encrypts, converts to cache items, and then persists to db.
-func SaveItems(db *storm.DB, s *Session, items gosn.Items, close bool) error {
-	eItems, err := items.Encrypt(s.Session, s.Session.DefaultItemsKey)
-	if err != nil {
-		return err
-	}
-
-	cItems := ToCacheItems(eItems, false)
-
-	return SaveCacheItems(db, cItems, close)
-}
-
 // SaveNotes encrypts, converts to cache items, and then persists to db.
 func SaveNotes(s *Session, db *storm.DB, items gosn.Notes, close bool) error {
 	eItems, err := items.Encrypt(*s.gosn())
