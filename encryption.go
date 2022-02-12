@@ -73,7 +73,6 @@ func hexDecodeBytes(in []byte, noBytes int) (dn []byte, err error) {
 }
 
 func DecryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
-	fmt.Printf("RAW KEY: %+v\n", rawKey)
 	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
 	if e1 != nil {
 		fmt.Println("dead ddd")

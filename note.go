@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -247,6 +248,22 @@ func (n Note) GetContentSize() int {
 
 func (n *Note) SetContentSize(s int) {
 	n.ContentSize = s
+}
+
+func (noteContent NoteContent) MarshalJSON() ([]byte, error) {
+	type Alias NoteContent
+
+	a := struct {
+		Alias
+	}{
+		Alias: (Alias)(noteContent),
+	}
+
+	if a.ItemReferences == nil {
+		a.ItemReferences = ItemReferences{}
+	}
+
+	return json.Marshal(a)
 }
 
 type NoteContent struct {

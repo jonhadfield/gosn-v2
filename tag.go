@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -118,6 +119,22 @@ func NewTag(title string, refs ItemReferences) (tag Tag, err error) {
 	tag.UUID = GenUUID()
 
 	return tag, err
+}
+
+func (tagContent TagContent) MarshalJSON() ([]byte, error) {
+	type Alias TagContent
+
+	a := struct {
+		Alias
+	}{
+		Alias: (Alias)(tagContent),
+	}
+
+	if a.ItemReferences == nil {
+		a.ItemReferences = ItemReferences{}
+	}
+
+	return json.Marshal(a)
 }
 
 // NewTagContent returns an empty Tag content instance.
