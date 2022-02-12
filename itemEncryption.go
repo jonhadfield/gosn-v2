@@ -40,7 +40,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 
 	encryptedItem.CreatedAtTimestamp = ik.CreatedAtTimestamp
 
-	itemEncryptionKey := generateItemKey()
+	itemEncryptionKey := generateItemKey(32)
 
 	var encryptedContent string
 
@@ -61,7 +61,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 	// Generate nonce
 	nonce := hex.EncodeToString(generateNonce())
 
-	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData)
+	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
 	if err != nil {
 		return
 	}
@@ -74,7 +74,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 
 	// Encrypt the Encrypted Items Key content element with the master key
 	var encryptedContentKey string
-	encryptedContentKey, err = encryptString(itemEncryptionKey, session.MasterKey, nonce, b64AuthData)
+	encryptedContentKey, err = encryptString(itemEncryptionKey, session.MasterKey, nonce, b64AuthData, 32)
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 
@@ -113,10 +113,10 @@ func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	encryptedItem.UpdatedAtTimestamp = item.GetUpdatedAtTimestamp()
 	encryptedItem.CreatedAtTimestamp = item.GetCreatedAtTimestamp()
 	// Generate Item Key
-	itemKey := generateItemKey()
+	itemKey := generateItemKey(64)
 
 	// get Item Encryption Key
-	itemEncryptionKey := itemKey[:len(itemKey)/2]
+	itemEncryptionKey := itemKey
 	// encrypt Item content
 	var encryptedContent string
 
@@ -125,7 +125,7 @@ func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 	nonce := hex.EncodeToString(generateNonce())
 
-	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData)
+	encryptedContent, err = encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
 	if err != nil {
 		return
 	}
@@ -134,7 +134,7 @@ func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	encryptedItem.Content = content
 	// encrypt content encryption key
 	var encryptedContentKey string
-	encryptedContentKey, err = encryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData)
+	encryptedContentKey, err = encryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData, 32)
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 
@@ -173,7 +173,7 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem En
 	encryptedItem.UpdatedAtTimestamp = di.UpdatedAtTimestamp
 	encryptedItem.CreatedAtTimestamp = di.CreatedAtTimestamp
 	// Generate Item Key
-	itemEncryptionKey := generateItemKey()
+	itemEncryptionKey := generateItemKey(32)
 
 	mContent := []byte(di.Content)
 
@@ -182,7 +182,7 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem En
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 	nonce := hex.EncodeToString(generateNonce())
 
-	encryptedContent, err := encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData)
+	encryptedContent, err := encryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
 	if err != nil {
 		return
 	}
@@ -193,7 +193,7 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem En
 	nonce = hex.EncodeToString(generateNonce())
 	// encrypt content encryption key
 	var encryptedContentKey string
-	encryptedContentKey, err = encryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData)
+	encryptedContentKey, err = encryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData, 32)
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 

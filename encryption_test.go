@@ -224,7 +224,7 @@ func TestEncryptDecryptString(t *testing.T) {
 	plainText := "{\"text\":\"Note Text\",\"title\":\"Note Title\",\"references\":[],\"appData\":{\"org.standardnotes.sn\":{\"client_updated_at\":\"2021-03-20T12:59:46.734Z\"}},\"preview_plain\":\"Note Text\"}"
 	uuid := "7eacf350-f4ce-44dd-8525-2457b19047dd"
 	authData := "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
-	newCipherText, err := encryptString(plainText, rawKey, nonce, authData)
+	newCipherText, err := encryptString(plainText, rawKey, nonce, authData, 32)
 	require.NotEmpty(t, newCipherText)
 	require.Equal(t, tempExpectedCipherText, newCipherText)
 
