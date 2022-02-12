@@ -3,6 +3,7 @@ package gosn
 import (
 	crand "crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"time"
 )
 
@@ -117,6 +118,22 @@ func NewItemsKey() ItemsKey {
 	//	Default        bool           `json:"isDefault"`
 
 	return c
+}
+
+func (i ItemsKeyContent) MarshalJSON() ([]byte, error) {
+	type Alias ItemsKeyContent
+
+	a := struct {
+		Alias
+	}{
+		Alias: (Alias)(i),
+	}
+
+	if a.ItemReferences == nil {
+		a.ItemReferences = ItemReferences{}
+	}
+
+	return json.Marshal(a)
 }
 
 // NewItemsKeyContent returns an empty ItemsKey content instance.

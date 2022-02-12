@@ -124,7 +124,7 @@ func generateAuthData(ct, uuid string, kp KeyParams) string {
 	return ad
 }
 
-func generateItemKey() string {
+func generateItemKey(returnBytes int) string {
 	itemKeyBytes := make([]byte, 64)
 
 	_, err := crand.Read(itemKeyBytes)
@@ -134,7 +134,7 @@ func generateItemKey() string {
 
 	itemKey := hex.EncodeToString(itemKeyBytes)
 
-	return itemKey[:len(itemKey)/2]
+	return itemKey[:returnBytes]
 }
 
 func generateNonce() []byte {
@@ -188,13 +188,13 @@ func decryptContent(e EncryptedItem, encryptionKey string) (content []byte, err 
 	return
 }
 
-func encryptString(plainText, key, nonce, authenticatedData string) (result string, err error) {
+func encryptString(plainText, key, nonce, authenticatedData string, noBytes int) (result string, err error) {
 	// TODO: expecting authenticatedData to be pre base64 encoded?
 	if len(nonce) == 0 {
 		panic("empty nonce")
 	}
 
-	itemKey := make([]byte, 32)
+	itemKey := make([]byte, noBytes)
 
 	_, err = hex.Decode(itemKey, []byte(key))
 	if err != nil {
