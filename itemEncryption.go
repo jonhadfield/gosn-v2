@@ -40,7 +40,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 
 	encryptedItem.CreatedAtTimestamp = ik.CreatedAtTimestamp
 
-	itemEncryptionKey := generateItemKey(32)
+	itemEncryptionKey := generateItemKey(64)
 
 	var encryptedContent string
 

@@ -361,8 +361,6 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 
 					return err
 				}
-
-
 				return err
 			}
 		}
