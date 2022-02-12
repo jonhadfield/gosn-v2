@@ -75,16 +75,12 @@ func hexDecodeBytes(in []byte, noBytes int) (dn []byte, err error) {
 func DecryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
 	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
 	if e1 != nil {
-		fmt.Println("dead ddd")
 		panic(e1)
 	}
 
 	masterKeyBytes := []byte(rawKey)
-	fmt.Printf("Decoding: %s\n", rawKey)
-	fmt.Println(rawKey)
 	dst1, err := hexDecodeBytes(masterKeyBytes, KeySize)
 	if err != nil {
-		fmt.Println("dead eee")
 		return
 	}
 
@@ -113,13 +109,11 @@ func generateAuthData(ct, uuid string, kp KeyParams) string {
 
 	if ct == "SN|ItemsKey" {
 		ad = "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\":\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
-		fmt.Printf("AUTHDATA: %s\n", ad)
 
 		return ad
 	}
 
 	ad = "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
-	fmt.Printf("AUTHDATA: %s\n", ad)
 
 	return ad
 }

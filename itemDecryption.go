@@ -39,7 +39,6 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 	}
 
 	itemKey, err := decryptEncryptedItemKey(e, contentEncryptionKey)
-	fmt.Printf("Got decrypted Item Key 0: %s", itemKey)
 	if err != nil {
 		return
 	}
