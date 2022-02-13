@@ -57,6 +57,18 @@ func TestSignIn(t *testing.T) {
 	}
 }
 
+func TestRegistrationWithInvalidShortPassword(t *testing.T) {
+	password := "secret"
+	rInput := RegisterInput{
+		Email:     testEmailAddr,
+		Password:  password,
+		APIServer: os.Getenv("SN_SERVER"),
+	}
+	_, err := rInput.Register()
+	require.Error(t, err)
+	require.Equal(t, err.Error(), fmt.Sprintf("password must be at least %d characters", minPasswordLength))
+}
+
 func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
 		emailAddr := testEmailAddr

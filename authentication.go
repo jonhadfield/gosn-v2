@@ -536,6 +536,12 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 // Register creates a new user token
 // Params: email, password, pw_cost, pw_nonce, version.
 func (input RegisterInput) Register() (token string, err error) {
+	if len(input.Password) < minPasswordLength {
+		err = fmt.Errorf("password must be at least %d characters", minPasswordLength)
+
+		return
+	}
+
 	if input.APIServer == "" {
 		input.APIServer = apiServer
 	}
