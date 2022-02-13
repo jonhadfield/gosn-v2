@@ -41,6 +41,7 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 				e.UUID,
 				e.ContentType,
 				*e.ItemsKeyID)
+
 			return
 		}
 	}
@@ -71,14 +72,14 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 // DecryptAndParseItemKeys takes the master key and a list of EncryptedItemKeys
 // and returns a list of items keys.
 func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
-	for _, eik := range eiks {
-		if eik.ContentType != "SN|ItemsKey" {
+	for x := range eiks {
+		if eiks[x].ContentType != "SN|ItemsKey" {
 			continue
 		}
 
 		var content []byte
 
-		content, err = eik.DecryptItemOnly(mk)
+		content, err = eiks[x].DecryptItemOnly(mk)
 		if err != nil {
 			return
 		}
@@ -87,15 +88,15 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 
 		err = json.Unmarshal(content, &f)
 		if err != nil {
-			return
+			return iks, fmt.Errorf("DecryptAndParseItemsKeys | failed to unmarshall %w", err)
 		}
 
-		f.UUID = eik.UUID
-		f.ContentType = eik.ContentType
-		f.UpdatedAt = eik.UpdatedAt
-		f.UpdatedAtTimestamp = eik.UpdatedAtTimestamp
-		f.CreatedAtTimestamp = eik.CreatedAtTimestamp
-		f.CreatedAt = eik.CreatedAt
+		f.UUID = eiks[x].UUID
+		f.ContentType = eiks[x].ContentType
+		f.UpdatedAt = eiks[x].UpdatedAt
+		f.UpdatedAtTimestamp = eiks[x].UpdatedAtTimestamp
+		f.CreatedAtTimestamp = eiks[x].CreatedAtTimestamp
+		f.CreatedAt = eiks[x].CreatedAt
 
 		if f.ItemsKey == "" {
 			continue
@@ -104,10 +105,10 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 		iks = append(iks, f)
 	}
 
-	return
+	return iks, err
 }
 
-// Decrypt
+// Decrypt.
 func (ei EncryptedItems) Decrypt(s *Session, iks ItemsKeys) (o DecryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
 
@@ -140,7 +141,7 @@ func (ei EncryptedItem) DecryptItemOnly(key string) (content []byte, err error) 
 	return decryptContent(ei, string(itemKey))
 }
 
-func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
+func (ei *EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
 	if ei.ContentType != "SN|ItemsKey" {
 		return ik, fmt.Errorf("item passed to decrypt is of type %s, expected SN|ItemsKey", ik.ContentType)
 	}
