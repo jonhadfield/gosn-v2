@@ -171,7 +171,12 @@ func decryptContent(e EncryptedItem, encryptionKey string) (content []byte, err 
 	}
 
 	c := string(content)
-	if !stringInSlice(e.ContentType, []string{"SN|FileSafe|Integration", "SN|FileSafe|Credentials", "SN|Component", "SN|Theme"}, true) && len(c) > 250 {
+	if !stringInSlice(e.ContentType, []string{
+		"SN|FileSafe|Integration",
+		"SN|FileSafe|Credentials",
+		"SN|Component",
+		"SN|Theme",
+	}, true) && len(c) > 250 {
 		return
 	}
 
@@ -248,11 +253,6 @@ func generateMasterKeyAndServerPassword004(input generateEncryptedPasswordInput)
 }
 
 func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw, mk, ak string, err error) {
-	if input.Version == "003" && input.PasswordCost < 100000 {
-		err = fmt.Errorf("password cost too low")
-		return
-	}
-
 	saltSource := input.Identifier + ":" + "SF" + ":" + input.Version + ":" + strconv.Itoa(int(input.PasswordCost)) + ":" + input.PasswordNonce
 
 	h := sha256.New()
