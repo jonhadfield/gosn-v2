@@ -5,6 +5,10 @@ on:
       - "*"
   pull_request:
     types: [opened, synchronize, reopened]
+   workflow_run:
+     workflows: ["Test gosn-v2"]
+     types:
+       - completed
 jobs:
   sonarcloud:
     name: SonarCloud
