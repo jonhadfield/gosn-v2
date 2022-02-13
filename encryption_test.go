@@ -9,6 +9,8 @@ import (
 )
 
 func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
+	defer cleanup()
+
 	s := testSession
 	ik := NewItemsKey()
 	require.False(t, ik.Deleted)
@@ -95,11 +97,13 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	require.Equal(t, ik.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
 	require.Equal(t, "Note", so.SavedItems[noteIndex].ContentType)
 
-	di, err = DecryptAndParseItem(so.SavedItems[noteIndex], testSession)
+	_, err = DecryptAndParseItem(so.SavedItems[noteIndex], testSession)
 	require.NoError(t, err)
 }
 
 func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
+	defer cleanup()
+
 	s := testSession
 	ik := NewItemsKey()
 	require.False(t, ik.Deleted)
@@ -208,6 +212,7 @@ func TestDecryptNoteText(t *testing.T) {
 	authData = "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
 	dIKeyContent, err := DecryptCipherText(cipherText, rawKey, nonce, authData)
 	require.NoError(t, err)
+
 	sDiKeyContent := string(dIKeyContent)
 	ikc := NoteContent{}
 	err = json.Unmarshal([]byte(sDiKeyContent), &ikc)
@@ -225,6 +230,7 @@ func TestEncryptDecryptString(t *testing.T) {
 	uuid := "7eacf350-f4ce-44dd-8525-2457b19047dd"
 	authData := "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
 	newCipherText, err := encryptString(plainText, rawKey, nonce, authData, 32)
+	require.NoError(t, err)
 	require.NotEmpty(t, newCipherText)
 	require.Equal(t, tempExpectedCipherText, newCipherText)
 
