@@ -1,14 +1,15 @@
 name: Build
+
 on:
   push:
     branches:
       - "*"
   pull_request:
     types: [opened, synchronize, reopened]
-   workflow_run:
-     workflows: ["Test gosn-v2"]
-     types:
-       - completed
+  workflow_run:
+    workflows: ["Test gosn-v2"]
+    types:
+      - completed
 jobs:
   sonarcloud:
     name: SonarCloud
