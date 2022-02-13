@@ -1298,3 +1298,27 @@ type EncryptedItemsFile struct {
 	Items     EncryptedItems `json:"items"`
 	KeyParams KeyParams      `json:"keyParams"`
 }
+
+func UpsertReferences(existing, new ItemReferences) ItemReferences {
+	res := existing
+
+	if len(existing) == 0 {
+		return new
+	}
+
+	for _, newRef := range new {
+		var found bool
+
+		for _, existingRef := range existing {
+			if existingRef.UUID == newRef.UUID {
+				found = true
+			}
+		}
+
+		if !found {
+			res = append(res, newRef)
+		}
+	}
+
+	return res
+}

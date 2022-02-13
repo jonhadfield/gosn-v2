@@ -406,19 +406,7 @@ func (n Note) Copy() Note {
 }
 
 func (noteContent *NoteContent) UpsertReferences(newRefs ItemReferences) {
-	for _, newRef := range newRefs {
-		var found bool
-
-		for _, existingRef := range noteContent.ItemReferences {
-			if existingRef.UUID == newRef.UUID {
-				found = true
-			}
-		}
-
-		if !found {
-			noteContent.ItemReferences = append(noteContent.ItemReferences, newRef)
-		}
-	}
+	noteContent.SetReferences(UpsertReferences(noteContent.ItemReferences, newRefs))
 }
 
 func (noteContent *NoteContent) SetReferences(newRefs ItemReferences) {
