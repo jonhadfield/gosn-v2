@@ -368,17 +368,5 @@ func (tagContent *TagContent) SetReferences(newRefs ItemReferences) {
 }
 
 func (tagContent *TagContent) UpsertReferences(newRefs ItemReferences) {
-	for _, newRef := range newRefs {
-		var found bool
-
-		for _, existingRef := range tagContent.ItemReferences {
-			if existingRef.UUID == newRef.UUID {
-				found = true
-			}
-		}
-
-		if !found {
-			tagContent.ItemReferences = append(tagContent.ItemReferences, newRef)
-		}
-	}
+	tagContent.SetReferences(UpsertReferences(tagContent.ItemReferences, newRefs))
 }
