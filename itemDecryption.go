@@ -14,36 +14,38 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 		return
 	}
 
-	var contentEncryptionKey string
+	var key string
 
 	ik := getMatchingItem(e.GetItemsKeyID(), iks)
 
 	switch {
 	case ik.ItemsKey != "":
-		contentEncryptionKey = ik.ItemsKey
+		key = ik.ItemsKey
 	case isEncryptedWithMasterKey(e.ContentType):
-		contentEncryptionKey = s.MasterKey
+		key = s.MasterKey
 	default:
 		if e.ItemsKeyID == nil {
 			debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType))
-			err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID", e.Deleted, e.UUID, e.ContentType)
+			err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
+				e.Deleted,
+				e.UUID,
+				e.ContentType)
 
 			return
 		}
 
-		contentEncryptionKey = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
-		if contentEncryptionKey == "" {
-			err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s", e.Deleted, e.UUID, e.ContentType, *e.ItemsKeyID)
+		key = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
+		if key == "" {
+			err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s",
+				e.Deleted,
+				e.UUID,
+				e.ContentType,
+				*e.ItemsKeyID)
 			return
 		}
 	}
 
-	itemKey, err := decryptEncryptedItemKey(e, contentEncryptionKey)
-	if err != nil {
-		return
-	}
-
-	content, err := decryptContent(e, string(itemKey))
+	content, err := e.DecryptItemOnly(key)
 	if err != nil {
 		return
 	}
@@ -74,16 +76,9 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 			continue
 		}
 
-		var itemKey []byte
-
-		itemKey, err = decryptEncryptedItemKey(eik, mk)
-		if err != nil {
-			return
-		}
-
 		var content []byte
 
-		content, err = decryptContent(eik, string(itemKey))
+		content, err = eik.DecryptItemOnly(mk)
 		if err != nil {
 			return
 		}
@@ -112,7 +107,7 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 	return
 }
 
-// Decrypt.
+// Decrypt
 func (ei EncryptedItems) Decrypt(s *Session, iks ItemsKeys) (o DecryptedItems, err error) {
 	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
 
@@ -134,21 +129,23 @@ func (ei EncryptedItems) Decrypt(s *Session, iks ItemsKeys) (o DecryptedItems, e
 	return
 }
 
+func (ei EncryptedItem) DecryptItemOnly(key string) (content []byte, err error) {
+	var itemKey []byte
+
+	itemKey, err = decryptEncryptedItemKey(ei, key)
+	if err != nil {
+		return
+	}
+
+	return decryptContent(ei, string(itemKey))
+}
+
 func (ei EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
 	if ei.ContentType != "SN|ItemsKey" {
 		return ik, fmt.Errorf("item passed to decrypt is of type %s, expected SN|ItemsKey", ik.ContentType)
 	}
 
-	var itemKey []byte
-
-	itemKey, err = decryptEncryptedItemKey(ei, mk)
-	if err != nil {
-		return
-	}
-
-	var content []byte
-
-	content, err = decryptContent(ei, string(itemKey))
+	content, err := ei.DecryptItemOnly(mk)
 	if err != nil {
 		return
 	}

@@ -72,13 +72,14 @@ func hexDecodeBytes(in []byte, noBytes int) (dn []byte, err error) {
 	return
 }
 
-func DecryptString(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
+func DecryptCipherText(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
 	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
 	if e1 != nil {
 		panic(e1)
 	}
 
 	masterKeyBytes := []byte(rawKey)
+
 	dst1, err := hexDecodeBytes(masterKeyBytes, KeySize)
 	if err != nil {
 		return
@@ -156,20 +157,15 @@ func isEncryptedWithMasterKey(t string) bool {
 	return t == "SN|ItemsKey"
 }
 
-func isUnsupportedType(t string) bool {
-	return strings.HasPrefix(t, "SF|")
-}
-
 func decryptEncryptedItemKey(e EncryptedItem, encryptionKey string) (itemKey []byte, err error) {
 	_, nonce, cipherText, authData := splitContent(e.EncItemKey)
-
-	return DecryptString(cipherText, encryptionKey, nonce, authData)
+	return DecryptCipherText(cipherText, encryptionKey, nonce, authData)
 }
 
 func decryptContent(e EncryptedItem, encryptionKey string) (content []byte, err error) {
 	_, nonce, cipherText, authData := splitContent(e.Content)
 
-	content, err = DecryptString(cipherText, encryptionKey, nonce, authData)
+	content, err = DecryptCipherText(cipherText, encryptionKey, nonce, authData)
 	if err != nil {
 		return
 	}
