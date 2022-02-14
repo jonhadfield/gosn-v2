@@ -13,8 +13,8 @@ import (
 	"syscall"
 
 	"github.com/spf13/viper"
-	keyring "github.com/zalando/go-keyring"
-	"golang.org/x/crypto/ssh/terminal"
+	"github.com/zalando/go-keyring"
+	"golang.org/x/term"
 )
 
 const (
@@ -84,7 +84,7 @@ func GetCredentials(inServer string) (email, password, apiServer, errMsg string)
 		password = viper.GetString("password")
 	} else {
 		fmt.Print("password: ")
-		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
 		fmt.Println()
 		if err == nil {
 			password = string(bytePassword)
@@ -122,7 +122,7 @@ func Encrypt(key []byte, text string) string {
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 
 	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
 		panic(err)
 	}
 
@@ -135,10 +135,19 @@ func Encrypt(key []byte, text string) string {
 
 func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
 	if k == nil {
-		return keyring.Get(KeyringService, KeyringApplicationName)
+
+		s, err = keyring.Get(KeyringService, KeyringApplicationName)
+		if err != nil {
+			return s, fmt.Errorf("GetSessionFromKeyring | %w", err)
+		}
 	}
 
-	return k.Get(KeyringService, KeyringApplicationName)
+	s, err = k.Get(KeyringService, KeyringApplicationName)
+	if err != nil {
+		err = fmt.Errorf("GetSessionFromKeyring | %w", err)
+	}
+
+	return
 }
 
 func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res string, err error) {
@@ -155,7 +164,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 
 		fmt.Print("session key: ")
 
-		byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
+		byteKey, err = term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return
 		}
@@ -224,7 +233,11 @@ func writeSession(s string, k keyring.Keyring) error {
 		return keyring.Set(KeyringService, KeyringApplicationName, s)
 	}
 
-	return k.Set(KeyringService, KeyringApplicationName, s)
+	if err := k.Set(KeyringService, KeyringApplicationName, s); err != nil {
+		return fmt.Errorf("writeSession | %w", err)
+	}
+
+	return nil
 }
 
 func SessionExists(k keyring.Keyring) error {
@@ -307,7 +320,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 
 				fmt.Print("session key: ")
 
-				byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
+				byteKey, err = term.ReadPassword(int(syscall.Stdin))
 				if err != nil {
 					return
 				}
@@ -411,7 +424,7 @@ func getSessionContent(key, rawSession string) (session string, err error) {
 			fmt.Print("session key: ")
 
 			var byteKey []byte
-			byteKey, err = terminal.ReadPassword(int(syscall.Stdin))
+			byteKey, err = term.ReadPassword(int(syscall.Stdin))
 
 			fmt.Println()
 
