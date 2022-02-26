@@ -135,7 +135,6 @@ func Encrypt(key []byte, text string) string {
 
 func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
 	if k == nil {
-
 		s, err = keyring.Get(KeyringService, KeyringApplicationName)
 		if err != nil {
 			return s, fmt.Errorf("GetSessionFromKeyring | %w", err)

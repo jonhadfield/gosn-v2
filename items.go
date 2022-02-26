@@ -1316,6 +1316,7 @@ func UpsertReferences(existing, new ItemReferences) ItemReferences {
 		}
 
 		if !found {
+
 			res = append(res, newRef)
 		}
 	}

@@ -122,7 +122,6 @@ func NewNote(title string, text string, references ItemReferences) (note Note, e
 	note.Content.ItemReferences = references
 	note.CreatedAt = now
 	note.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
-
 	return note, err
 }
 
@@ -270,6 +269,7 @@ type NoteContent struct {
 	PreviewPlain   string             `json:"preview_plain"`
 	Spellcheck     bool               `json:"spellcheck"`
 	PreviewHtml    string             `json:"preview_html"`
+	Trashed        *bool              `json:"trashed,omitempty"`
 }
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
@@ -378,6 +378,10 @@ func (n Note) Equals(e Note) bool {
 		return false
 	}
 
+	if n.Content.Trashed != e.Content.Trashed {
+		return false
+	}
+
 	return true
 }
 
@@ -403,6 +407,14 @@ func (n Note) Copy() Note {
 	c.UUID = n.UUID
 
 	return c
+}
+
+func (noteContent *NoteContent) GetTrashed() bool {
+	return *noteContent.Trashed
+}
+
+func (noteContent *NoteContent) SetTrashed(t bool) {
+	noteContent.Trashed = &t
 }
 
 func (noteContent *NoteContent) UpsertReferences(newRefs ItemReferences) {

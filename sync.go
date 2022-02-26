@@ -539,21 +539,22 @@ func (cis ConflictedItems) Validate(debug bool) error {
 	return nil
 }
 
-func lesserOf(first, second int) int {
-	if first < second {
-		if first < 0 {
-			return 0
-		}
-
-		return first
-	}
-
-	if second < 0 {
-		return 0
-	}
-
-	return second
-}
+//
+// func lesserOf(first, second int) int {
+//	if first < second {
+//		if first < 0 {
+//			return 0
+//		}
+//
+//		return first
+//	}
+//
+//	if second < 0 {
+//		return 0
+//	}
+//
+//	return second
+//}
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
@@ -633,8 +634,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-
-	// fmt.Printf("responseBody: %s\n", string(responseBody))
 
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
