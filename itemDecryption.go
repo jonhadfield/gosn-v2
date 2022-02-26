@@ -6,8 +6,6 @@ import (
 )
 
 func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %s %s", e.ContentType, e.UUID))
-
 	if e.Deleted {
 		err = fmt.Errorf(fmt.Sprintf("cannot decrypt deleted item: %s %s", e.ContentType, e.UUID))
 

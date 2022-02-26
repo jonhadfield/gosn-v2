@@ -262,6 +262,64 @@ func SaveEncryptedItems(db *storm.DB, items gosn.EncryptedItems, close bool) err
 	return SaveCacheItems(db, cItems, close)
 }
 
+// SaveItems saves Items to the provided database.
+func SaveItems(s *Session, db *storm.DB, items gosn.Items, close bool) error {
+	if len(items) == 0 {
+		return fmt.Errorf("no items provided to SaveItems")
+	}
+
+	if db == nil {
+		return fmt.Errorf("db not passed to SaveItems")
+	}
+
+	var eItems gosn.EncryptedItems
+	for x := range items {
+		eItem, err := gosn.EncryptItem(items[x], s.DefaultItemsKey, s.Session)
+		if err != nil {
+			return err
+		}
+		eItems = append(eItems, eItem)
+	}
+
+	cItems := ToCacheItems(eItems, false)
+
+	return SaveCacheItems(db, cItems, close)
+
+	//batchSize := 500
+	//
+	//total := len(items)
+	//
+	//for i := 0; i < total; i += batchSize {
+	//	j := i + batchSize
+	//	if j > total {
+	//		j = total
+	//	}
+	//
+	//	tx, err := db.Begin(true)
+	//	sl := items[i:j]
+	//
+	//	for v := range sl {
+	//		err = tx.Save(&sl[v])
+	//		if err != nil {
+	//			tx.Rollback()
+	//
+	//			return err
+	//		}
+	//	}
+	//
+	//	err = tx.Commit()
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
+	//
+	//if close {
+	//	return db.Close()
+	//}
+
+	return nil
+}
+
 // SaveCacheItems saves Cache Items to the provided database.
 func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
@@ -283,6 +341,10 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 		}
 
 		tx, err := db.Begin(true)
+		if err != nil {
+			return err
+		}
+
 		sl := items[i:j]
 
 		for v := range sl {
@@ -528,7 +590,7 @@ func (i Items) Validate() error {
 }
 
 func retrieveItemsKeysFromCache(s *gosn.Session, i Items) (encryptedItemKeys gosn.EncryptedItems, err error) {
-	debugPrint(s.Debug, "retrieveItemsKeysFromCache| attempting to retrieve items key(s) from cache")
+	debugPrint(s.Debug, "retrieveItemsKeysFromCache | attempting to retrieve items key(s) from cache")
 
 	for x := range i {
 		if i[x].ContentType == "SN|ItemsKey" && !i[x].Deleted {
@@ -558,6 +620,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
 		err = fmt.Errorf("invalid session")
+
 		return
 	}
 
@@ -735,7 +798,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | checking %d gosn.Sync SavedItems for items to add or remove from db", len(gSO.SavedItems)))
+	if len(gSO.SavedItems) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | checking %d gosn.Sync SavedItems for items to add or remove from db", len(gSO.SavedItems)))
+	}
 
 	var savedItems Items
 
@@ -797,10 +862,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | removing dirty flag on %d db items now synced back to SN", len(dirty)))
-
 	// unset dirty flag and date on anything that has now been synced back to SN
 	if len(dirty) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | removing dirty flag on %d db items now synced back to SN", len(dirty)))
+
 		if err = CleanCacheItems(db, dirty, false); err != nil {
 			return
 		}
@@ -809,7 +874,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// get the items keys returned by SN
 	var eiks []gosn.EncryptedItem
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | saving %d items from gosn.Sync Items to db", len(gSO.Items)))
+	if len(gSO.Items) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | saving %d items from gosn.Sync Items to db", len(gSO.Items)))
+	}
 
 	// put new Items in db
 	var itemsToDelete Items
@@ -860,9 +927,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		newItems = append(newItems, item)
 	}
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | %d new items to saved to db", len(newItems)))
-
 	if len(newItems) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | %d new items to saved to db", len(newItems)))
+
 		if err = SaveCacheItems(db, newItems, false); err != nil {
 			return
 		}
@@ -874,7 +941,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 	}
 
-	if err = processCachedItemsKeys(si.Session, eiks); err != nil {
+	if len(eiks) > 0 && processCachedItemsKeys(si.Session, eiks) != nil {
 		return
 	}
 
@@ -882,7 +949,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	err = db.All(&all)
 
-	debugPrint(si.Debug, fmt.Sprintf("Sync | retrieved %d items from db in preparation for decryption", len(all)))
+	if len(all) > 0 {
+		debugPrint(si.Debug, fmt.Sprintf("Sync | retrieved %d items from db in preparation for decryption", len(all)))
+	}
 
 	debugPrint(si.Debug, fmt.Sprintf("Sync | replacing db SyncToken with latest from gosn.Sync: %s", gSO.SyncToken))
 
@@ -914,15 +983,22 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 func processCachedItemsKeys(s *Session, eiks gosn.EncryptedItems) error {
 	// merge the items keys returned by SN with the items keys in the session
-	debugPrint(s.Debug, fmt.Sprintf("Sync | decrypting and parsing %d ItemsKeys", len(eiks)))
+	if len(eiks) > 0 {
+		debugPrint(s.Debug, fmt.Sprintf("Sync | decrypting and parsing %d ItemsKeys", len(eiks)))
+	}
 
 	iks, err := gosn.DecryptAndParseItemKeys(s.MasterKey, eiks)
 	if err != nil {
 		return err
 	}
 
-	debugPrint(s.Debug, fmt.Sprintf("Sync | merging %d new ItemsKeys with existing stored in session", len(eiks)))
-	debugPrint(s.Debug, fmt.Sprintf("Sync | pre-merge total of %d ItemsKeys in session", len(s.Session.ItemsKeys)))
+	if len(eiks) > 0 {
+		debugPrint(s.Debug, fmt.Sprintf("Sync | merging %d new ItemsKeys with existing stored in session", len(eiks)))
+	}
+
+	if len(s.Session.ItemsKeys) > 0 {
+		debugPrint(s.Debug, fmt.Sprintf("Sync | pre-merge total of %d ItemsKeys in session", len(s.Session.ItemsKeys)))
+	}
 
 	s.Session.ItemsKeys = mergeItemsKeysSlices(s.Session.ItemsKeys, iks)
 	// set default items key to most recent

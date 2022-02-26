@@ -16,6 +16,22 @@ func stripLineBreak(input string) string {
 	return input
 }
 
+func lesserOf(first, second int) int {
+	if first < second {
+		if first < 0 {
+			return 0
+		}
+
+		return first
+	}
+
+	if second < 0 {
+		return 0
+	}
+
+	return second
+}
+
 // GenUUID generates a unique identifier required when creating a new item.
 func GenUUID() string {
 	newUUID := uuid.New()
