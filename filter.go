@@ -135,6 +135,55 @@ func applyNoteTextFilter(f Filter, i Note, matchAny bool) (result, matchedAll, d
 	return result, matchedAll, done
 }
 
+func applyNoteTrashedFilter(f Filter, i Note, matchAny bool) (result, matchedAll, done bool) {
+	content := i.GetContent().(*NoteContent)
+	tp := content.Trashed
+
+	var isTrashed bool
+
+	if tp != nil && *tp {
+		isTrashed = true
+	}
+
+	switch f.Comparison {
+	case "==":
+		if isTrashed {
+			if matchAny {
+				result = true
+				done = true
+
+				return
+			}
+			matchedAll = true
+		} else {
+			if !matchAny {
+				result = false
+				done = true
+				return
+			}
+			matchedAll = false
+		}
+	case "!=":
+		if !isTrashed {
+			if matchAny {
+				result = true
+				done = true
+				return
+			}
+			matchedAll = true
+		} else {
+			if !matchAny {
+				result = false
+				done = true
+				return
+			}
+			matchedAll = false
+		}
+	}
+
+	return result, matchedAll, done
+}
+
 func applyNoteTagTitleFilter(f Filter, i Note, tags Tags, matchAny bool) (result, matchedAll, done bool) {
 	var matchesTag bool
 
@@ -272,6 +321,11 @@ func applyNoteFilters(item Note, itemFilters ItemFilters, tags Tags) bool {
 			}
 		case "text": // Text
 			result, matchedAll, done = applyNoteTextFilter(filter, item, itemFilters.MatchAny)
+			if done {
+				return result
+			}
+		case "trash": // trash
+			result, matchedAll, done = applyNoteTrashedFilter(filter, item, itemFilters.MatchAny)
 			if done {
 				return result
 			}
