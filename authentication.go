@@ -131,17 +131,17 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 	body, err = ioutil.ReadAll(response.Body)
 
 	switch response.StatusCode {
-	case 200:
+	case http.StatusOK:
 		err = json.Unmarshal(body, &output)
 		if err != nil {
 			return
 		}
-	case 304:
+	case http.StatusNotModified:
 		err = json.Unmarshal(body, &output)
 		if err != nil {
 			return
 		}
-	case 404:
+	case http.StatusNotFound:
 		// email address not recognized
 		err = json.Unmarshal(body, &errResp)
 		if err != nil {
@@ -149,8 +149,9 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		}
 
 		debugPrint(debug, fmt.Sprintf("status 404 %+v", errResp))
+
 		return
-	case 400:
+	case http.StatusBadRequest:
 		// most likely authentication missing or SN API has changed
 		err = json.Unmarshal(body, &errResp)
 		if err != nil {
@@ -158,7 +159,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		}
 
 		debugPrint(debug, fmt.Sprintf("status 400 %+v", errResp))
-	case 401:
+	case http.StatusUnauthorized:
 		// need mfa token
 		// unmarshal error response
 		err = json.Unmarshal(body, &errResp)
@@ -167,7 +168,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		}
 
 		debugPrint(debug, fmt.Sprintf("status 401 %+v", errResp))
-	case 403:
+	case http.StatusForbidden:
 		// server has denied request
 		// unmarshal error response
 		err = fmt.Errorf("server returned 403 Forbidden response")
@@ -199,7 +200,9 @@ type errorResponse struct {
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
 	// make initial params request without mfa token
 	var reqURL string
+
 	e := url.QueryEscape(input.email)
+
 	if input.tokenName == "" {
 		// initial request
 		reqURL = input.authParamsURL + "?email=" + e + "&api=20200115"
@@ -207,6 +210,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		// request with mfa
 		reqURL = input.authParamsURL + "?email=" + e + "&" + input.tokenName + "=" + input.tokenValue
 	}
+
 	var req *http.Request
 
 	req, err = http.NewRequest(http.MethodGet, reqURL, nil)
@@ -598,7 +602,7 @@ func (input RegisterInput) Register() (token string, err error) {
 		return
 	}
 
-	eKey, err := ik.Encrypt(&sio.Session, true)
+	eKey, err := EncryptItemsKey(ik, &sio.Session, true)
 	if err != nil {
 		return
 	}

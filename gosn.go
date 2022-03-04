@@ -22,7 +22,6 @@ const (
 	timeLayout2         = "2006-01-02T15:04:05.000000Z"
 	defaultSNVersion    = "004"
 	defaultPasswordCost = 110000
-	numRawSessionTokens = 7
 
 	// LOGGING.
 	LibName       = "gosn-v2" // name of library used in logging

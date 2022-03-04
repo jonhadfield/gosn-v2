@@ -151,7 +151,7 @@ func _deleteAllTagsNotesComponents(s *Session) (err error) {
 		if itemsKey.UUID != s.DefaultItemsKey.UUID {
 			var eik EncryptedItem
 
-			eik, err = itemsKey.Encrypt(s, false)
+			eik, err = EncryptItemsKey(itemsKey, s, false)
 			if err != nil {
 				return
 			}
@@ -742,7 +742,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	duplicateSession.ItemsKeys = append(duplicateSession.ItemsKeys, ik)
 
 	e := EncryptedItems{ei}
-	di, err := e.Decrypt(&duplicateSession, ItemsKeys{})
+	di, err := DecryptItems(&duplicateSession, e, ItemsKeys{})
 
 	require.NoError(t, err)
 	require.NotEmpty(t, di)
@@ -1046,7 +1046,8 @@ func TestEncryptDecryptItemWithItemsKeyWithExportedMethods(t *testing.T) {
 	require.Empty(t, encItems[0].DuplicateOf)
 
 	testSession.ItemsKeys = append(testSession.ItemsKeys, ik)
-	di, err := encItems.Decrypt(testSession, ItemsKeys{})
+
+	di, err := DecryptItems(testSession, encItems, ItemsKeys{})
 	require.NoError(t, err)
 	require.NotEmpty(t, di)
 
@@ -1604,17 +1605,14 @@ func TestSearchNotesByUUID(t *testing.T) {
 
 	var dogFactUUID string
 
-	var di DecryptedItems
-
-	di, err = cnO.SavedItems.Decrypt(testSession, ItemsKeys{})
+	di, err := DecryptItems(testSession, cnO.SavedItems, ItemsKeys{})
 	require.NoError(t, err)
 
-	var dis Items
-	dis, err = di.Parse()
+	dis, err := di.Parse()
 	require.NoError(t, err)
 
-	for _, di := range dis {
-		dn := di.(*Note)
+	for _, d := range dis {
+		dn := d.(*Note)
 		if dn.Content.Title == "Dog Fact" {
 			dogFactUUID = dn.UUID
 		}

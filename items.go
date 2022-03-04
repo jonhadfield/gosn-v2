@@ -142,7 +142,7 @@ func (ei EncryptedItems) ReEncrypt(s *Session, decryptionItemsKey ItemsKey, newI
 
 	var di DecryptedItems
 
-	di, err = ei.Decrypt(s, ItemsKeys{decryptionItemsKey})
+	di, err = DecryptItems(s, ei, ItemsKeys{decryptionItemsKey})
 
 	if err != nil {
 		err = fmt.Errorf("ReEncrypt | Decrypt | %w", err)
@@ -223,10 +223,10 @@ func (ei EncryptedItems) DecryptAndParse(s *Session) (o Items, err error) {
 
 	if len(s.ImporterItemsKeys) > 0 && s.ImporterItemsKeys.Latest().UUID != "" {
 		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKeys")
-		di, err = ei.Decrypt(s, s.ImporterItemsKeys)
+		di, err = DecryptItems(s, ei, s.ImporterItemsKeys)
 	} else {
 		debugPrint(s.Debug, "DecryptAndParse | using Session's ItemsKeys")
-		di, err = ei.Decrypt(s, ItemsKeys{})
+		di, err = DecryptItems(s, ei, ItemsKeys{})
 	}
 
 	if err != nil {
@@ -794,7 +794,7 @@ func (s *Session) Export(path string) error {
 	}
 
 	// encrypt items key that encrypted the items
-	eik, err := nk.Encrypt(s, false)
+	eik, err := EncryptItemsKey(nk, s, false)
 	if err != nil {
 		return err
 	}
@@ -955,7 +955,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 		return false, unsupported, nil
 	}
 
-	fDec, err := EncryptedItems{input.FirstItem}.Decrypt(input.Session, ItemsKeys{input.FirstItemsKey})
+	fDec, err := DecryptItems(input.Session, EncryptedItems{input.FirstItem}, ItemsKeys{input.FirstItemsKey})
 	if err != nil {
 		return
 	}
@@ -965,7 +965,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 		return
 	}
 
-	sDec, err := EncryptedItems{input.SecondItem}.Decrypt(input.Session, ItemsKeys{input.SecondItemsKey})
+	sDec, err := DecryptItems(input.Session, EncryptedItems{input.SecondItem}, ItemsKeys{input.SecondItemsKey})
 	if err != nil {
 		return
 	}
@@ -1198,6 +1198,7 @@ func (s *Session) Import(path string, syncToken string, password string) (items 
 			debugPrint(s.Debug, fmt.Sprintf("Import | no match found for existing item %s %s so add to items to re-encrypt",
 				existingItems[x].GetContentType(),
 				existingItems[x].GetUUID()))
+
 			existingToReencrypt = append(existingToReencrypt, existingItems[x])
 		}
 	}
@@ -1233,7 +1234,7 @@ func (s *Session) Import(path string, syncToken string, password string) (items 
 		return
 	}
 
-	eNik, err := nik.Encrypt(s, false)
+	eNik, err := EncryptItemsKey(nik, s, false)
 	if err != nil {
 		return
 	}

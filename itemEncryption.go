@@ -20,7 +20,7 @@ func encryptItems(s *Session, decItems *Items, ik ItemsKey) (encryptedItems Encr
 	return
 }
 
-func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedItem, err error) {
+func EncryptItemsKey(ik ItemsKey, s *Session, new bool) (encryptedItem EncryptedItem, err error) {
 	encryptedItem.UUID = ik.UUID
 
 	encryptedItem.ContentType = ik.ContentType
@@ -55,7 +55,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 	}
 
 	// Create the auth data that will be used to authenticate the encrypted content
-	authData := generateAuthData(ik.ContentType, ik.UUID, session.KeyParams)
+	authData := generateAuthData(ik.ContentType, ik.UUID, s.KeyParams)
 
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 	// Generate nonce
@@ -74,7 +74,7 @@ func (ik ItemsKey) Encrypt(session *Session, new bool) (encryptedItem EncryptedI
 
 	// Encrypt the Encrypted Items Key content element with the master key
 	var encryptedContentKey string
-	encryptedContentKey, err = encryptString(itemEncryptionKey, session.MasterKey, nonce, b64AuthData, 32)
+	encryptedContentKey, err = encryptString(itemEncryptionKey, s.MasterKey, nonce, b64AuthData, 32)
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 
