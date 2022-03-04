@@ -36,7 +36,7 @@ func TestCreateItemsKeyEncryptDecryptSync(t *testing.T) {
 	require.Equal(t, note.Content.Title, dn.Content.Title)
 	require.Equal(t, note.Content.Text, dn.Content.Text)
 
-	eik, err := ik.Encrypt(testSession, true)
+	eik, err := EncryptItemsKey(ik, testSession, true)
 	require.NoError(t, err)
 	require.NotEmpty(t, eik.Content)
 
@@ -127,7 +127,7 @@ func TestCreateItemsKeyEncryptDecryptItem(t *testing.T) {
 	require.Equal(t, note.Content.Title, dn.Content.Title)
 	require.Equal(t, note.Content.Text, dn.Content.Text)
 
-	eik, err := s.DefaultItemsKey.Encrypt(testSession, true)
+	eik, err := EncryptItemsKey(s.DefaultItemsKey, testSession, true)
 	require.NoError(t, err)
 	so, err := Sync(SyncInput{
 		Session: testSession,
@@ -144,7 +144,7 @@ func TestEncryptDecryptOfItemsKey(t *testing.T) {
 	require.Equal(t, "SN|ItemsKey", ik.ContentType)
 	require.NotEmpty(t, ik.ItemsKey)
 
-	eik, err := ik.Encrypt(testSession, true)
+	eik, err := EncryptItemsKey(ik, testSession, true)
 	require.NoError(t, err)
 	require.Equal(t, "SN|ItemsKey", eik.ContentType)
 	require.NotEmpty(t, eik.EncItemKey)

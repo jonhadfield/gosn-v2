@@ -106,25 +106,69 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 	return iks, err
 }
 
-// Decrypt.
-func (ei EncryptedItems) Decrypt(s *Session, iks ItemsKeys) (o DecryptedItems, err error) {
-	debugPrint(s.Debug, fmt.Sprintf("Decrypt | decrypting %d items", len(ei)))
-
-	for x := range ei {
-		if ei[x].Deleted {
+// DecryptItems.
+func DecryptItems(s *Session, ei EncryptedItems, iks ItemsKeys) (o DecryptedItems, err error) {
+	for _, e := range ei {
+		if e.Deleted {
 			continue
 		}
 
-		var di DecryptedItem
+		var key string
 
-		di, err = DecryptItem(ei[x], s, iks)
+		ik := getMatchingItem(e.GetItemsKeyID(), iks)
+
+		switch {
+		case ik.ItemsKey != "":
+			key = ik.ItemsKey
+		case isEncryptedWithMasterKey(e.ContentType):
+			key = s.MasterKey
+		default:
+			if e.ItemsKeyID == nil {
+				debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType))
+				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
+					e.Deleted,
+					e.UUID,
+					e.ContentType)
+
+				return
+			}
+
+			key = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
+			if key == "" {
+				err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s",
+					e.Deleted,
+					e.UUID,
+					e.ContentType,
+					*e.ItemsKeyID)
+
+				return
+			}
+		}
+
+		var content []byte
+
+		content, err = e.DecryptItemOnly(key)
 		if err != nil {
 			return
 		}
 
+		var di DecryptedItem
+		di.UUID = e.UUID
+		di.ContentType = e.ContentType
+		di.Deleted = e.Deleted
+
+		if e.ItemsKeyID != nil {
+			di.ItemsKeyID = *e.ItemsKeyID
+		}
+
+		di.UpdatedAt = e.UpdatedAt
+		di.CreatedAt = e.CreatedAt
+		di.CreatedAtTimestamp = e.CreatedAtTimestamp
+		di.UpdatedAtTimestamp = e.UpdatedAtTimestamp
+		di.Content = string(content)
+
 		o = append(o, di)
 	}
-
 	return
 }
 
