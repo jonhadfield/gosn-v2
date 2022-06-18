@@ -84,6 +84,10 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		if rErr != nil {
 			debugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()))
 			switch {
+			case strings.Contains(strings.ToLower(rErr.Error()), "session token") &&
+				strings.Contains(strings.ToLower(rErr.Error()), "expired"):
+				fmt.Printf("\nerr: %s\n\nplease log in again", rErr)
+				os.Exit(1)
 			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
 				i.NextItem = sResp.LastItemPut
 				resizeForRetry(&i)
