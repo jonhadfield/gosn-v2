@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type syncResponse struct {
@@ -573,100 +573,156 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	switch contentType {
 	case "Note":
 		var nc NoteContent
-		err = json.Unmarshal([]byte(input), &nc)
+		if err = json.Unmarshal([]byte(input), &nc); err != nil {
+			err = fmt.Errorf("processContentModel | %w", err)
+		}
 
-		return &nc, err
+		return &nc, nil
 	case "Tag":
 		var tc TagContent
-		err = json.Unmarshal([]byte(input), &tc)
+		if err = json.Unmarshal([]byte(input), &tc); err != nil {
+			err = fmt.Errorf("processContentModel | %w", err)
 
-		return &tc, err
+			return
+		}
+
+		return &tc, nil
 	case "SN|Component":
 		var cc ComponentContent
-		err = json.Unmarshal([]byte(input), &cc)
+		if err = json.Unmarshal([]byte(input), &cc); err != nil {
+			err = fmt.Errorf("processContentModel | %w", err)
 
-		return &cc, err
+			return
+		}
+
+		return &cc, nil
 	case "SN|Theme":
 		var tc ThemeContent
-		err = json.Unmarshal([]byte(input), &tc)
+		if err = json.Unmarshal([]byte(input), &tc); err != nil {
+			err = fmt.Errorf("processContentModel | %w", err)
 
-		return &tc, err
+			return
+		}
+
+		return &tc, nil
 	case "SN|Privileges":
 		var pc PrivilegesContent
-		err = json.Unmarshal([]byte(input), &pc)
+		if err = json.Unmarshal([]byte(input), &pc); err != nil {
+			if err = json.Unmarshal([]byte(input), &pc); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
 
-		return &pc, err
+				return
+			}
+		}
+
+		return &pc, nil
 	case "Extension":
 		var ec ExtensionContent
-		err = json.Unmarshal([]byte(input), &ec)
+		if err = json.Unmarshal([]byte(input), &ec); err != nil {
+			err = fmt.Errorf("processContentModel | %w", err)
 
-		return &ec, err
+			return
+		}
+
+		return &ec, nil
 	case "SF|Extension":
 		var sfe SFExtensionContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &sfe)
+			if err = json.Unmarshal([]byte(input), &sfe); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &sfe, err
+		return &sfe, nil
 	case "SF|MFA":
 		var sfm SFMFAContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &sfm)
+			if err = json.Unmarshal([]byte(input), &sfm); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &sfm, err
+		return &sfm, nil
 	case "SN|SmartTag":
 		var st SmartTagContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &st)
+			if err = json.Unmarshal([]byte(input), &st); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &st, err
+		return &st, nil
 
 	case "SN|FileSafe|FileMetadata":
 		var fsfm FileSafeFileMetaDataContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &fsfm)
+			if err = json.Unmarshal([]byte(input), &fsfm); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &fsfm, err
+		return &fsfm, nil
 
 	case "SN|FileSafe|Integration":
 		var fsi FileSafeIntegrationContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &fsi)
+			if err = json.Unmarshal([]byte(input), &fsi); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &fsi, err
+		return &fsi, nil
 	case "SN|UserPreferences":
 		var upc UserPreferencesContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &upc)
+			if err = json.Unmarshal([]byte(input), &upc); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &upc, err
+		return &upc, nil
 	case "SN|ExtensionRepo":
 		var erc ExtensionRepoContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &erc)
+			if err = json.Unmarshal([]byte(input), &erc); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &erc, err
+		return &erc, nil
 	case "SN|FileSafe|Credentials":
 		var fsc FileSafeCredentialsContent
 
 		if len(input) > 0 {
-			err = json.Unmarshal([]byte(input), &fsc)
+			if err = json.Unmarshal([]byte(input), &fsc); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
 		}
 
-		return &fsc, err
+		return &fsc, nil
 	default:
 		return nil, fmt.Errorf("unexpected type '%s'", contentType)
 	}
@@ -848,10 +904,9 @@ func writeJSON(c writeJSONConfig, items EncryptedItems) error {
 
 	for x := range items {
 		itemsExport = append(itemsExport, EncryptedItemExport{
-			UUID:       items[x].UUID,
-			ItemsKeyID: items[x].ItemsKeyID,
-			Content:    items[x].Content,
-			// Deleted:            items[x].Deleted,
+			UUID:               items[x].UUID,
+			ItemsKeyID:         items[x].ItemsKeyID,
+			Content:            items[x].Content,
 			ContentType:        items[x].ContentType,
 			EncItemKey:         items[x].EncItemKey,
 			CreatedAt:          items[x].CreatedAt,
@@ -870,8 +925,11 @@ func writeJSON(c writeJSONConfig, items EncryptedItems) error {
 	defer file.Close()
 
 	var jsonExport []byte
+
 	if err == nil {
-		jsonExport, err = json.MarshalIndent(itemsExport, "", "  ")
+		if jsonExport, err = json.MarshalIndent(itemsExport, "", "  "); err != nil {
+			return fmt.Errorf("writeJSON | %w", err)
+		}
 	}
 
 	content := strings.Builder{}
@@ -891,8 +949,11 @@ func writeJSON(c writeJSONConfig, items EncryptedItems) error {
 
 	content.WriteString("\n}")
 	_, err = file.WriteString(content.String())
+	if err != nil {
+		return fmt.Errorf("writeJSON | %w", err)
+	}
 
-	return err
+	return nil
 }
 
 type CompareEncryptedItemsInput struct {
@@ -1029,7 +1090,7 @@ func decryptExport(s *Session, path, password string) (items Items, err error) {
 			fmt.Print("password: ")
 
 			var bytePassword []byte
-			bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+			bytePassword, err = term.ReadPassword(int(syscall.Stdin))
 
 			fmt.Println()
 
@@ -1091,7 +1152,7 @@ func decryptExport(s *Session, path, password string) (items Items, err error) {
 	var exportsItemsKeys ItemsKeys
 
 	if len(exportsEncItemsKeys) == 0 {
-		err = fmt.Errorf("invalid export: no ItemsKey %v", err)
+		err = fmt.Errorf("invalid export: no ItemsKey %w", err)
 		return
 	}
 
@@ -1317,7 +1378,6 @@ func UpsertReferences(existing, new ItemReferences) ItemReferences {
 		}
 
 		if !found {
-
 			res = append(res, newRef)
 		}
 	}

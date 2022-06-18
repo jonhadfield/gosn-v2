@@ -273,51 +273,19 @@ func SaveItems(s *Session, db *storm.DB, items gosn.Items, close bool) error {
 	}
 
 	var eItems gosn.EncryptedItems
+
 	for x := range items {
 		eItem, err := gosn.EncryptItem(items[x], s.DefaultItemsKey, s.Session)
 		if err != nil {
-			return err
+			return fmt.Errorf("saveItems | %w", err)
 		}
+
 		eItems = append(eItems, eItem)
 	}
 
 	cItems := ToCacheItems(eItems, false)
 
 	return SaveCacheItems(db, cItems, close)
-
-	//batchSize := 500
-	//
-	//total := len(items)
-	//
-	//for i := 0; i < total; i += batchSize {
-	//	j := i + batchSize
-	//	if j > total {
-	//		j = total
-	//	}
-	//
-	//	tx, err := db.Begin(true)
-	//	sl := items[i:j]
-	//
-	//	for v := range sl {
-	//		err = tx.Save(&sl[v])
-	//		if err != nil {
-	//			tx.Rollback()
-	//
-	//			return err
-	//		}
-	//	}
-	//
-	//	err = tx.Commit()
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-	//
-	//if close {
-	//	return db.Close()
-	//}
-
-	return nil
 }
 
 // SaveCacheItems saves Cache Items to the provided database.
@@ -350,9 +318,12 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 		for v := range sl {
 			err = tx.Save(&sl[v])
 			if err != nil {
-				tx.Rollback()
+				if rErr := tx.Rollback(); rErr != nil {
+					return fmt.Errorf("saveCacheItems | save error: %s | rollback error: %w",
+						err.Error(), rErr)
+				}
 
-				return err
+				return fmt.Errorf("saveCacheItems | save error: %w", err)
 			}
 		}
 
@@ -363,7 +334,9 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	}
 
 	if close {
-		return db.Close()
+		if err := db.Close(); err != nil {
+			return fmt.Errorf("saveCacheItems | close error: %w", err)
+		}
 	}
 
 	return nil
@@ -495,76 +468,11 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 	return nil
 }
 
-//// UpdateCacheItems updates Cache Items in the provided database.
-// func UpdateCacheItems(db *storm.DB, items Items, close bool) error {
-//	for _, i := range items {
-//		if err := db.Update(&i); err != nil {
-//			return err
-//		}
-//	}
-//
-//	if close {
-//		return db.Close()
-//	}
-//
-//	return nil
-//}
-
 type CleanInput struct {
 	*Session
 	Close                 bool
 	UnreferencedItemsKeys bool
 }
-
-// func Clean(ci CleanInput) (err error) {
-//	// check session is valid
-//	if ci.Session == nil || !ci.Session.Valid() {
-//		err = fmt.Errorf("invalid session")
-//		return
-//	}
-//
-//	// only path should be passed
-//	if ci.Session.CacheDBPath == "" {
-//		err = fmt.Errorf("database path is required")
-//		return
-//	}
-//
-//	var db *storm.DB
-//
-//	// open DB if path provided
-//	if ci.Session.CacheDBPath != "" {
-//		debugPrint(ci.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", ci.Session.CacheDBPath))
-//
-//		db, err = storm.Open(ci.Session.CacheDBPath)
-//		if err != nil {
-//			return
-//		}
-//
-//		ci.CacheDB = db
-//
-//		if ci.Close {
-//			defer func(db *storm.DB) {
-//				if err = db.Close(); err != nil {
-//					panic(err)
-//				}
-//			}(db)
-//		}
-//	}
-//
-//	var all []Item
-//	err = db.All(&all)
-//	debugPrint(ci.Session.Debug, fmt.Sprintf("Sync | retrieved %d existing Items from db", len(all)))
-//
-//	seenItems := make(map[string]int)
-//	for x := range all {
-//		if seenItems[all[x].UUID] > 0 {
-//			panic(fmt.Sprintf("duplicate item in cache: %s %s", all[x].ContentType, all[x].UUID))
-//		}
-//		seenItems[all[x].UUID]++
-//	}
-//
-//	return
-//}
 
 func (i Items) Validate() error {
 	for x := range i {

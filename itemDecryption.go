@@ -169,6 +169,7 @@ func DecryptItems(s *Session, ei EncryptedItems, iks ItemsKeys) (o DecryptedItem
 
 		o = append(o, di)
 	}
+
 	return
 }
 
