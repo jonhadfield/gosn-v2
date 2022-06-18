@@ -43,6 +43,101 @@ type ConflictedItem struct {
 	Type        string
 }
 
+func syncItems(i SyncInput) (so SyncOutput, err error) {
+	giStart := time.Now()
+	defer func() {
+		debugPrint(i.Session.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
+	}()
+
+	if !i.Session.Valid() {
+		err = fmt.Errorf("session is invalid")
+		return
+	}
+
+	var sResp syncResponse
+
+	// check if we need to add a post sync request delay
+	psrd := os.Getenv("SN_POST_SYNC_REQUEST_DELAY")
+	if psrd != "" {
+		i.PostSyncRequestDelay, err = strconv.ParseInt(psrd, 10, 64)
+		if err != nil {
+			err = fmt.Errorf("invalid SN_POST_SYNC_REQUEST_DELAY value: %v", err)
+			return
+		}
+
+		debugPrint(i.Session.Debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
+			i.PostSyncRequestDelay))
+	}
+
+	// retry logic is to handle responses that are too large
+	// so we can reduce number we retrieve with each sync request
+	start := time.Now()
+	rErr := try.Do(func(attempt int) (bool, error) {
+		ps := PageSize
+		if i.PageSize > 0 {
+			ps = i.PageSize
+		}
+		debugPrint(i.Session.Debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps))
+		var rErr error
+
+		sResp, rErr = syncItemsViaAPI(i)
+		if rErr != nil {
+			debugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()))
+			switch {
+			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
+				i.NextItem = sResp.LastItemPut
+				resizeForRetry(&i)
+				debugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+					"at a time as the request was too large so reducing to page size %d",
+					sResp.PutLimitUsed, i.PageSize))
+			case strings.Contains(strings.ToLower(rErr.Error()), "timeout"):
+				i.NextItem = sResp.LastItemPut
+				resizeForRetry(&i)
+				debugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, i.PageSize))
+			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
+				i.NextItem = sResp.LastItemPut
+				debugPrint(i.Session.Debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling")
+				panic("failed to complete sync due to server throttling. please wait five minutes before retrying.")
+			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
+				i.NextItem = sResp.LastItemPut
+				resizeForRetry(&i)
+				debugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+					"at a time due to EOF so reducing to page size %d", sResp.PutLimitUsed, i.PageSize))
+			default:
+				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
+			}
+		}
+
+		return attempt < 3, rErr
+	})
+
+	if rErr != nil {
+		return so, fmt.Errorf("sync | %w", rErr)
+	}
+
+	elapsed := time.Since(start)
+
+	debugPrint(i.Session.Debug, fmt.Sprintf("Sync | took %v to get all items", elapsed))
+
+	so.Items = sResp.Items
+	so.Items.DeDupe()
+	so.Unsaved = sResp.Unsaved
+	so.Unsaved.DeDupe()
+	so.SavedItems = sResp.SavedItems
+	so.SavedItems.DeDupe()
+	so.Conflicts = sResp.Conflicts
+	so.Conflicts.DeDupe()
+	so.Cursor = sResp.CursorToken
+	so.SyncToken = sResp.SyncToken
+
+	debugPrint(i.Session.Debug,
+		fmt.Sprintf("Sync | SN returned %d items, %d saved items, and %d conflicts, with syncToken %s",
+			len(so.Items), len(so.SavedItems), len(so.Conflicts), so.SyncToken))
+
+	return
+}
+
 // Sync retrieves items from the API using optional filters and updates the provided
 // session with the items keys required to encrypt and decrypt items.
 func Sync(input SyncInput) (output SyncOutput, err error) {
@@ -58,95 +153,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		err = fmt.Errorf("missing default items key in session")
 	}
 
-	giStart := time.Now()
-	defer func() {
-		debugPrint(debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
-	}()
-
-	if !input.Session.Valid() {
-		err = fmt.Errorf("session is invalid")
-		return
-	}
-
-	var sResp syncResponse
-
-	// check if we need to add a post sync request delay
-	psrd := os.Getenv("SN_POST_SYNC_REQUEST_DELAY")
-	if psrd != "" {
-		input.PostSyncRequestDelay, err = strconv.ParseInt(psrd, 10, 64)
-		if err != nil {
-			err = fmt.Errorf("invalid SN_POST_SYNC_REQUEST_DELAY value: %v", err)
-			return
-		}
-
-		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
-			input.PostSyncRequestDelay))
-	}
-
-	// retry logic is to handle responses that are too large
-	// so we can reduce number we retrieve with each sync request
-	start := time.Now()
-	rErr := try.Do(func(attempt int) (bool, error) {
-		ps := PageSize
-		if input.PageSize > 0 {
-			ps = input.PageSize
-		}
-		debugPrint(debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps))
-		var rErr error
-
-		sResp, rErr = syncItemsViaAPI(input)
-		if rErr != nil {
-			debugPrint(debug, fmt.Sprintf("Sync | %s", rErr.Error()))
-			switch {
-			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
-				input.NextItem = sResp.LastItemPut
-				resizeForRetry(&input)
-				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-					"at a time as the request was too large so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
-			case strings.Contains(strings.ToLower(rErr.Error()), "timeout"):
-				input.NextItem = sResp.LastItemPut
-				resizeForRetry(&input)
-				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
-			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
-				input.NextItem = sResp.LastItemPut
-				debugPrint(debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling")
-				panic("failed to complete sync due to server throttling. please wait five minutes before retrying.")
-			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
-				input.NextItem = sResp.LastItemPut
-				resizeForRetry(&input)
-				debugPrint(debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-					"at a time due to EOF so reducing to page size %d", sResp.PutLimitUsed, input.PageSize))
-			default:
-				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
-			}
-		}
-
-		return attempt < 3, rErr
-	})
-
-	if rErr != nil {
-		return output, rErr
-	}
-
-	elapsed := time.Since(start)
-
-	debugPrint(debug, fmt.Sprintf("Sync | took %v to get all items", elapsed))
-
-	// postStart := time.Now()
-	output.Items = sResp.Items
-	output.Items.DeDupe()
-	// output.Items.RemoveUnsupported()
-	output.Unsaved = sResp.Unsaved
-	output.Unsaved.DeDupe()
-	output.SavedItems = sResp.SavedItems
-	output.SavedItems.DeDupe()
-	output.Conflicts = sResp.Conflicts
-	output.Conflicts.DeDupe()
-	output.Cursor = sResp.CursorToken
-	output.SyncToken = sResp.SyncToken
-
-	debugPrint(input.Session.Debug, fmt.Sprintf("Sync | SN returned %d items, %d saved items, and %d conflicts, with syncToken %s", len(output.Items), len(output.SavedItems), len(output.Conflicts), output.SyncToken))
+	output, err = syncItems(input)
 
 	// strip any duplicates (https://github.com/standardfile/rails-engine/issues/5)
 	// postElapsed := time.Since(postStart)

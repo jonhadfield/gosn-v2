@@ -5,16 +5,13 @@ import (
 	"crypto/aes"
 	crand "crypto/rand"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/pbkdf2"
 )
 
 // Encryption - Specifics
@@ -248,27 +245,6 @@ func generateMasterKeyAndServerPassword004(input generateEncryptedPasswordInput)
 	hex.Encode(derivedKeyHex, derivedKey)
 	masterKey = string(derivedKeyHex[:64])
 	serverPassword = string(derivedKeyHex[64:])
-
-	return
-}
-
-func generateEncryptedPasswordAndKeys(input generateEncryptedPasswordInput) (pw, mk, ak string, err error) {
-	saltSource := input.Identifier + ":" + "SF" + ":" + input.Version + ":" + strconv.Itoa(int(input.PasswordCost)) + ":" + input.PasswordNonce
-
-	h := sha256.New()
-	if _, err = h.Write([]byte(saltSource)); err != nil {
-		return
-	}
-
-	preSalt := sha256.Sum256([]byte(saltSource))
-	salt := make([]byte, hex.EncodedLen(len(preSalt)))
-	hex.Encode(salt, preSalt[:])
-	hashedPassword := pbkdf2.Key([]byte(input.userPassword), salt, int(input.PasswordCost), 96, sha512.New)
-	hexedHashedPassword := hex.EncodeToString(hashedPassword)
-	splitLength := len(hexedHashedPassword) / 3
-	pw = hexedHashedPassword[:splitLength]
-	mk = hexedHashedPassword[splitLength : splitLength*2]
-	ak = hexedHashedPassword[splitLength*2 : splitLength*3]
 
 	return
 }

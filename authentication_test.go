@@ -35,17 +35,17 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 	require.Equal(t, "a5eb9fbc767eafd6e54fd9d3646b19520e038ba2ccc9cceddf2340b37b788b47", serverPassword)
 }
 
-func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
-	var testInput generateEncryptedPasswordInput
-	testInput.userPassword = "oWB7c&77Zahw8XK$AUy#"
-	testInput.Identifier = "soba@lessknown.co.uk"
-	testInput.PasswordNonce = "9e88fc67fb8b1efe92deeb98b5b6a801c78bdfae08eecb315f843f6badf60aef"
-	testInput.PasswordCost = 110000
-	testInput.Version = "003"
-	testInput.PasswordSalt = ""
-	result, _, _, _ := generateEncryptedPasswordAndKeys(testInput)
-	require.Equal(t, result, "1312fe421aa49a6444684b58cbd5a43a55638cd5bf77514c78d50c7f3ae9c4e7")
-}
+// func TestGenerateEncryptedPasswordWithValidInput(t *testing.T) {
+//	var testInput generateEncryptedPasswordInput
+//	testInput.userPassword = "oWB7c&77Zahw8XK$AUy#"
+//	testInput.Identifier = "soba@lessknown.co.uk"
+//	testInput.PasswordNonce = "9e88fc67fb8b1efe92deeb98b5b6a801c78bdfae08eecb315f843f6badf60aef"
+//	testInput.PasswordCost = 110000
+//	testInput.Version = "003"
+//	testInput.PasswordSalt = ""
+//	result, _, _, _ := generateEncryptedPasswordAndKeys(testInput)
+//	require.Equal(t, result, "1312fe421aa49a6444684b58cbd5a43a55638cd5bf77514c78d50c7f3ae9c4e7")
+//}
 
 // server required for following tests.
 func TestSignIn(t *testing.T) {

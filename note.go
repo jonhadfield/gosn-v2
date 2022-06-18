@@ -36,7 +36,6 @@ func parseNote(i DecryptedItem) Item {
 		var content Content
 
 		content, err = processContentModel(i.ContentType, i.Content)
-
 		if err != nil {
 			panic(err)
 		}
