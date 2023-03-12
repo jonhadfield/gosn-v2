@@ -230,7 +230,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	}
 
-	fmt.Printf("doAuthParamsRequest reqBody: %+v", reqBody)
+	fmt.Printf("doAuthParamsRequest reqBody: %+v\n", reqBody)
 
 	reqBodyBytes = []byte(reqBody)
 
@@ -240,7 +240,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if err != nil {
 		return
 	}
-	fmt.Printf("doAuthParamsRequest req: %+v", req)
+	fmt.Printf("doAuthParamsRequest req: %+v\n", req)
 
 	req.Header.Set("content-Type", "application/json")
 	req.Header.Set("Connection", "keep-alive")
@@ -251,7 +251,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if err != nil {
 		return
 	}
-	fmt.Printf("doAuthParamsRequest response: %+v", response)
+	fmt.Printf("doAuthParamsRequest response: %+v\n", response)
 
 	defer func() {
 		_ = response.Body.Close()
@@ -266,7 +266,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		return
 	}
 
-	fmt.Printf("doAuthParamsRequest requestOutput: %+v", requestOutput)
+	fmt.Printf("doAuthParamsRequest requestOutput: %+v\n", requestOutput)
 
 	output.Data.Identifier = requestOutput.Data.Identifier
 	output.Data.Version = requestOutput.Data.Version
@@ -276,7 +276,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	output.mfaKEY = errResp.Data.Error.Payload.MFAKey
 	output.Verifier = verifier
 
-	fmt.Printf("doAuthParamsRequest output: %+v", output)
+	fmt.Printf("doAuthParamsRequest output: %+v\n", output)
 
 	return output, err
 }
