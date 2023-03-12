@@ -131,10 +131,8 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 }
 
 func processDoAuthRequestResponse(response *http.Response, debug bool) (output doAuthRequestOutput, errResp errorResponse, err error) {
-	fmt.Printf("processDoAuthRequestResponse response: %+v", response)
 	var body []byte
 	body, err = ioutil.ReadAll(response.Body)
-	fmt.Printf("processDoAuthRequestResponse body: %+v", body)
 
 	switch response.StatusCode {
 	case http.StatusOK:
@@ -230,7 +228,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	}
 
-	fmt.Printf("doAuthParamsRequest reqBody: %+v", reqBody)
+	fmt.Printf("reqBody: %+v", reqBody)
 
 	reqBodyBytes = []byte(reqBody)
 
@@ -240,7 +238,6 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if err != nil {
 		return
 	}
-	fmt.Printf("doAuthParamsRequest req: %+v", req)
 
 	req.Header.Set("content-Type", "application/json")
 	req.Header.Set("Connection", "keep-alive")
@@ -251,7 +248,6 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if err != nil {
 		return
 	}
-	fmt.Printf("doAuthParamsRequest response: %+v", response)
 
 	defer func() {
 		_ = response.Body.Close()
@@ -266,8 +262,6 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		return
 	}
 
-	fmt.Printf("doAuthParamsRequest requestOutput: %+v", requestOutput)
-
 	output.Data.Identifier = requestOutput.Data.Identifier
 	output.Data.Version = requestOutput.Data.Version
 	output.Data.PasswordCost = requestOutput.Data.PasswordCost
@@ -275,8 +269,6 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	output.Data.PasswordSalt = requestOutput.Data.PasswordSalt
 	output.mfaKEY = errResp.Data.Error.Payload.MFAKey
 	output.Verifier = verifier
-
-	fmt.Printf("doAuthParamsRequest output: %+v", output)
 
 	return output, err
 }
