@@ -202,20 +202,7 @@ type errorResponse struct {
 
 // HTTP request bit.
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
-	// make initial params request without mfa token
-	// var reqURL string
-
-	// e := url.QueryEscape(input.email)
-
 	var verifier = generateChallengeAndVerifierForLogin()
-
-	// if input.tokenName == "" {
-	// 	// initial request
-	// 	reqURL = input.authParamsURL + "?email=" + e + "&api=20200115" + "&code_challenge=" + verifier.codeChallenge
-	// } else {
-	// 	// request with mfa
-	// 	reqURL = input.authParamsURL + "?email=" + e + "&" + input.tokenName + "=" + input.tokenValue + "&code_challenge=" + verifier.codeChallenge
-	// }
 
 	var reqBodyBytes []byte
 	var reqBody string
