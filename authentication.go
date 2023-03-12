@@ -225,7 +225,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if input.tokenName != "" {
 		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	} else {
-		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","` + `","code_challenge":"` + verifier.codeChallenge + `"}`
+		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	}
 
 	reqBodyBytes = []byte(reqBody)
