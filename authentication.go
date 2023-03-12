@@ -228,6 +228,8 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	}
 
+	fmt.Printf("reqBody: %+v", reqBody)
+
 	reqBodyBytes = []byte(reqBody)
 
 	var req *http.Request
