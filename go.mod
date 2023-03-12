@@ -1,4 +1,4 @@
-module github.com/joegoldin/gosn-v2
+module github.com/jonhadfield/gosn-v2
 
 go 1.17
 
