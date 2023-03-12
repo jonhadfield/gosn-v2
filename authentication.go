@@ -3,6 +3,8 @@ package gosn
 import (
 	"bytes"
 	crand "crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -35,8 +37,9 @@ func (s cryptoSource) Uint64() (v uint64) {
 }
 
 type doAuthRequestOutput struct {
-	Data   authParamsOutput `json:"data"`
-	mfaKEY string
+	Data     authParamsOutput `json:"data"`
+	mfaKEY   string
+	Verifier generateLoginChallengeCodeVerifier
 }
 
 type authParamsInput struct {
@@ -55,6 +58,7 @@ type authParamsOutput struct {
 	PasswordNonce string `json:"pw_nonce"`
 	Version       string `json:"version"`
 	TokenName     string
+	Verifier      generateLoginChallengeCodeVerifier
 }
 
 func requestToken(input signInInput) (signInSuccess signInResponse, signInFailure errorResponse, err error) {
@@ -67,9 +71,9 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	apiVer := "20200115"
 
 	if input.tokenName != "" {
-		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","` + input.tokenName + `":"` + input.tokenValue + `"}`
+		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","` + input.tokenName + `":"` + input.tokenValue + `","code_verifier":"` + input.codeVerifier + `"}`
 	} else {
-		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `"}`
+		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","code_verifier":"` + input.codeVerifier + `"}`
 	}
 
 	reqBodyBytes = []byte(reqBody)
@@ -198,25 +202,30 @@ type errorResponse struct {
 
 // HTTP request bit.
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
-	// make initial params request without mfa token
-	var reqURL string
+	var verifier = generateChallengeAndVerifierForLogin()
 
-	e := url.QueryEscape(input.email)
+	var reqBodyBytes []byte
+	var reqBody string
 
-	if input.tokenName == "" {
-		// initial request
-		reqURL = input.authParamsURL + "?email=" + e + "&api=20200115"
+	apiVer := "20200115"
+
+	if input.tokenName != "" {
+		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	} else {
-		// request with mfa
-		reqURL = input.authParamsURL + "?email=" + e + "&" + input.tokenName + "=" + input.tokenValue
+		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	}
+
+	reqBodyBytes = []byte(reqBody)
 
 	var req *http.Request
 
-	req, err = http.NewRequest(http.MethodGet, reqURL, nil)
+	req, err = http.NewRequest(http.MethodPost, input.authParamsURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return
 	}
+
+	req.Header.Set("content-Type", "application/json")
+	req.Header.Set("Connection", "keep-alive")
 
 	var response *http.Response
 
@@ -244,6 +253,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	output.Data.PasswordNonce = requestOutput.Data.PasswordNonce
 	output.Data.PasswordSalt = requestOutput.Data.PasswordSalt
 	output.mfaKEY = errResp.Data.Error.Payload.MFAKey
+	output.Verifier = verifier
 
 	return output, err
 }
@@ -260,6 +270,7 @@ func getAuthParams(input authParamsInput) (output authParamsOutput, err error) {
 	output.PasswordNonce = authRequestOutput.Data.PasswordNonce
 	output.Version = authRequestOutput.Data.Version
 	output.TokenName = authRequestOutput.mfaKEY
+	output.Verifier = authRequestOutput.Verifier
 
 	return
 }
@@ -271,12 +282,13 @@ type generateEncryptedPasswordInput struct {
 }
 
 type signInInput struct {
-	email       string
-	encPassword string
-	tokenName   string
-	tokenValue  string
-	signInURL   string
-	debug       bool
+	email        string
+	encPassword  string
+	tokenName    string
+	tokenValue   string
+	signInURL    string
+	debug        bool
+	codeVerifier string
 }
 
 type KeyParams struct {
@@ -423,12 +435,13 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 
 	var requestTokenFailure errorResponse
 	tokenResp, requestTokenFailure, err = requestToken(signInInput{
-		email:       input.Email,
-		encPassword: sp,
-		tokenName:   input.TokenName,
-		tokenValue:  input.TokenVal,
-		signInURL:   input.APIServer + signInPath,
-		debug:       input.Debug,
+		email:        input.Email,
+		encPassword:  sp,
+		tokenName:    input.TokenName,
+		tokenValue:   input.TokenVal,
+		signInURL:    input.APIServer + signInPath,
+		debug:        input.Debug,
+		codeVerifier: getAuthParamsOutput.Verifier.codeVerifier,
 	})
 
 	if err != nil {
@@ -750,4 +763,28 @@ func (s *Session) Valid() bool {
 	}
 
 	return true
+}
+
+type generateLoginChallengeCodeVerifier struct {
+	codeVerifier  string
+	codeChallenge string
+}
+
+func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChallengeCodeVerifier) {
+	// generate salt seed (password nonce)
+	var src cryptoSource
+	rnd := rand.New(src)
+
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	b := make([]rune, 65)
+	for i := range b {
+		b[i] = letterRunes[rnd.Intn(len(letterRunes))]
+	}
+
+	loginCodeVerifier.codeVerifier = string(b)[:64]
+	sha25Hash := fmt.Sprintf("%x", sha256.Sum256([]byte(loginCodeVerifier.codeVerifier)))
+	loginCodeVerifier.codeChallenge = string(base64.URLEncoding.EncodeToString([]byte(sha25Hash[:])))[:86]
+
+	return loginCodeVerifier
 }
