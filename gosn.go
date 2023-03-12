@@ -12,9 +12,9 @@ const (
 	apiServer = "https://api.standardnotes.com"
 	syncPath  = "/items/sync" // remote path for making sync calls
 	// Authentication.
-	authParamsPath    = "/v1/login-params" // remote path for getting auth parameters
+	authParamsPath    = "/v2/login-params" // remote path for getting auth parameters
 	authRegisterPath  = "/v1/users"        // remote path for registering user
-	signInPath        = "/v1/login"        // remote path for authenticating
+	signInPath        = "/v2/login"        // remote path for authenticating
 	minPasswordLength = 8                  // minimum password length when registering
 	// PageSize is the maximum number of items to return with each call.
 	PageSize            = 150
