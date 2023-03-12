@@ -236,7 +236,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 
 	var req *http.Request
 
-	req, err = http.NewRequest(http.MethodGet, input.authParamsURL, bytes.NewBuffer(reqBodyBytes))
+	req, err = http.NewRequest(http.MethodPost, input.authParamsURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return
 	}
