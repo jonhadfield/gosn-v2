@@ -80,7 +80,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 
 	var signInURLReq *http.Request
 
-	debugPrint(input.debug, fmt.Sprintf("sign-in url: %s\n", input.signInURL))
+	debugPrint(input.debug, fmt.Sprintf("sign-in url: %s", input.signInURL))
 
 	signInURLReq, err = http.NewRequest(http.MethodPost, input.signInURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
@@ -96,7 +96,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	signInResp, err = httpClient.Do(signInURLReq)
 	elapsed := time.Since(start)
 
-	debugPrint(input.debug, fmt.Sprintf("requestToken | request took: %+v\n", elapsed))
+	debugPrint(input.debug, fmt.Sprintf("requestToken | request took: %+v", elapsed))
 
 	if err != nil {
 		return signInSuccess, signInFailure, err
@@ -131,10 +131,10 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 }
 
 func processDoAuthRequestResponse(response *http.Response, debug bool) (output doAuthRequestOutput, errResp errorResponse, err error) {
-	fmt.Printf("processDoAuthRequestResponse response: %+v\n\n", response)
+	fmt.Printf("processDoAuthRequestResponse response: %+v", response)
 	var body []byte
 	body, err = ioutil.ReadAll(response.Body)
-	fmt.Printf("processDoAuthRequestResponse body: %+v\n\n", body)
+	fmt.Printf("processDoAuthRequestResponse body: %+v", body)
 
 	switch response.StatusCode {
 	case http.StatusOK:
@@ -154,7 +154,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 
-		debugPrint(debug, fmt.Sprintf("status 404 %+v\n\n", errResp))
+		debugPrint(debug, fmt.Sprintf("status 404 %+v", errResp))
 
 		return
 	case http.StatusBadRequest:
@@ -164,7 +164,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 
-		debugPrint(debug, fmt.Sprintf("status 400 %+v\n\n", errResp))
+		debugPrint(debug, fmt.Sprintf("status 400 %+v", errResp))
 	case http.StatusUnauthorized:
 		// need mfa token
 		// unmarshal error response
@@ -173,14 +173,14 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 
-		debugPrint(debug, fmt.Sprintf("status 401 %+v\n\n", errResp))
+		debugPrint(debug, fmt.Sprintf("status 401 %+v", errResp))
 	case http.StatusForbidden:
 		// server has denied request
 		// unmarshal error response
 		err = fmt.Errorf("server returned 403 Forbidden response")
 		return
 	default:
-		err = fmt.Errorf("unhandled: %+v\n\n", response)
+		err = fmt.Errorf("unhandled: %+v", response)
 		return
 	}
 
@@ -230,7 +230,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
 	}
 
-	fmt.Printf("doAuthParamsRequest reqBody: %+v\n\n", reqBody)
+	fmt.Printf("doAuthParamsRequest reqBody: %+v\n", reqBody)
 
 	reqBodyBytes = []byte(reqBody)
 
@@ -240,7 +240,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if err != nil {
 		return
 	}
-	fmt.Printf("doAuthParamsRequest req: %+v\n\n", req)
+	fmt.Printf("doAuthParamsRequest req: %+v\n", req)
 
 	req.Header.Set("content-Type", "application/json")
 	req.Header.Set("Connection", "keep-alive")
@@ -251,7 +251,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	if err != nil {
 		return
 	}
-	fmt.Printf("doAuthParamsRequest response: %+v\n\n", response)
+	fmt.Printf("doAuthParamsRequest response: %+v\n", response)
 
 	defer func() {
 		_ = response.Body.Close()
@@ -266,7 +266,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		return
 	}
 
-	fmt.Printf("doAuthParamsRequest requestOutput: %+v\n\n", requestOutput)
+	fmt.Printf("doAuthParamsRequest requestOutput: %+v\n", requestOutput)
 
 	output.Data.Identifier = requestOutput.Data.Identifier
 	output.Data.Version = requestOutput.Data.Version
@@ -276,7 +276,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	output.mfaKEY = errResp.Data.Error.Payload.MFAKey
 	output.Verifier = verifier
 
-	fmt.Printf("doAuthParamsRequest output: %+v\n\n", output)
+	fmt.Printf("doAuthParamsRequest output: %+v\n", output)
 
 	return output, err
 }
