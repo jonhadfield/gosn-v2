@@ -170,7 +170,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 		// need mfa token
 		// unmarshal error response
 
-		fmt.Printf("unauthorized\n%s", string(body))
+		// fmt.Printf("unauthorized\n%s", string(body))
 		err = json.Unmarshal(body, &errResp)
 		if err != nil {
 			return
