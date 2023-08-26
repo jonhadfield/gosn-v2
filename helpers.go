@@ -103,6 +103,7 @@ func DeleteContent(session *Session, everything bool) (deleted int, err error) {
 
 func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
 	// TODO: There should be an IsValid method on each item that includes this check if SN|ItemsKey
+	// fmt.Printf("unmarshallSyncResponse | input: %s\n", string(input))
 	err = json.Unmarshal(input, &output)
 	if err != nil {
 		return
@@ -110,7 +111,7 @@ func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
 
 	// check no items keys have an items key
 	for _, item := range output.Items {
-		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != nil {
+		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != "" {
 			err = fmt.Errorf("SN|ItemsKey %s has an ItemsKeyID set", item.UUID)
 			return
 		}

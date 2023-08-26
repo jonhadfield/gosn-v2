@@ -11,9 +11,15 @@ func encryptItems(s *Session, decItems *Items, ik ItemsKey) (encryptedItems Encr
 	debugPrint(s.Debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)))
 	d := *decItems
 
+	// fmt.Printf("Encrypt | encrypting %d items\n", len(*decItems))
+	// for _, x := range *decItems {
+	// 	fmt.Printf("----- %s %s\n", x.GetContentType(), x.GetUUID())
+	// }
+
 	for _, decItem := range d {
 		var e EncryptedItem
 		e, err = EncryptItem(decItem, ik, s)
+		// fmt.Printf("Encrypt22 | encrypted item: %+v\n", e)
 		encryptedItems = append(encryptedItems, e)
 	}
 
@@ -85,7 +91,7 @@ func EncryptItemsKey(ik ItemsKey, s *Session, new bool) (encryptedItem Encrypted
 		panic("produced encrypted ItemsKey with empty uuid")
 	case encryptedItem.Content == "":
 		panic("produced encrypted ItemsKey with empty content")
-	case encryptedItem.ItemsKeyID != nil:
+	case encryptedItem.ItemsKeyID != "":
 		panic("produced encrypted ItemsKey non nil ItemsKeyID")
 	case encryptedItem.CreatedAtTimestamp == 0:
 		panic("encrypted items key has CreatedAtTimestamp set to 0")
@@ -102,8 +108,9 @@ func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	}
 
 	ikid := ik.UUID
+	// fmt.Println("ikid: ", ikid)
 
-	encryptedItem.ItemsKeyID = &ikid
+	encryptedItem.ItemsKeyID = ikid
 	contentEncryptionKey = ik.ItemsKey
 	encryptedItem.UUID = item.GetUUID()
 	encryptedItem.ContentType = item.GetContentType()
@@ -114,7 +121,7 @@ func EncryptItem(item Item, ik ItemsKey, session *Session) (encryptedItem Encryp
 	encryptedItem.CreatedAtTimestamp = item.GetCreatedAtTimestamp()
 	// Generate Item Key
 	itemKey := generateItemKey(64)
-
+	// fmt.Printf("GENERATED ITEM KEY: %s\n", itemKey)
 	// get Item Encryption Key
 	itemEncryptionKey := itemKey
 	// encrypt Item content
@@ -163,7 +170,7 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *Session) (encryptedItem En
 
 	ikid := ik.UUID
 
-	encryptedItem.ItemsKeyID = &ikid
+	encryptedItem.ItemsKeyID = ikid
 	contentEncryptionKey = ik.ItemsKey
 	encryptedItem.UUID = di.UUID
 	encryptedItem.ContentType = di.ContentType
