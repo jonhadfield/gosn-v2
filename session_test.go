@@ -24,14 +24,15 @@ func (k MockKeyRingDodgy) Delete(service, user string) error {
 	return nil
 }
 
-type MockKeyRingDefined struct{}
+type MockKeyRingDefined struct {
+}
 
 func (k MockKeyRingDefined) Set(user, service, password string) error {
 	return nil
 }
 
 func (k MockKeyRingDefined) Get(service, user string) (r string, err error) {
-	return "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"5319f9c148ee3dbe78fc149e8643775242d7e83216060ee5e228ab2ec3d88a76\",\"keyParams\":{\"created\":\"1608473387799\",\"identifier\":\"test-user\",\"origination\":\"registration\",\"pw_nonce\":\"yJTyMmLr3KqOc7ifRfe1H7Pu8591n7Sj\",\"version\":\"004\"},\"access_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:Io9MOsc.WDIq0JBt\",\"refresh_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:-ixQV.-RMCCSPG0M\",\"access_expiration\":1648647400000,\"refresh_expiration\":1675020326000}", nil
+	return "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"03f7f410be71838897d35cacec799503355d486a0ef4a1e3e5f64abf262a640f\",\"keyParams\":{\"created\":\"1693053961818\",\"identifier\":\"ramea@lessknown.co.uk\",\"origination\":\"registration\",\"pw_nonce\":\"93ed73375de052cb233fc9914fe8a2a264492b74ebc2968e17eb44d451ced614\",\"version\":\"004\"},\"access_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:ODAyZWRlMTg2ZjM5\",\"refresh_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:YTU4NWY3MmIxMmIz\",\"access_expiration\":1698262966000,\"refresh_expiration\":1724635892000}", nil
 }
 
 func (k MockKeyRingDefined) Delete(service, user string) error {
@@ -67,22 +68,9 @@ func TestWriteSession(t *testing.T) {
 	require.Error(t, writeSession("example", kEmpty))
 
 	var kDefined MockKeyRingDefined
-
+	require.NoError(t, writeSession("example", kDefined))
+	sess, email, err := GetSession(true, "SNServer", os.Getenv("SN_SERVER"), true)
 	require.NoError(t, SessionExists(kDefined))
-}
-
-func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
-	_ = os.Unsetenv("SN_SERVER")
-	_ = os.Unsetenv("SN_EMAIL")
-	_ = os.Unsetenv("SN_PASSWORD")
-
-	serverURL := os.Getenv("SN_SERVER")
-	if serverURL == "" {
-		serverURL = SNServerURL
-	}
-
-	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{}, true)
-	require.NoError(t, err)
 }
 
 func TestAddSession(t *testing.T) {
@@ -96,17 +84,21 @@ func TestAddSession(t *testing.T) {
 		serverURL = SNServerURL
 	}
 
-	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{}, true)
+	k := MockKeyRingDefined{}
+	RemoveSession(k)
+	_, err := AddSession(serverURL, "", k, true)
 	require.NoError(t, err)
+	session, email, err := GetSession(true, "session-key", "Earth", true)
+	require.NoError(t, err)
+	require.NotEmpty(t, email)
+	require.NotEmpty(t, session)
 }
 
 func TestSessionExists(t *testing.T) {
 	var kEmpty MockKeyRingUnDefined
-
 	require.Error(t, SessionExists(kEmpty))
 
 	var kDefined MockKeyRingDefined
-
 	require.NoError(t, SessionExists(kDefined))
 }
 
@@ -134,7 +126,7 @@ func TestSessionStatus(t *testing.T) {
 	var kDefined MockKeyRingDefined
 	s, err = SessionStatus("", kDefined)
 	require.NoError(t, err)
-	require.Contains(t, s, "session found: test-user")
+	require.Contains(t, s, "session found: ramea@lessknown.co.uk")
 
 	// if stored Session value is not immediately valid
 	// then Session is assumed to be encrypted so ensure
@@ -152,4 +144,18 @@ func TestSessionStatus(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid")
 	require.Empty(t, s)
+}
+
+func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
+	_ = os.Unsetenv("SN_SERVER")
+	_ = os.Unsetenv("SN_EMAIL")
+	_ = os.Unsetenv("SN_PASSWORD")
+
+	serverURL := os.Getenv("SN_SERVER")
+	if serverURL == "" {
+		serverURL = SNServerURL
+	}
+
+	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{}, true)
+	require.NoError(t, err)
 }

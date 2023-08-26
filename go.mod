@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/asdine/storm/v3 v3.2.1
-	github.com/fatih/color v1.13.0
+	github.com/fatih/color v1.15.0
 	github.com/google/uuid v1.3.0
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 	github.com/mitchellh/go-homedir v1.1.0
@@ -27,8 +27,8 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
-	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
