@@ -197,7 +197,6 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	}
 
 	rS := makeMinimalSessionString(session)
-
 	if inKey != "" {
 		key := []byte(inKey)
 		rS = Encrypt(key, makeMinimalSessionString(session))
