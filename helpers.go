@@ -80,6 +80,7 @@ func DeleteContent(session *Session, everything bool) (deleted int, err error) {
 			"SN|Privileges",
 			"Extension",
 			"SN|UserPreferences",
+			"SN|File",
 		}...)
 	}
 

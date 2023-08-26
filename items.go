@@ -518,8 +518,10 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 		pi = parseExtensionRepo(di)
 	case "SN|FileSafe|Credentials":
 		pi = parseFileSafeCredentials(di)
+	case "SN|File":
+		pi = parseFile(di)
 	default:
-		return nil, fmt.Errorf("unhandled type '%s'", di.ContentType)
+		return nil, fmt.Errorf("unhandled type1 '%s' %s", di.ContentType, di.Content)
 	}
 
 	return pi, err
@@ -562,8 +564,10 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseExtensionRepo(i)
 		case "SN|FileSafe|Credentials":
 			pi = parseFileSafeCredentials(i)
+		case "SN|File":
+			pi = parseFile(i)
 		default:
-			return nil, fmt.Errorf("unhandled type '%s'", i.ContentType)
+			return nil, fmt.Errorf("unhandled type2 '%s' %s", i.ContentType, i.Content)
 		}
 
 		p = append(p, pi)
@@ -728,6 +732,18 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &fsc, nil
+	case "SN|File":
+		var fc FileContent
+
+		if len(input) > 0 {
+			if err = json.Unmarshal([]byte(input), &fc); err != nil {
+				err = fmt.Errorf("processContentModel | %w", err)
+
+				return
+			}
+		}
+
+		return &fc, nil
 	default:
 		return nil, fmt.Errorf("unexpected type '%s'", contentType)
 	}
