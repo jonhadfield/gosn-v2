@@ -134,6 +134,9 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 	var body []byte
 	body, err = ioutil.ReadAll(response.Body)
 
+	// fmt.Println("body:", string(body))
+	// fmt.Println("response:", response.StatusCode)
+
 	switch response.StatusCode {
 	case http.StatusOK:
 		err = json.Unmarshal(body, &output)
@@ -166,12 +169,15 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 	case http.StatusUnauthorized:
 		// need mfa token
 		// unmarshal error response
+
+		fmt.Printf("unauthorized\n%s", string(body))
 		err = json.Unmarshal(body, &errResp)
 		if err != nil {
 			return
 		}
 
 		debugPrint(debug, fmt.Sprintf("status 401 %+v", errResp))
+		debugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp))
 	case http.StatusForbidden:
 		// server has denied request
 		// unmarshal error response
@@ -311,7 +317,10 @@ type signInResponseData struct {
 }
 
 type signInResponseMeta struct {
-	Auth interface{} `json:"auth"`
+	Auth   interface{} `json:"auth"`
+	Server struct {
+		FilesServerURL string `json:"filesServerUrl"`
+	} `json:"server"`
 }
 
 type signInResponse struct {
@@ -379,7 +388,6 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	if input.APIServer == "" {
 		input.APIServer = apiServer
 	}
-
 	getAuthParamsInput := authParamsInput{
 		email:         input.Email,
 		password:      input.Password,
@@ -396,9 +404,9 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	if err != nil {
 		debugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err))
 		err = processConnectionFailure(err, getAuthParamsInput.authParamsURL)
-
 		return
 	}
+	// fmt.Printf("getAuthParamsOutput: %#+v\n", getAuthParamsOutput)
 
 	if getAuthParamsOutput.Version == "003" {
 		err = fmt.Errorf("version 003 of Standard Notes is no longer supported")
@@ -583,7 +591,6 @@ func (input RegisterInput) Register() (token string, err error) {
 	req.Host = input.APIServer
 
 	var response *http.Response
-
 	response, err = httpClient.Do(req)
 	if err != nil {
 		return
@@ -592,7 +599,10 @@ func (input RegisterInput) Register() (token string, err error) {
 	defer func() {
 		_ = response.Body.Close()
 	}()
+
 	token, err = processDoRegisterRequestResponse(response, input.Debug)
+	debugPrint(true, token)
+
 	if err != nil {
 		return
 	}

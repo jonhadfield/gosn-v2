@@ -3,13 +3,13 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/matryer/try"
+	"golang.org/x/exp/slices"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/matryer/try"
 )
 
 // SyncInput defines the input for retrieving items.
@@ -44,6 +44,11 @@ type ConflictedItem struct {
 }
 
 func syncItems(i SyncInput) (so SyncOutput, err error) {
+	// fmt.Printf("syncItems called with %d items\n", len(i.Items))
+	// for _, x := range i.Items {
+	// 	fmt.Printf("----- %s %s %s\n", x.UUID, x.ItemsKeyID, x.EncItemKey)
+	// }
+
 	giStart := time.Now()
 	defer func() {
 		debugPrint(i.Session.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
@@ -80,7 +85,12 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		debugPrint(i.Session.Debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps))
 		var rErr error
 
+		// fmt.Printf("calling syncItemsViaAPI with %d items\n", len(i.Items))
+		// for x := range i.Items {
+		// 	fmt.Printf("***** %s %s %s\n", i.Items[x].UUID, i.Items[x].ItemsKeyID, i.Items[x].EncItemKey)
+		// }
 		sResp, rErr = syncItemsViaAPI(i)
+		// fmt.Sprintf("syncItemsViaAPI returned sResp %#+v\n", sResp)
 		if rErr != nil {
 			debugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()))
 			switch {
@@ -129,6 +139,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 	so.Unsaved = sResp.Unsaved
 	so.Unsaved.DeDupe()
 	so.SavedItems = sResp.SavedItems
+	// fmt.Printf("saved items here: %+v\n", so.SavedItems)
 	so.SavedItems.DeDupe()
 	so.Conflicts = sResp.Conflicts
 	so.Conflicts.DeDupe()
@@ -156,6 +167,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
 		err = fmt.Errorf("missing default items key in session")
 	}
+
+	// duplicate items to be pushed so we can update their updated_at_timestamp if saved
+	clonedItems := slices.Clone(input.Items)
 
 	output, err = syncItems(input)
 
@@ -376,8 +390,40 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		output.SavedItems.DeDupe()
 	}
 
+	// for each saved item, update the times on the input items
+	var updatedSaved EncryptedItems
+	// TODO: update original items (if saved) updated timestamps before adding back to db
+	for x := range output.SavedItems {
+		// fmt.Printf("SAVED ***** %#+v\n", output.SavedItems[x])
+		for y := range clonedItems {
+			if output.SavedItems[x].UUID == clonedItems[y].UUID {
+
+				updated := clonedItems[y]
+				updated.Content = clonedItems[x].Content
+				updated.ItemsKeyID = clonedItems[x].ItemsKeyID
+				updated.EncItemKey = clonedItems[x].EncItemKey
+				updated.UpdatedAtTimestamp = output.SavedItems[x].UpdatedAtTimestamp
+				updated.UpdatedAt = output.SavedItems[x].UpdatedAt
+				updatedSaved = append(updatedSaved, updated)
+			}
+			// fmt.Printf("ORIGINAL ***** %#+v\n", clonedItems[y])
+		}
+	}
+
+	// fmt.Printf("POST UPDATEs - orig saved: %d", len(output.SavedItems))
+	// fmt.Printf("POST UPDATEs - updated saved: %d", len(updatedSaved))
+
+	// items := append(output.Items, output.SavedItems...)
+
+	// instead of saving the saved items returned from the syncing option (minus content), we should save the originals with any updates
+	output.SavedItems = updatedSaved
 	items := append(output.Items, output.SavedItems...)
 	items.DeDupe()
+
+	// TODO: Get items matching those that were saved and compare
+	// for x := range input.Items {
+	// 	fmt.Printf("ORIGINAL ***** %#+v\n", clonedItems[x])
+	// }
 
 	var iks ItemsKeys
 
@@ -417,7 +463,7 @@ func updateEncryptedItemRefs(s *Session, eis EncryptedItems, refReMap map[string
 		}
 
 		// decrypt
-		if *ei.ItemsKeyID != s.DefaultItemsKey.UUID {
+		if ei.ItemsKeyID != s.DefaultItemsKey.UUID {
 			panic("not default key")
 		}
 
@@ -565,11 +611,18 @@ func (cis ConflictedItems) Validate(debug bool) error {
 //	}
 //
 //	return second
-//}
+// }
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
 	debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)))
+
+	// fmt.Printf("syncItemsViaAPI START\n")
+	// for x := range input.Items {
+	// 	fmt.Printf("syncItemsViaAPI----- %s %s\n", input.Items[x].ItemsKeyID, input.Items[x].EncItemKey)
+	// }
+	// fmt.Printf("syncItemsViaAPI\n")
+	// fmt.Printf("syncItemsViaAPI END\n")
 
 	// determine how many items to retrieve with each call
 	var limit int
@@ -594,8 +647,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	if len(input.Items) > 0 {
 		finalItem = lesserOf(len(input.Items)-1, input.NextItem+limit-1)
 		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem, finalItem))
+		// fmt.Printf("syncItemsViaAPI | going to put items: %d to %d\n", input.NextItem, finalItem)
 
 		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem : finalItem+1])
+		// fmt.Printf("syncItemsViaAPI | encItemJSON: %s\n", encItemJSON)
 		if err != nil {
 			panic(err)
 		}
@@ -672,7 +727,11 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	if len(input.Items) > 0 {
 		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items)))
+		// fmt.Printf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items))
+
 	}
+
+	// fmt.Printf("finalItem: %d len(input.Items)-1): %d CursorToken: %s\n", finalItem, len(input.Items)-1, bodyContent.CursorToken)
 
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse

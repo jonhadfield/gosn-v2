@@ -29,7 +29,7 @@ type Item struct {
 	UUID               string `storm:"id,unique"`
 	Content            string
 	ContentType        string `storm:"index"`
-	ItemsKeyID         *string
+	ItemsKeyID         string
 	EncItemKey         string
 	Deleted            bool
 	CreatedAt          string
@@ -91,6 +91,19 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 
 		eiik := ei.ItemsKeyID
 
+		// fmt.Printf("eiik: %+v\n", gosn.EncryptedItem{
+		// 	UUID:               ei.UUID,
+		// 	Content:            ei.Content,
+		// 	ContentType:        ei.ContentType,
+		// 	ItemsKeyID:         eiik,
+		// 	EncItemKey:         ei.EncItemKey,
+		// 	Deleted:            ei.Deleted,
+		// 	CreatedAt:          ei.CreatedAt,
+		// 	CreatedAtTimestamp: ei.CreatedAtTimestamp,
+		// 	UpdatedAtTimestamp: ei.UpdatedAtTimestamp,
+		// 	UpdatedAt:          ei.UpdatedAt,
+		// 	DuplicateOf:        ei.DuplicateOf,
+		// })
 		eItems = append(eItems, gosn.EncryptedItem{
 			UUID:               ei.UUID,
 			Content:            ei.Content,
@@ -207,12 +220,12 @@ func ToCacheItems(items gosn.EncryptedItems, clean bool) (pitems Items) {
 
 		iik := ""
 
-		if !i.Deleted && i.ItemsKeyID == nil && !(i.ContentType == "SN|ItemsKey" || strings.HasPrefix(i.ContentType, "SF")) {
+		if !i.Deleted && i.ItemsKeyID == "" && !(i.ContentType == "SN|ItemsKey" || strings.HasPrefix(i.ContentType, "SF")) {
 			panic(fmt.Sprintf("we've received %s %s from SN without ItemsKeyID", i.ContentType, i.UUID))
 		}
 
-		if i.ItemsKeyID != nil {
-			iik = *i.ItemsKeyID
+		if i.ItemsKeyID != "" {
+			iik = i.ItemsKeyID
 		}
 
 		if i.ContentType == "SN|ItemsKey" && iik != "" {
@@ -476,9 +489,9 @@ type CleanInput struct {
 
 func (i Items) Validate() error {
 	for x := range i {
-		if i[x].Deleted {
-			continue
-		}
+		// // fmt.Printf("validating: %+v\n", i[x])
+		// 	continue
+		// }
 
 		switch {
 		case i[x].UUID == "":
@@ -489,8 +502,33 @@ func (i Items) Validate() error {
 			return fmt.Errorf("cache item is missing content: %+v", i[x])
 		case i[x].EncItemKey == "" && i[x].ContentType != "SF|Extension":
 			return fmt.Errorf("cache item is missing enc_item_key: %+v", i[x])
-		case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == nil:
+		case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "":
 			return fmt.Errorf("cache item is missing items_key_id: %+v", i[x])
+		}
+	}
+
+	return nil
+}
+
+func (i Items) ValidateSaved() error {
+	for x := range i {
+		// fmt.Printf("validating saved: %+v\n", i[x])
+		if i[x].Deleted {
+			continue
+		}
+
+		switch {
+		case i[x].UUID == "":
+			return fmt.Errorf("cache item is missing uuid: %+v", i[x])
+		case i[x].ContentType == "":
+			return fmt.Errorf("cache item is missing content_type: %+v", i[x])
+			// case i[x].Content == "":
+			// 	return fmt.Errorf("cache item is missing content: %+v", i[x])
+			// case i[x].EncItemKey == "" && i[x].ContentType != "SF|Extension":
+			// 	return fmt.Errorf("cache item is missing enc_item_key: %+v", i[x])
+			// case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "":
+			// 	return fmt.Errorf("cache item is missing items_key_id: %+v", i[x])
+			// }
 		}
 	}
 
@@ -645,6 +683,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			UpdatedAtTimestamp: d.UpdatedAtTimestamp,
 			DuplicateOf:        d.DuplicateOf,
 		})
+
+		// fmt.Printf("dirty item: %+v\n", dirtyItemsToPush)
 	}
 
 	// TODO: add all the items keys in the session to SN (dupes will be handled)?
@@ -697,6 +737,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	debugPrint(si.Debug, "Sync | checking gosn.Sync Items for any unsupported")
 
 	for _, x := range gSO.Items {
+		if x.EncItemKey == "" {
+			fmt.Printf("item missing encitemkey: %+v\n", x)
+		}
 		// TODO: we chould just do a 'Validate' method on items and find any without encItemKey (that are meant to be encrypted)
 		components := strings.Split(x.EncItemKey, ":")
 
@@ -735,6 +778,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		}
 
 		debugPrint(si.Debug, fmt.Sprintf("adding %s %s to db", x.ContentType, x.UUID))
+		// fmt.Printf("ITEM IS: %+v\n", x)
 
 		item := Item{
 			UUID:               x.UUID,
@@ -754,10 +798,38 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			panic(fmt.Sprintf("adding deleted item to db: %+v", item))
 		}
 
+		// find item (from function input) matching saved item and update original with datestamps
+		// the saved item is stripped of content
+		var updatedSavedItems Items
+		func() {
+			for _, di := range dirtyItemsToPush {
+				for _, ii := range savedItems {
+					if di.UUID == ii.UUID {
+						updatedSavedItems = append(updatedSavedItems, Item{
+							UUID:               di.UUID,
+							Content:            di.Content,
+							ContentType:        di.ContentType,
+							ItemsKeyID:         di.ItemsKeyID,
+							EncItemKey:         di.EncItemKey,
+							Deleted:            false,
+							CreatedAt:          ii.CreatedAt,
+							UpdatedAt:          ii.UpdatedAt,
+							CreatedAtTimestamp: ii.CreatedAtTimestamp,
+							UpdatedAtTimestamp: ii.UpdatedAtTimestamp,
+							DuplicateOf:        di.DuplicateOf,
+							Dirty:              false,
+							DirtiedDate:        time.Now(),
+						})
+					}
+				}
+			}
+		}()
+
 		savedItems = append(savedItems, item)
 	}
 
 	if len(savedItems) > 0 {
+		// fmt.Printf("saving items: %+v\n", savedItems)
 		if err = SaveCacheItems(si.CacheDB, savedItems, false); err != nil {
 			return
 		}
@@ -895,6 +967,12 @@ func processCachedItemsKeys(s *Session, eiks gosn.EncryptedItems) error {
 		debugPrint(s.Debug, fmt.Sprintf("Sync | decrypting and parsing %d ItemsKeys", len(eiks)))
 	}
 
+	// fmt.Printf("PRE-SYNC ITEMS KEYS === START\n")
+	// for _, x := range eiks {
+	// fmt.Printf("ITEMS KEY: %+v\n", x)
+	// }
+	// fmt.Printf("PRE-SYNC ITEMS KEYS === END\n")
+
 	iks, err := gosn.DecryptAndParseItemKeys(s.MasterKey, eiks)
 	if err != nil {
 		return err
@@ -921,7 +999,11 @@ func processCachedItemsKeys(s *Session, eiks gosn.EncryptedItems) error {
 	s.Session.DefaultItemsKey = latestItemsKey
 
 	debugPrint(s.Debug, fmt.Sprintf("Sync | post-merge total of %d ItemsKeys in session", len(s.Session.ItemsKeys)))
-
+	// fmt.Printf("POST-SYNC ITEMS KEYS === START\n")
+	// for _, x := range s.Session.ItemsKeys {
+	// 	fmt.Printf("ITEMS KEY: %+v\n", x)
+	// }
+	// fmt.Printf("POST-SYNC ITEMS KEYS === END\n")
 	return err
 }
 

@@ -140,11 +140,13 @@ func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
 			return s, fmt.Errorf("GetSessionFromKeyring | %w", err)
 		}
 	}
-
-	s, err = k.Get(KeyringService, KeyringApplicationName)
-	if err != nil {
-		err = fmt.Errorf("GetSessionFromKeyring | %w", err)
-	}
+	//
+	// fmt.Println(s)
+	// fmt.Println(KeyringService, KeyringApplicationName)
+	// s, err = k.Get(KeyringService, KeyringApplicationName)
+	// if err != nil {
+	// 	err = fmt.Errorf("GetSessionFromKeyring | %w", err)
+	// }
 
 	return
 }

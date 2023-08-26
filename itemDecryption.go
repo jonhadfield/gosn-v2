@@ -22,7 +22,7 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 	case isEncryptedWithMasterKey(e.ContentType):
 		key = s.MasterKey
 	default:
-		if e.ItemsKeyID == nil {
+		if e.ItemsKeyID == "" {
 			debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType))
 			err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
 				e.Deleted,
@@ -32,13 +32,13 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 			return
 		}
 
-		key = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
+		key = getMatchingItem(e.ItemsKeyID, s.ItemsKeys).ItemsKey
 		if key == "" {
 			err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s",
 				e.Deleted,
 				e.UUID,
 				e.ContentType,
-				*e.ItemsKeyID)
+				e.ItemsKeyID)
 
 			return
 		}
@@ -54,8 +54,8 @@ func DecryptItem(e EncryptedItem, s *Session, iks ItemsKeys) (o DecryptedItem, e
 	di.ContentType = e.ContentType
 	di.Deleted = e.Deleted
 
-	if e.ItemsKeyID != nil {
-		di.ItemsKeyID = *e.ItemsKeyID
+	if e.ItemsKeyID != "" {
+		di.ItemsKeyID = e.ItemsKeyID
 	}
 
 	di.UpdatedAt = e.UpdatedAt
@@ -123,7 +123,7 @@ func DecryptItems(s *Session, ei EncryptedItems, iks ItemsKeys) (o DecryptedItem
 		case isEncryptedWithMasterKey(e.ContentType):
 			key = s.MasterKey
 		default:
-			if e.ItemsKeyID == nil {
+			if e.ItemsKeyID == "" {
 				debugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType))
 				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
 					e.Deleted,
@@ -133,13 +133,13 @@ func DecryptItems(s *Session, ei EncryptedItems, iks ItemsKeys) (o DecryptedItem
 				return
 			}
 
-			key = getMatchingItem(*e.ItemsKeyID, s.ItemsKeys).ItemsKey
+			key = getMatchingItem(e.ItemsKeyID, s.ItemsKeys).ItemsKey
 			if key == "" {
 				err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s",
 					e.Deleted,
 					e.UUID,
 					e.ContentType,
-					*e.ItemsKeyID)
+					e.ItemsKeyID)
 
 				return
 			}
@@ -157,8 +157,8 @@ func DecryptItems(s *Session, ei EncryptedItems, iks ItemsKeys) (o DecryptedItem
 		di.ContentType = e.ContentType
 		di.Deleted = e.Deleted
 
-		if e.ItemsKeyID != nil {
-			di.ItemsKeyID = *e.ItemsKeyID
+		if e.ItemsKeyID != "" {
+			di.ItemsKeyID = e.ItemsKeyID
 		}
 
 		di.UpdatedAt = e.UpdatedAt

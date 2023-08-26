@@ -107,7 +107,7 @@ func (ei *EncryptedItems) Validate() error {
 		switch {
 		case dei[x].IsDeleted():
 			continue
-		case enc && dei[x].ItemsKeyID == nil:
+		case enc && dei[x].ItemsKeyID == "":
 			// ignore item in this scenario as the official app does so
 		case enc && dei[x].EncItemKey == "":
 			err = fmt.Errorf("validation failed for \"%s\" due to missing encrypted item key: \"%s\"",
@@ -177,7 +177,7 @@ func DecryptAndParseItem(ei EncryptedItem, s *Session) (o Item, err error) {
 
 	if len(s.ImporterItemsKeys) > 0 {
 		debugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKey")
-		ik := getMatchingItem(*ei.ItemsKeyID, s.ImporterItemsKeys)
+		ik := getMatchingItem(ei.ItemsKeyID, s.ImporterItemsKeys)
 
 		di, err = DecryptItem(ei, s, ItemsKeys{ik})
 	} else {
@@ -270,6 +270,10 @@ func (i *Items) Encrypt(s *Session, ik ItemsKey) (e EncryptedItems, err error) {
 		return
 	}
 
+	// fmt.Printf("Encrypt | encrypting %d items\n", len(*i))
+	// for _, x := range *i {
+	// 	fmt.Printf("----- %s %s\n", x.GetContentType(), x.GetUUID())
+	// }
 	e, err = encryptItems(s, i, ik)
 	if err != nil {
 		return
@@ -283,12 +287,12 @@ func (i *Items) Encrypt(s *Session, ik ItemsKey) (e EncryptedItems, err error) {
 }
 
 type EncryptedItem struct {
-	UUID        string  `json:"uuid"`
-	ItemsKeyID  *string `json:"items_key_id,omitempty"`
-	Content     string  `json:"content"`
-	ContentType string  `json:"content_type"`
-	EncItemKey  string  `json:"enc_item_key"`
-	Deleted     bool    `json:"deleted"`
+	UUID        string `json:"uuid"`
+	ItemsKeyID  string `json:"items_key_id,omitempty"`
+	Content     string `json:"content"`
+	ContentType string `json:"content_type"`
+	EncItemKey  string `json:"enc_item_key"`
+	Deleted     bool   `json:"deleted"`
 	// Default            bool    `json:"isDefault"`
 	CreatedAt          string  `json:"created_at"`
 	UpdatedAt          string  `json:"updated_at"`
@@ -298,8 +302,8 @@ type EncryptedItem struct {
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
-	if ei.ItemsKeyID != nil {
-		return *ei.ItemsKeyID
+	if ei.ItemsKeyID != "" {
+		return ei.ItemsKeyID
 	}
 
 	return ""
@@ -427,6 +431,7 @@ func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err 
 
 	responseBody, err = ioutil.ReadAll(response.Body)
 
+	// fmt.Println(string(responseBody))
 	// debugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
 
 	return responseBody, err
@@ -879,10 +884,10 @@ func (s *Session) Export(path string) error {
 }
 
 type EncryptedItemExport struct {
-	UUID        string  `json:"uuid"`
-	ItemsKeyID  *string `json:"items_key_id,omitempty"`
-	Content     string  `json:"content"`
-	ContentType string  `json:"content_type"`
+	UUID        string `json:"uuid"`
+	ItemsKeyID  string `json:"items_key_id,omitempty"`
+	Content     string `json:"content"`
+	ContentType string `json:"content_type"`
 	// Deleted            bool    `json:"deleted"`
 	EncItemKey         string  `json:"enc_item_key"`
 	CreatedAt          string  `json:"created_at"`
