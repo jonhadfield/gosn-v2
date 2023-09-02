@@ -44,11 +44,6 @@ type ConflictedItem struct {
 }
 
 func syncItems(i SyncInput) (so SyncOutput, err error) {
-	fmt.Printf("syncItems called with %d items\n", len(i.Items))
-	for _, x := range i.Items {
-		fmt.Printf("----- %s %s %s\n", x.UUID, x.ItemsKeyID, x.EncItemKey)
-	}
-
 	giStart := time.Now()
 	defer func() {
 		debugPrint(i.Session.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)))
@@ -193,10 +188,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// perform initial sync
 	output, err = syncItems(input)
 
-	debugPrint(true, "INITIAL SYNC COMPLETE")
-	for x := range output.SavedItems {
-		fmt.Printf("SAVED (before processing) ***** %#+v\n", output.SavedItems[x])
-	}
 	processSessionItemsKeysInSavedItems(input.Session, output, err)
 
 	var resolvedConflictsToSync EncryptedItems
@@ -205,10 +196,6 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	resolvedConflictsToSync, processedOutput, err = processSyncOutput(input, output)
 	if err != nil {
 		return SyncOutput{}, err
-	}
-
-	for x := range processedOutput.SavedItems {
-		fmt.Printf("SAVED (post processing) ***** %#+v\n", processedOutput.SavedItems[x])
 	}
 
 	// if no conflicts to sync, then return
