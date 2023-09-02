@@ -12,7 +12,6 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/zalando/go-keyring v0.2.3
 	golang.org/x/crypto v0.1.0
-	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	golang.org/x/term v0.1.0
 )
 
