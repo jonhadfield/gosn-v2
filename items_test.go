@@ -1182,7 +1182,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
-	fmt.Printf("BEFORE SYNC: %#+v\n", eItems[0])
+	// fmt.Printf("BEFORE SYNC: %#+v\n", eItems[0])
 	si := SyncInput{
 		Items:   eItems,
 		Session: testSession,
