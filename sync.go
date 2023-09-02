@@ -175,7 +175,6 @@ func updateTimestampsOnSavedItems(orig, synced EncryptedItems) (updatedSaved Enc
 // Sync retrieves items from the API using optional filters and updates the provided
 // session with the items keys required to encrypt and decrypt items.
 func Sync(input SyncInput) (output SyncOutput, err error) {
-
 	// sync until all conflicts have been resolved
 	// a different items key may be provided in case the items being synced are encrypted with a non-default items key
 	// we need to reset on completion it to avoid it being used in future
@@ -251,33 +250,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		processedOutput.SavedItems.DeDupe()
 	}
 
-	// for each saved item, update the times on the input items
-	var updatedSaved EncryptedItems
-	// TODO: update original items (if saved) updated timestamps before adding back to db
-	for x := range processedOutput.SavedItems {
-		// fmt.Printf("SAVED ***** %#+v\n", syncOutput.SavedItems[x])
-		for y := range clonedItems {
-			if processedOutput.SavedItems[x].UUID == clonedItems[y].UUID {
-
-				updated := clonedItems[y]
-				updated.Content = clonedItems[x].Content
-				updated.ItemsKeyID = clonedItems[x].ItemsKeyID
-				updated.EncItemKey = clonedItems[x].EncItemKey
-				updated.UpdatedAtTimestamp = processedOutput.SavedItems[x].UpdatedAtTimestamp
-				updated.UpdatedAt = processedOutput.SavedItems[x].UpdatedAt
-				updatedSaved = append(updatedSaved, updated)
-			}
-			// fmt.Printf("ORIGINAL ***** %#+v\n", clonedItems[y])
-		}
+	if len(processedOutput.SavedItems) > 0 {
+		updatedSaved := updateTimestampsOnSavedItems(clonedItems, processedOutput.SavedItems)
+		processedOutput.SavedItems = updatedSaved
 	}
-
-	// fmt.Printf("POST UPDATEs - orig saved: %d", len(syncOutput.SavedItems))
-	// fmt.Printf("POST UPDATEs - updated saved: %d", len(updatedSaved))
-
-	// items := append(syncOutput.Items, syncOutput.SavedItems...)
-
-	// instead of saving the saved items returned from the syncing option (minus content), we should save the originals with any updates
-	processedOutput.SavedItems = updatedSaved
 
 	processSessionItemsKeysInSavedItems(input.Session, processedOutput, err)
 
