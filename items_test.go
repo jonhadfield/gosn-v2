@@ -1182,6 +1182,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
+	fmt.Printf("BEFORE SYNC: %#+v\n", eItems[0])
 	si := SyncInput{
 		Items:   eItems,
 		Session: testSession,
@@ -1192,6 +1193,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	require.NoError(t, err, "Sync Failed", err)
 	require.Len(t, so.SavedItems, 1, "expected 1")
 	uuidOfNewItem := so.SavedItems[0].UUID
+	debugPrint(true, fmt.Sprintf("SAVED ITEM: %#+v\n", so.SavedItems[0]))
 	items, err := so.SavedItems.DecryptAndParse(testSession)
 
 	require.NoError(t, err)
