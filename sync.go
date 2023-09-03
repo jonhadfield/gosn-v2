@@ -277,6 +277,213 @@ func processSessionItemsKeysInSavedItems(s *Session, output SyncOutput, err erro
 	}
 }
 
+func processSyncConflict(s *Session, items EncryptedItems, conflict ConflictedItem, refReMap map[string]string) (conflictedItem EncryptedItem, err error) {
+	debug := s.Debug
+
+	switch {
+	case conflict.ServerItem.Deleted:
+		// if server item is deleted then we will give unsaved item a new uuid and sync it
+		debugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace",
+			conflict.ServerItem.UUID, conflict.ServerItem.ContentType))
+
+		var found bool
+
+		for _, item := range items {
+			if item.UUID == conflict.ServerItem.UUID {
+				found = true
+				item.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
+				conflictedItem = item
+
+				break
+			}
+		}
+
+		if !found {
+			panic("could not find item that failed to sync")
+		}
+
+	case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
+		// if unsaved item is newer than that our server item, then unsaved wins
+		debugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp))
+
+		conflictedItem = conflict.UnsavedItem
+		conflictedItem.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
+	default:
+		debugPrint(debug, "Sync | server item most recent, so set new UUID on the item that conflicted and set it as 'duplicate_of' original")
+
+		var found bool
+
+		for _, item := range items {
+			if item.UUID == conflict.ServerItem.UUID {
+				if item.Deleted {
+					item = conflict.ServerItem
+					item.Deleted = true
+					item.Content = ""
+					conflictedItem = item
+					found = true
+
+					break
+				}
+
+				conflictedItem = item
+				// decrypt server item
+
+				var di Item
+
+				di, err = DecryptAndParseItem(item, s)
+				if err != nil {
+					return
+				}
+
+				// generate new uuid
+				newUUID := GenUUID()
+				// create remap reference for later
+				refReMap[di.GetUUID()] = newUUID
+				// set new uuid
+				di.SetUUID(newUUID)
+				// re-encrypt to update auth data
+				newdis := Items{di}
+
+				var newis EncryptedItems
+
+				k := s.DefaultItemsKey
+				// if the conflict is during import, then we need to re-encrypt with Importer Key
+				if len(s.ImporterItemsKeys) > 0 {
+					debugPrint(s.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", k.UUID))
+					k = s.ImporterItemsKeys.Latest()
+				}
+
+				newis, err = newdis.Encrypt(s, k)
+				if err != nil {
+					return
+				}
+
+				newi := newis[0]
+				newis[0].DuplicateOf = &conflict.ServerItem.UUID
+				conflictedItem = newi
+
+				found = true
+
+				break
+			}
+		}
+
+		if !found {
+			panic("could not find item that failed to sync")
+		}
+	}
+
+	return conflictedItem, err
+}
+
+func processUUIDConflict(input SyncInput, conflict ConflictedItem, refReMap map[string]string) (conflictedItem EncryptedItem, err error) {
+	var found bool
+
+	for _, item := range input.Items {
+		if item.UUID == conflict.UnsavedItem.UUID {
+			if item.Deleted {
+				item = conflict.UnsavedItem
+				item.Deleted = true
+				item.Content = ""
+				conflictedItem = item
+				found = true
+
+				break
+			}
+
+			conflictedItem = item
+			// decrypt server item
+			var di Item
+
+			di, err = DecryptAndParseItem(item, input.Session)
+			if err != nil {
+				return
+			}
+
+			// generate new uuid
+			newUUID := GenUUID()
+			// create remap reference for later
+			refReMap[di.GetUUID()] = newUUID
+			// set new uuid
+			di.SetUUID(newUUID)
+			// re-encrypt to update auth data
+			newdis := Items{di}
+
+			var newis EncryptedItems
+
+			k := input.Session.DefaultItemsKey
+			// if the conflict is during import, then we need to re-encrypt with Importer Key
+			if input.Session.ImporterItemsKeys.Latest().Content.ItemsKey != "" {
+				k = input.Session.ImporterItemsKeys.Latest()
+				debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", k.UUID))
+			}
+
+			newis, err = newdis.Encrypt(input.Session, k)
+			if err != nil {
+				return
+			}
+
+			newi := newis[0]
+			newis[0].DuplicateOf = &conflict.UnsavedItem.UUID
+			conflictedItem = newi
+
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		panic("could not find item that failed to sync")
+	}
+
+	return
+}
+
+func processConflict(input SyncInput, conflict ConflictedItem, refReMap map[string]string) (conflictsToSync EncryptedItems, err error) {
+	// debug := input.Session.Debug
+	var conflictedItem EncryptedItem
+
+	switch conflict.Type {
+	case "sync_conflict":
+		conflictedItem, err = processSyncConflict(input.Session, input.Items, conflict, refReMap)
+	case "uuid_conflict":
+		conflictedItem, err = processUUIDConflict(input, conflict, refReMap)
+	default:
+		err = fmt.Errorf("unhandled conflict type: %s", conflict.Type)
+	}
+
+	conflictsToSync = append(conflictsToSync, conflictedItem)
+
+	return conflictsToSync, err
+
+}
+
+func processConflicts(input SyncInput, syncOutput SyncOutput) (conflictsToSync EncryptedItems, err error) {
+	// Store any references that need to be remapped due to conflicts
+	var refReMap map[string]string
+	// create store for old and new uuids in case we need to remap any references to existing items with new uuids
+	refReMap = make(map[string]string)
+
+	for _, conflict := range syncOutput.Conflicts {
+
+		var resolvedConflictedItems EncryptedItems
+		resolvedConflictedItems, err = processConflict(input, conflict, refReMap)
+		if err != nil {
+			return
+		}
+		conflictsToSync = append(conflictsToSync, resolvedConflictedItems...)
+	}
+
+	// handle uuid reference remaps
+	conflictsToSync, err = updateEncryptedItemRefs(input.Session, conflictsToSync, refReMap)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflictsToSync EncryptedItems, so SyncOutput, err error) {
 	debug := input.Session.Debug
 
@@ -293,188 +500,13 @@ func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflict
 		panic(err)
 	}
 
-	// Resync any conflicts
-	var conflictsToSync EncryptedItems
-
-	// Store any references that need to be remapped due to conflicts
-	var refReMap map[string]string
-
 	if len(syncOutput.Conflicts) == 0 {
 		return nil, syncOutput, err
 	}
 
-	// if len(syncOutput.Conflicts) > 0 {
 	debugPrint(debug, fmt.Sprintf("Sync | found %d conflicts", len(syncOutput.Conflicts)))
-	// create store for old and new uuids in case we need to remap any references to existing items with new uuids
-	refReMap = make(map[string]string)
-
-	for _, conflict := range syncOutput.Conflicts {
-		var conflictedItem EncryptedItem
-
-		if conflict.Type == "sync_conflict" {
-			switch {
-			case conflict.ServerItem.Deleted:
-				// if server item is deleted then we will give unsaved item a new uuid and sync it
-				debugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace", conflict.ServerItem.UUID, conflict.ServerItem.ContentType))
-
-				var found bool
-
-				for _, item := range input.Items {
-					if item.UUID == conflict.ServerItem.UUID {
-						found = true
-						item.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
-						conflictedItem = item
-
-						break
-					}
-				}
-
-				if !found {
-					panic("could not find item that failed to sync")
-				}
-
-			case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
-				// if unsaved item is newer than that our server item, then unsaved wins
-				debugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp))
-
-				conflictedItem = conflict.UnsavedItem
-				conflictedItem.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
-			default:
-				debugPrint(debug, "Sync | server item most recent, so set new UUID on the item that conflicted and set it as 'duplicate_of' original")
-
-				var found bool
-
-				for _, item := range input.Items {
-					if item.UUID == conflict.ServerItem.UUID {
-						if item.Deleted {
-							item = conflict.ServerItem
-							item.Deleted = true
-							item.Content = ""
-							conflictedItem = item
-							found = true
-
-							break
-						}
-
-						conflictedItem = item
-						// decrypt server item
-
-						var di Item
-
-						di, err = DecryptAndParseItem(item, input.Session)
-						if err != nil {
-							return
-						}
-
-						// generate new uuid
-						newUUID := GenUUID()
-						// create remap reference for later
-						refReMap[di.GetUUID()] = newUUID
-						// set new uuid
-						di.SetUUID(newUUID)
-						// re-encrypt to update auth data
-						newdis := Items{di}
-
-						var newis EncryptedItems
-
-						k := input.Session.DefaultItemsKey
-						// if the conflict is during import, then we need to re-encrypt with Importer Key
-						if len(input.Session.ImporterItemsKeys) > 0 {
-							debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", k.UUID))
-							k = input.Session.ImporterItemsKeys.Latest()
-						}
-
-						newis, err = newdis.Encrypt(input.Session, k)
-						if err != nil {
-							return
-						}
-
-						newi := newis[0]
-						newis[0].DuplicateOf = &conflict.ServerItem.UUID
-						conflictedItem = newi
-
-						found = true
-
-						break
-					}
-				}
-
-				if !found {
-					panic("could not find item that failed to sync")
-				}
-			}
-
-			conflictsToSync = append(conflictsToSync, conflictedItem)
-		}
-
-		if conflict.Type == "uuid_conflict" {
-			var found bool
-
-			for _, item := range input.Items {
-				if item.UUID == conflict.UnsavedItem.UUID {
-					if item.Deleted {
-						item = conflict.UnsavedItem
-						item.Deleted = true
-						item.Content = ""
-						conflictedItem = item
-						found = true
-
-						break
-					}
-
-					conflictedItem = item
-					// decrypt server item
-					var di Item
-
-					di, err = DecryptAndParseItem(item, input.Session)
-					if err != nil {
-						return
-					}
-
-					// generate new uuid
-					newUUID := GenUUID()
-					// create remap reference for later
-					refReMap[di.GetUUID()] = newUUID
-					// set new uuid
-					di.SetUUID(newUUID)
-					// re-encrypt to update auth data
-					newdis := Items{di}
-
-					var newis EncryptedItems
-
-					k := input.Session.DefaultItemsKey
-					// if the conflict is during import, then we need to re-encrypt with Importer Key
-					if input.Session.ImporterItemsKeys.Latest().Content.ItemsKey != "" {
-						k = input.Session.ImporterItemsKeys.Latest()
-						debugPrint(input.Session.Debug, fmt.Sprintf("Sync | setting ImportersItemsKey to: %s", k.UUID))
-					}
-
-					newis, err = newdis.Encrypt(input.Session, k)
-					if err != nil {
-						return
-					}
-
-					newi := newis[0]
-					newis[0].DuplicateOf = &conflict.UnsavedItem.UUID
-					conflictedItem = newi
-
-					found = true
-
-					break
-				}
-			}
-
-			if !found {
-				panic("could not find item that failed to sync")
-			}
-
-			conflictsToSync = append(conflictsToSync, conflictedItem)
-		}
-	}
-	// }
-
-	// handle uuid reference remaps
-	conflictsToSync, err = updateEncryptedItemRefs(input.Session, conflictsToSync, refReMap)
+	// Resync any conflicts
+	conflictsToSync, err := processConflicts(input, syncOutput)
 	if err != nil {
 		return
 	}
