@@ -502,7 +502,7 @@ func (i Items) Validate() error {
 			return fmt.Errorf("cache item is missing content: %+v", i[x])
 		case i[x].EncItemKey == "" && i[x].ContentType != "SF|Extension":
 			return fmt.Errorf("cache item is missing enc_item_key: %+v", i[x])
-		case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "":
+		case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "" && !strings.HasPrefix(i[x].Content, "003"):
 			return fmt.Errorf("cache item is missing items_key_id: %+v", i[x])
 		}
 	}
@@ -737,9 +737,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	debugPrint(si.Debug, "Sync | checking gosn.Sync Items for any unsupported")
 
 	for _, x := range gSO.Items {
-		if x.EncItemKey == "" {
-			fmt.Printf("item missing encitemkey: %+v\n", x)
-		}
+		// if x.EncItemKey == "" {
+		// 	fmt.Printf("item missing encitemkey: %+v\n", x)
+		// }
 		// TODO: we chould just do a 'Validate' method on items and find any without encItemKey (that are meant to be encrypted)
 		components := strings.Split(x.EncItemKey, ":")
 
