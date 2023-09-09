@@ -622,7 +622,16 @@ func TestAddDeleteNote(t *testing.T) {
 
 	var so SyncOutput
 	so, err = Sync(si)
-	require.NoError(t, err, "Sync Failed", err)
+	// fmt.Println("ITEMS")
+	// for _, f := range so.Items {
+	// 	fmt.Printf("%#+v\n", f)
+	// }
+	// fmt.Println("SAVED")
+	// for _, f := range so.SavedItems {
+	// 	fmt.Printf("%#+v\n", f)
+	// }
+	// fmt.Println("DONE")
+	require.NoError(t, err, "Sync Failed")
 	require.Len(t, so.SavedItems, 1, "expected one")
 	require.Len(t, so.Conflicts, 0, "expected none")
 	uuidOfNewItem := so.SavedItems[0].UUID

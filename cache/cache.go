@@ -84,6 +84,11 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 			continue
 		}
 
+		// remove items encrypted using legacy version of SN
+		if strings.HasPrefix(ei.Content, "003") {
+			continue
+		}
+
 		if ei.EncItemKey == "" {
 			// TODO: should I ignore or return an error?
 			debugPrint(s.Debug, fmt.Sprintf("ToItems | ignoring invalid item due to missing encrypted items key: %+v", ei))
@@ -91,19 +96,6 @@ func (pi Items) ToItems(s *Session) (items gosn.Items, err error) {
 
 		eiik := ei.ItemsKeyID
 
-		// fmt.Printf("eiik: %+v\n", gosn.EncryptedItem{
-		// 	UUID:               ei.UUID,
-		// 	Content:            ei.Content,
-		// 	ContentType:        ei.ContentType,
-		// 	ItemsKeyID:         eiik,
-		// 	EncItemKey:         ei.EncItemKey,
-		// 	Deleted:            ei.Deleted,
-		// 	CreatedAt:          ei.CreatedAt,
-		// 	CreatedAtTimestamp: ei.CreatedAtTimestamp,
-		// 	UpdatedAtTimestamp: ei.UpdatedAtTimestamp,
-		// 	UpdatedAt:          ei.UpdatedAt,
-		// 	DuplicateOf:        ei.DuplicateOf,
-		// })
 		eItems = append(eItems, gosn.EncryptedItem{
 			UUID:               ei.UUID,
 			Content:            ei.Content,
@@ -494,6 +486,10 @@ func (i Items) Validate() error {
 		// }
 
 		switch {
+		case strings.HasPrefix(i[x].Content, "003"):
+			// TODO: Instructions incorrect
+			// return fmt.Errorf("found cache item %s: %s created with legacy StandardNotes version: 003\n     "+
+			// 	"please export and then import content using offical app to upgrade to 004 and then run 'sn resync' to upgrade cache to version 004", i[x].ContentType, i[x].UUID)
 		case i[x].UUID == "":
 			return fmt.Errorf("cache item is missing uuid: %+v", i[x])
 		case i[x].ContentType == "":
@@ -502,7 +498,7 @@ func (i Items) Validate() error {
 			return fmt.Errorf("cache item is missing content: %+v", i[x])
 		case i[x].EncItemKey == "" && i[x].ContentType != "SF|Extension":
 			return fmt.Errorf("cache item is missing enc_item_key: %+v", i[x])
-		case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "" && !strings.HasPrefix(i[x].Content, "003"):
+		case i[x].ContentType != "SN|ItemsKey" && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "":
 			return fmt.Errorf("cache item is missing items_key_id: %+v", i[x])
 		}
 	}

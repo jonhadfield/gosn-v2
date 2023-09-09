@@ -33,9 +33,8 @@ func parseTag(i DecryptedItem) Item {
 	if !t.Deleted {
 		var content Content
 		content, err = processContentModel(i.ContentType, i.Content)
-
 		if err != nil {
-			panic(err)
+			fmt.Printf("failed to decrypt item %#+v\n", t)
 		}
 
 		t.Content = *content.(*TagContent)

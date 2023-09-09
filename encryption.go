@@ -72,7 +72,7 @@ func hexDecodeBytes(in []byte, noBytes int) (dn []byte, err error) {
 func DecryptCipherText(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
 	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
 	if e1 != nil {
-		panic(e1)
+		return nil, err
 	}
 
 	masterKeyBytes := []byte(rawKey)
