@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -168,12 +169,12 @@ func decryptContent(e EncryptedItem, encryptionKey string) (content []byte, err 
 	}
 
 	c := string(content)
-	if !stringInSlice(e.ContentType, []string{
+	if !slices.Contains([]string{
 		"SN|FileSafe|Integration",
 		"SN|FileSafe|Credentials",
 		"SN|Component",
 		"SN|Theme",
-	}, true) && len(c) > 250 {
+	}, e.ContentType) && len(c) > 250 {
 		return
 	}
 

@@ -3,6 +3,7 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -36,18 +37,6 @@ func lesserOf(first, second int) int {
 func GenUUID() string {
 	newUUID := uuid.New()
 	return newUUID.String()
-}
-
-func stringInSlice(inStr string, inSlice []string, matchCase bool) bool {
-	for i := range inSlice {
-		if matchCase && inStr == inSlice[i] {
-			return true
-		} else if strings.EqualFold(inStr, inSlice[i]) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // DeleteContent will remove all Notes, Tags, and Components from SN.
@@ -85,7 +74,7 @@ func DeleteContent(session *Session, everything bool) (deleted int, err error) {
 	}
 
 	for x := range so.Items {
-		if !so.Items[x].Deleted && stringInSlice(so.Items[x].ContentType, typesToDelete, true) {
+		if !so.Items[x].Deleted && slices.Contains(typesToDelete, so.Items[x].ContentType) {
 			so.Items[x].Deleted = true
 			itemsToPut = append(itemsToPut, so.Items[x])
 		}
