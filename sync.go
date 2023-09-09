@@ -101,8 +101,9 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, i.PageSize))
 			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
 				i.NextItem = sResp.LastItemPut
-				debugPrint(i.Session.Debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling")
-				panic("failed to complete sync due to server throttling. please wait five minutes before retrying.")
+				// debugPrint(i.Session.Debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling or password change since session created")
+				return false, fmt.Errorf("sync failed due to either password change since session created, or server throttling. try re-adding session.")
+				// panic("sync failed due to either password change since session created, or server throttling. try re-adding session.")
 			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
 				i.NextItem = sResp.LastItemPut
 				resizeForRetry(&i)
@@ -126,17 +127,26 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 
 	so.Items = sResp.Items
 	so.Items.DeDupe()
+	so.Items.RemoveUnsupported()
 	so.Unsaved = sResp.Unsaved
 	so.Unsaved.DeDupe()
+	so.Unsaved.RemoveUnsupported()
 	so.SavedItems = sResp.SavedItems
+	// fmt.Println("PRE0:", len(so.SavedItems))
+
 	so.SavedItems.DeDupe()
+	// fmt.Println("PRE1:", len(so.SavedItems))
+	so.SavedItems.RemoveUnsupported()
+	// fmt.Println("PRE2:", len(so.SavedItems))
 	so.Conflicts = sResp.Conflicts
 	so.Conflicts.DeDupe()
 	so.Cursor = sResp.CursorToken
 	so.SyncToken = sResp.SyncToken
 
 	// update timestamps on saved items
+	// fmt.Println("PRE:", len(so.SavedItems))
 	so.SavedItems = updateTimestampsOnSavedItems(i.Items, so.SavedItems)
+	// fmt.Println("POST:", len(so.SavedItems))
 
 	debugPrint(i.Session.Debug,
 		fmt.Sprintf("Sync | SN returned %d items, %d saved items, and %d conflicts, with syncToken %s",
@@ -147,16 +157,14 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 
 func updateTimestampsOnSavedItems(orig, synced EncryptedItems) (updatedSaved EncryptedItems) {
 	// for each saved item, update the times on the input items	}
-
 	for x := range synced {
 		// fmt.Printf("SAVED ***** %#+v\n", syncOutput.SavedItems[x])
 		for y := range orig {
 			if synced[x].UUID == orig[y].UUID {
-
 				updated := orig[y]
-				updated.Content = orig[x].Content
-				updated.ItemsKeyID = orig[x].ItemsKeyID
-				updated.EncItemKey = orig[x].EncItemKey
+				updated.Content = orig[y].Content
+				updated.ItemsKeyID = orig[y].ItemsKeyID
+				updated.EncItemKey = orig[y].EncItemKey
 				updated.UpdatedAtTimestamp = synced[x].UpdatedAtTimestamp
 				updated.UpdatedAt = synced[x].UpdatedAt
 				updatedSaved = append(updatedSaved, updated)
@@ -187,6 +195,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	// perform initial sync
 	output, err = syncItems(input)
+	if err != nil {
+		return
+	}
 
 	processSessionItemsKeysInSavedItems(input.Session, output, err)
 
@@ -220,7 +231,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 		resyncOutput, err = syncItems(input)
 		if err != nil {
-			panic(err)
+			return SyncOutput{}, err
 		}
 
 		// we only expect to get saved items back from the new sync as these are conflicts being resolved
@@ -238,9 +249,11 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	}
 
 	if len(processedOutput.SavedItems) > 0 {
+		// fmt.Println("LEN ERE:", len(clonedItems), len(processedOutput.SavedItems))
 		updatedSaved := updateTimestampsOnSavedItems(clonedItems, processedOutput.SavedItems)
 		processedOutput.SavedItems = updatedSaved
 	}
+	// fmt.Println("LEN SAVED HERE:", len(processedOutput.SavedItems))
 
 	processSessionItemsKeysInSavedItems(input.Session, processedOutput, err)
 
@@ -794,7 +807,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
-
+	// fmt.Println("responseBody", string(responseBody))
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
@@ -810,6 +823,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	if err != nil {
 		return
 	}
+
+	// fff, _ := json.MarshalIndent(bodyContent, "", "  ")
+	// fmt.Println("bodyContent", string(fff))
 
 	out.Items = bodyContent.Items
 	out.SavedItems = bodyContent.SavedItems

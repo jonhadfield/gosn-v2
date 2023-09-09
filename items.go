@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -371,6 +372,8 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 }
 
 func makeSyncRequest(session Session, reqBody []byte) (responseBody []byte, err error) {
+	// fmt.Println(string(reqBody))
+
 	var request *http.Request
 
 	request, err = http.NewRequest(http.MethodPost, session.Server+syncPath, bytes.NewBuffer(reqBody))
@@ -780,9 +783,12 @@ func (ei *EncryptedItems) RemoveUnsupported() {
 	var supported EncryptedItems
 
 	for _, i := range *ei {
-		if !stringInSlice(i.ContentType, []string{"SF|Extension"}, true) {
+		if !slices.Contains([]string{"SF|Extension"}, i.ContentType) && !strings.HasPrefix(i.Content, "003") {
 			supported = append(supported, i)
 		}
+		// if !strings.HasPrefix(i.Content, "003") {
+		// 	supported = append(supported, i)
+		// }
 	}
 
 	*ei = supported

@@ -763,16 +763,23 @@ func (s *Session) Valid() bool {
 	}
 
 	// check no duplicate item keys
-	seen := make(map[string]int)
-	for x := range s.ItemsKeys {
-		if seen[s.ItemsKeys[x].UUID] > 0 {
-			return false
-		}
-
-		seen[s.ItemsKeys[x].UUID]++
-	}
+	s.ItemsKeys = dedupeItemsKeys(s.ItemsKeys)
 
 	return true
+}
+
+func dedupeItemsKeys(itemsKeys []ItemsKey) (output []ItemsKey) {
+	seen := make(map[string]int)
+	for x := range itemsKeys {
+		if seen[itemsKeys[x].UUID] > 0 {
+			continue
+		}
+
+		seen[itemsKeys[x].UUID]++
+		output = append(output, itemsKeys[x])
+	}
+
+	return output
 }
 
 type generateLoginChallengeCodeVerifier struct {
