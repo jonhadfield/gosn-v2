@@ -2,6 +2,7 @@ package gosn
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -84,7 +85,7 @@ func (c *SFMFAs) DeDupe() {
 	var deDuped SFMFAs
 
 	for _, i := range *c {
-		if !stringInSlice(i.UUID, encountered, true) {
+		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}
 

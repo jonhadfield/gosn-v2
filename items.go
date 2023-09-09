@@ -812,7 +812,7 @@ func (i *Items) DeDupe() {
 	var deDuped Items
 
 	for _, j := range *i {
-		if !stringInSlice(j.GetUUID(), encountered, true) {
+		if !slices.Contains(encountered, j.GetUUID()) {
 			deDuped = append(deDuped, j)
 		}
 

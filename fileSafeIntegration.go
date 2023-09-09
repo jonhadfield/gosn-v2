@@ -2,6 +2,7 @@ package gosn
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -72,7 +73,7 @@ func (c FileSafeIntegration) IsDefault() bool {
 
 func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
 	for _, x := range i {
-		if stringInSlice(x.GetContentType(), []string{"FileSafeIntegration", "SN|FileSafe|Integration"}, true) {
+		if slices.Contains([]string{"FileSafeIntegration", "SN|FileSafe|Integration"}, x.GetContentType()) {
 			component := x.(*FileSafeIntegration)
 			c = append(c, *component)
 		}
@@ -87,7 +88,7 @@ func (c *FileSafeIntegrations) DeDupe() {
 	var deDuped FileSafeIntegrations
 
 	for _, i := range *c {
-		if !stringInSlice(i.UUID, encountered, true) {
+		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}
 

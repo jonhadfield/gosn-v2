@@ -2,6 +2,7 @@ package gosn
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -82,7 +83,7 @@ func (c *SmartTags) DeDupe() {
 	var deDuped SmartTags
 
 	for _, i := range *c {
-		if !stringInSlice(i.UUID, encountered, true) {
+		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}
 

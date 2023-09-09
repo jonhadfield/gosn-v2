@@ -3,6 +3,7 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -86,7 +87,7 @@ func (c *FileSafeCredentialss) DeDupe() {
 	var deDuped FileSafeCredentialss
 
 	for _, i := range *c {
-		if !stringInSlice(i.UUID, encountered, true) {
+		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}
 

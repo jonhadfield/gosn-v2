@@ -3,6 +3,7 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -76,7 +77,7 @@ func (t *Tags) DeDupe() {
 	var deDuped Tags
 
 	for _, i := range *t {
-		if !stringInSlice(i.UUID, encountered, true) {
+		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}
 

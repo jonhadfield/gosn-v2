@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1481,11 +1482,11 @@ func TestNoteTagging(t *testing.T) {
 	for _, at := range updatedAnimalTagsOutput.Items {
 		at = at.(*Tag)
 		for _, ref := range at.GetContent().References() {
-			if !stringInSlice(ref.UUID, animalNoteUUIDs, true) {
+			if !slices.Contains(animalNoteUUIDs, ref.UUID) {
 				t.Error("failed to find an animal note reference")
 			}
 
-			if stringInSlice(ref.UUID, foodNoteUUIDs, true) {
+			if slices.Contains(foodNoteUUIDs, ref.UUID) {
 				t.Error("found a food note reference")
 			}
 		}
@@ -1493,11 +1494,11 @@ func TestNoteTagging(t *testing.T) {
 
 	for _, ft := range updatedFoodTagsOutput.Items {
 		for _, ref := range ft.GetContent().References() {
-			if !stringInSlice(ref.UUID, foodNoteUUIDs, true) {
+			if !slices.Contains(foodNoteUUIDs, ref.UUID) {
 				t.Error("failed to find an food note reference")
 			}
 
-			if stringInSlice(ref.UUID, animalNoteUUIDs, true) {
+			if slices.Contains(animalNoteUUIDs, ref.UUID) {
 				t.Error("found an animal note reference")
 			}
 		}
@@ -1555,7 +1556,7 @@ func TestNoteTagging(t *testing.T) {
 
 	for _, fn := range animalNotes {
 		an := fn.(*Note)
-		if !stringInSlice(an.Content.Title, animalNoteTitles, true) {
+		if !slices.Contains(animalNoteTitles, an.Content.Title) {
 			t.Error("got non animal note based on animal tag")
 		}
 	}
@@ -1592,7 +1593,7 @@ func TestNoteTagging(t *testing.T) {
 
 	for _, fn := range notes {
 		an := fn.(*Note)
-		if !stringInSlice(an.Content.Title, expectedNoteTitles, true) {
+		if !slices.Contains(expectedNoteTitles, an.Content.Title) {
 			t.Errorf("got unexpected result: %s", an.Content.Title)
 		}
 	}

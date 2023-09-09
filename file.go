@@ -2,6 +2,7 @@ package gosn
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -71,7 +72,7 @@ func (c File) IsDefault() bool {
 
 func (i Items) File() (c Files) {
 	for _, x := range i {
-		if stringInSlice(x.GetContentType(), []string{"File", "SN|File"}, true) {
+		if slices.Contains([]string{"File", "SN|File"}, x.GetContentType()) {
 			component := x.(*File)
 			c = append(c, *component)
 		}
@@ -86,7 +87,7 @@ func (c *Files) DeDupe() {
 	var deDuped Files
 
 	for _, i := range *c {
-		if !stringInSlice(i.UUID, encountered, true) {
+		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}
 

@@ -662,13 +662,13 @@ func (cis *ConflictedItems) DeDupe() {
 		switch {
 		// check if it's an encountered server item
 		case ci.ServerItem.UUID != "":
-			if !stringInSlice(ci.ServerItem.UUID, seenServerItems, true) {
+			if !slices.Contains(seenServerItems, ci.ServerItem.UUID) {
 				deDuped = append(deDuped, ci)
 				seenServerItems = append(seenServerItems, ci.ServerItem.UUID)
 			}
 		// check if it's an encountered unsaved item
 		case ci.UnsavedItem.UUID != "":
-			if !stringInSlice(ci.UnsavedItem.UUID, seenUnsavedItems, true) {
+			if !slices.Contains(seenUnsavedItems, ci.UnsavedItem.UUID) {
 				deDuped = append(deDuped, ci)
 				seenUnsavedItems = append(seenUnsavedItems, ci.UnsavedItem.UUID)
 			}
