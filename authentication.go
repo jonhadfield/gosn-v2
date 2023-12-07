@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -59,6 +60,77 @@ type authParamsOutput struct {
 	Version       string `json:"version"`
 	TokenName     string
 	Verifier      generateLoginChallengeCodeVerifier
+}
+
+type requestRefreshTokenInput struct {
+	url          string
+	accessToken  string
+	refreshToken string
+	debug        bool
+}
+
+type RequestRefreshTokenOutput struct {
+	AccessToken       string `json:"access_token"`
+	RefreshToken      string `json:"refresh_token"`
+	AccessExpiration  int64  `json:"access_expiration"`
+	RefreshExpiration int64  `json:"refresh_expiration"`
+	ReadOnlyAccess    int    `json:"read_only_access"`
+}
+
+func requestRefreshToken(url, accessToken, refreshToken string, debug bool) (output RefreshSessionResponse, err error) {
+	var reqBodyBytes []byte
+
+	apiVer := "20200115"
+
+	reqBodyBytes = []byte(`{"api":"` + apiVer + `","access_token":"` + accessToken + `","refresh_token":"` + refreshToken + `"}`)
+
+	var refreshSessionReq *http.Request
+
+	debugPrint(debug, fmt.Sprintf("refresh token url: %s", url))
+
+	refreshSessionReq, err = http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
+	if err != nil {
+		return
+	}
+
+	refreshSessionReq.Header.Set("content-Type", "application/json")
+	refreshSessionReq.Header.Set("Connection", "keep-alive")
+
+	var signInResp *http.Response
+
+	start := time.Now()
+	signInResp, err = httpClient.Do(refreshSessionReq)
+	elapsed := time.Since(start)
+
+	debugPrint(debug, fmt.Sprintf("refresh session | request took: %+v", elapsed))
+
+	if err != nil {
+		return output, err
+	}
+
+	defer func() {
+		_ = signInResp.Body.Close()
+	}()
+
+	var respBody []byte
+
+	// readStart := time.Now()
+	respBody, err = io.ReadAll(signInResp.Body)
+	// debugPrint(input.debug, fmt.Sprintf("requestToken | response read took %+v", time.Since(readStart)))
+
+	if err != nil {
+		return
+	}
+
+	// unmarshal success
+	var out RefreshSessionResponse
+
+	err = json.Unmarshal(respBody, &out)
+	if err != nil {
+		return
+	}
+
+	return out, nil
 }
 
 func requestToken(input signInInput) (signInSuccess signInResponse, signInFailure errorResponse, err error) {
@@ -329,6 +401,24 @@ type signInResponse struct {
 	Data signInResponseData `json:"data"`
 }
 
+type RefreshSessionResponse struct {
+	Meta struct {
+		Auth   interface{} `json:"auth"`
+		Server struct {
+			FilesServerURL string `json:"filesServerUrl"`
+		} `json:"server"`
+	} `json:"meta"`
+	Data struct {
+		Session struct {
+			AccessToken       string `json:"access_token"`
+			RefreshToken      string `json:"refresh_token"`
+			AccessExpiration  int64  `json:"access_expiration"`
+			RefreshExpiration int64  `json:"refresh_expiration"`
+			ReadOnlyAccess    int    `json:"readonly_access"`
+		} `json:"session"`
+	} `json:"data"`
+}
+
 type registerResponse struct {
 	User struct {
 		UUID  string `json:"uuid"`
@@ -491,6 +581,48 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	return output, err
 }
 
+type RefreshSessionInput struct {
+	Email        string
+	AccessToken  string
+	RefreshToken string
+	APIServer    string
+	Debug        bool
+}
+
+type RefreshSessionOutput struct {
+	Session   Session
+	KeyParams KeyParams
+	User      User
+	TokenName string
+}
+
+func (sess *Session) Refresh() error {
+	server := apiServer
+	if sess.Server == "" {
+		server = apiServer
+	}
+
+	// request token
+	var requestTokenFailure errorResponse
+
+	refreshSessionOutput, err := requestRefreshToken(server+authRefreshPath, sess.AccessToken, sess.RefreshToken, false)
+	if err != nil {
+		debugPrint(sess.Debug, fmt.Sprintf("refresh session failure: %+v error: %+v", requestTokenFailure, err))
+
+		return err
+	}
+
+	sess.FilesServerUrl = refreshSessionOutput.Meta.Server.FilesServerURL
+	sess.AccessToken = refreshSessionOutput.Data.Session.AccessToken
+	sess.RefreshToken = refreshSessionOutput.Data.Session.RefreshToken
+	sess.AccessExpiration = refreshSessionOutput.Data.Session.AccessExpiration
+	sess.RefreshExpiration = refreshSessionOutput.Data.Session.RefreshExpiration
+	x := 0
+	sess.ReadOnlyAccess = x != refreshSessionOutput.Data.Session.ReadOnlyAccess
+
+	return err
+}
+
 type RegisterInput struct {
 	Password    string
 	Email       string
@@ -505,7 +637,7 @@ type RegisterInput struct {
 func processDoRegisterRequestResponse(response *http.Response, debug bool) (token string, err error) {
 	var body []byte
 
-	body, err = ioutil.ReadAll(response.Body)
+	body, err = io.ReadAll(response.Body)
 	if err != nil {
 		return
 	}
@@ -593,6 +725,7 @@ func (input RegisterInput) Register() (token string, err error) {
 	req.Host = input.APIServer
 
 	var response *http.Response
+
 	response, err = httpClient.Do(req)
 	if err != nil {
 		return

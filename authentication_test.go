@@ -57,6 +57,28 @@ func TestSignIn(t *testing.T) {
 	}
 }
 
+func TestRefreshSession(t *testing.T) {
+	so, err := SignIn(sInput)
+	require.NoError(t, err, "sign-in failed", err)
+
+	preAccessToken := so.Session.AccessToken
+	preAccessExpiration := so.Session.AccessExpiration
+	preRefreshToken := so.Session.RefreshToken
+	preRefreshExpiration := so.Session.RefreshExpiration
+
+	// wait for 2 seconds to ensure that the expiration times are different
+	time.Sleep(2 * time.Second)
+	require.NoError(t, testSession.Refresh(), "refresh session failed", err)
+	require.NotEmpty(t, testSession.AccessToken)
+	require.NotEmpty(t, testSession.RefreshToken)
+	require.NotEmpty(t, testSession.RefreshExpiration)
+	require.NotEmpty(t, testSession.AccessExpiration)
+	require.NotEqual(t, preAccessToken, testSession.AccessToken)
+	require.NotEqual(t, preAccessExpiration, testSession.AccessExpiration)
+	require.NotEqual(t, preRefreshToken, testSession.RefreshToken)
+	require.NotEqual(t, preRefreshExpiration, testSession.RefreshExpiration)
+}
+
 func TestRegistrationWithInvalidShortPassword(t *testing.T) {
 	password := "secret"
 	rInput := RegisterInput{

@@ -39,6 +39,7 @@ type Session struct {
 	Debug            bool
 	SchemaValidation bool
 	Server           string
+	FilesServerUrl   string `json:"filesServerUrl"`
 	Token            string
 	MasterKey        string
 	ItemsKeys        []ItemsKey

@@ -14,8 +14,9 @@ const (
 	// Authentication.
 	authParamsPath    = "/v2/login-params" // remote path for getting auth parameters
 	authRegisterPath  = "/v1/users"        // remote path for registering user
-	signInPath        = "/v2/login"        // remote path for authenticating
-	minPasswordLength = 8                  // minimum password length when registering
+	authRefreshPath   = "/v1/sessions/refresh"
+	signInPath        = "/v2/login" // remote path for authenticating
+	minPasswordLength = 8           // minimum password length when registering
 	// PageSize is the maximum number of items to return with each call.
 	PageSize            = 150
 	timeLayout          = "2006-01-02T15:04:05.000Z"
