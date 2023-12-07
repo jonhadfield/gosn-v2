@@ -2,8 +2,11 @@ package gosn
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSchemaIsLoaded(t *testing.T) {

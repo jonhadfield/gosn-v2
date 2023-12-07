@@ -2,8 +2,9 @@ package gosn
 
 import (
 	"fmt"
-	"github.com/santhosh-tekuri/jsonschema/v5"
 	"log"
+
+	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 func validateContentSchema(schema *jsonschema.Schema, itemContent interface{}) error {

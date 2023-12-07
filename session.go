@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"github.com/spf13/viper"
@@ -31,6 +32,8 @@ const (
 	KeyringService           = "StandardNotesCLI"
 	MsgSessionRemovalSuccess = "session removed successfully"
 	MsgSessionRemovalFailure = "failed to remove session"
+	DefaultSessionExpiryTime = 12 * time.Hour
+	RefreshSessionThreshold  = 10 * time.Minute
 )
 
 // Session holds authentication and encryption parameters required
@@ -152,9 +155,7 @@ func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
 			return s, fmt.Errorf("GetSessionFromKeyring | %w", err)
 		}
 	}
-	//
-	// fmt.Println(s)
-	// fmt.Println(KeyringService, KeyringApplicationName)
+
 	if k != nil {
 		s, err = k.Get(KeyringService, KeyringApplicationName)
 		if err != nil {
@@ -220,6 +221,46 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 	}
 
 	return "session added successfully", err
+}
+
+func UpdateSession(sess *Session, k keyring.Keyring, debug bool) error {
+	// check if Session exists in keyring
+	existingRaw, err := GetSessionFromKeyring(k)
+	// only return an error if there's an issue accessing the keyring
+	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
+		return err
+	}
+
+	var byteKey []byte
+
+	var key string
+
+	if existingRaw != "" && !isUnencryptedSession(existingRaw) {
+		fmt.Print("encryption key for updated session: ")
+
+		byteKey, err = term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return err
+		}
+
+		key = string(byteKey)
+
+		fmt.Println()
+	}
+
+	rS := makeMinimalSessionString(*sess)
+	if key != "" {
+		rS = Encrypt(byteKey, makeMinimalSessionString(*sess))
+	}
+
+	err = writeSession(rS, k)
+	if err != nil {
+		return fmt.Errorf("failed to write refreshed session: %w", err)
+	}
+
+	fmt.Println("session refreshed successfully")
+
+	return nil
 }
 
 func makeMinimalSessionString(s Session) string {
@@ -350,6 +391,17 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 		if err != nil {
 			return
 		}
+		if rawSess == "" {
+			err = fmt.Errorf("session not found in keyring")
+
+			return
+		}
+
+		if strings.Contains(rawSess, "\"access_token\":\"\"") {
+			err = fmt.Errorf("invalid session found in keyring")
+
+			return
+		}
 
 		var loadedSession Session
 
@@ -392,6 +444,17 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 
 		email = loadedSession.KeyParams.Identifier
 		session = loadedSession
+
+		// if session is expired or close to expiry then refresh it
+		if time.Unix(session.AccessExpiration/1000, 0).Add(-RefreshSessionThreshold).Before(time.Now().UTC()) {
+			if err = session.Refresh(); err != nil {
+				return Session{}, "", err
+			}
+
+			if err = UpdateSession(&session, nil, session.Debug); err != nil {
+				return Session{}, "", err
+			}
+		}
 	} else {
 		session, email, err = GetSessionFromUser(server, debug)
 		if err != nil {
@@ -525,7 +588,7 @@ func SessionStatus(sKey string, k keyring.Keyring) (msg string, err error) {
 		if sKey != "" {
 			err = fmt.Errorf("incorrect key, or session is invalid and needs to be replaced")
 		} else {
-			err = fmt.Errorf("stored session is invalid and needs to be replaced")
+			err = fmt.Errorf("stored session is invalid and needs to be replaced, or is encrypted and requires a key to unlock")
 		}
 
 		return
@@ -538,5 +601,12 @@ func SessionStatus(sKey string, k keyring.Keyring) (msg string, err error) {
 		return
 	}
 
-	return fmt.Sprint("session found: ", s.KeyParams.Identifier), err
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf("user: %s\n", s.KeyParams.Identifier))
+	sb.WriteString(fmt.Sprintf("access token expires: %s\n",
+		time.Unix(s.AccessExpiration/1000, 0).UTC().String()))
+	sb.WriteString(fmt.Sprintf("refresh token expires: %s",
+		time.Unix(s.RefreshExpiration/1000, 0).UTC().String()))
+
+	return sb.String(), err
 }
