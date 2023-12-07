@@ -1,0 +1,69 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "uniqueItems": true
+      }
+    },
+    "preview_html": {
+      "type": "string"
+    },
+    "preview_plain": {
+      "type": "string"
+    },
+    "noteType": {
+      "type": "string"
+    },
+    "appData": {
+      "type": "object",
+      "properties": {
+        "org.standardnotes.sn" : {
+          "type": "object",
+          "properties": {
+            "client_updated_at": {
+              "type": "string"
+            },
+            "client_created_at": {
+              "type": "string"
+            },
+            "prefersPlainEditor": {
+              "type": "boolean"
+            },
+            "pinned": {
+              "type": "boolean"
+            }
+          }
+        },
+        "org.standardnotes.sn.components": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "org.standardnotes.sn"
+      ]
+    },
+    "editorIdentifier": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_\\-.]*$"
+    },
+    "spellcheck": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "title",
+    "text",
+    "references",
+    "appData"
+  ],
+  "additionalProperties": false
+}

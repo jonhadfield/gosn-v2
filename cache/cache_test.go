@@ -132,7 +132,7 @@ func TestSync600Notes(t *testing.T) {
 // 	// create new note with random content
 // 	newNote, _ := createNote("test", "")
 // 	dItems := gosn.Items{&newNote}
-// 	require.NoError(t, dItems.Validate())
+// 	require.NoError(t, dItems.Validate(testSession))
 //
 // 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 // 	require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestSync600Notes(t *testing.T) {
 // 	// create new note with random content
 // 	newNote, _ := createNote("test", "ok")
 // 	dItems := gosn.Items{&newNote}
-// 	require.NoError(t, dItems.Validate())
+// 	require.NoError(t, dItems.Validate(testSession))
 //
 // 	// encrypt note
 // 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
@@ -407,7 +407,7 @@ func TestSyncWithNewNote(t *testing.T) {
 	// create new note with random content
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession.Session))
 
 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 	require.NoError(t, err)
@@ -466,7 +466,7 @@ func TestSyncWithNewNoteExportReauthenticateImport(t *testing.T) {
 	// create new note with random content
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession.Session))
 
 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 	require.NoError(t, err)
@@ -528,7 +528,7 @@ func TestSyncOneExisting(t *testing.T) {
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
 	dItems := gosn.Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession.Session))
 
 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
 
@@ -627,7 +627,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	// create new note with random content and push to SN (not DB)
 //	newNote, _ := createNote("test title", "some content")
 //	dItems := gosn.Items{&newNote}
-//	require.NoError(t, dItems.Validate())
+//	require.NoError(t, dItems.Validate(testSession))
 //
 //	eItems, err := dItems.Encrypt(testSession.Session.DefaultItemsKey, testSession.Session.MasterKey, testSession.Session.Debug)
 //	require.NoError(t, err)

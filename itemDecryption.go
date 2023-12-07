@@ -173,6 +173,10 @@ func DecryptItems(s *Session, ei EncryptedItems, iks ItemsKeys) (o DecryptedItem
 	return
 }
 
+const (
+	noteContentSchemaName = "note"
+)
+
 func (ei EncryptedItem) DecryptItemOnly(key string) (content []byte, err error) {
 	var itemKey []byte
 

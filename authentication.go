@@ -208,7 +208,7 @@ type errorResponse struct {
 
 // HTTP request bit.
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
-	var verifier = generateChallengeAndVerifierForLogin()
+	verifier := generateChallengeAndVerifierForLogin()
 
 	var reqBodyBytes []byte
 	var reqBody string
@@ -801,7 +801,7 @@ func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChal
 
 	loginCodeVerifier.codeVerifier = string(b)[:64]
 	sha25Hash := fmt.Sprintf("%x", sha256.Sum256([]byte(loginCodeVerifier.codeVerifier)))
-	loginCodeVerifier.codeChallenge = string(base64.URLEncoding.EncodeToString([]byte(sha25Hash[:])))[:86]
+	loginCodeVerifier.codeChallenge = string(base64.URLEncoding.EncodeToString([]byte(sha25Hash)))[:86]
 
 	return loginCodeVerifier
 }

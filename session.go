@@ -4,18 +4,26 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"github.com/spf13/viper"
 	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
 )
+
+//go:embed schemas/*
+var fsSchemas embed.FS
 
 const (
 	SNServerURL              = "https://api.standardnotes.com"
@@ -28,11 +36,12 @@ const (
 // Session holds authentication and encryption parameters required
 // to communicate with the API and process transferred data.
 type Session struct {
-	Debug     bool
-	Server    string
-	Token     string
-	MasterKey string
-	ItemsKeys []ItemsKey
+	Debug            bool
+	SchemaValidation bool
+	Server           string
+	Token            string
+	MasterKey        string
+	ItemsKeys        []ItemsKey
 	// ImporterItemsKeys is the key used to encrypt exported items and set during import only
 	ImporterItemsKeys ItemsKeys
 	DefaultItemsKey   ItemsKey
@@ -42,6 +51,7 @@ type Session struct {
 	AccessExpiration  int64     `json:"access_expiration"`
 	RefreshExpiration int64     `json:"refresh_expiration"`
 	PasswordNonce     string
+	Schemas           map[string]*jsonschema.Schema
 }
 
 func (iks ItemsKeys) Latest() ItemsKey {
@@ -305,6 +315,31 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 	return sess, email, err
 }
 
+func loadSchemas() (map[string]*jsonschema.Schema, error) {
+	cSchemas := make(map[string]*jsonschema.Schema)
+
+	rSchemas, err := fsSchemas.ReadDir("schemas")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, e := range rSchemas {
+		var sB []byte
+		sB, err = fs.ReadFile(fsSchemas, filepath.Join("schemas", e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		sName := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		sName = strings.ReplaceAll(sName, "|", "-")
+		cSchemas[sName], err = jsonschema.CompileString(e.Name(), string(sB))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return cSchemas, nil
+}
+
 func GetSession(loadSession bool, sessionKey, server string, debug bool) (session Session, email string, err error) {
 	if loadSession {
 		var rawSess string
@@ -364,7 +399,15 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 
 	session.Debug = debug
 
-	return session, email, err
+	if os.Getenv("SN_SCHEMA_VALIDATION") != "" {
+		session.SchemaValidation = true
+		session.Schemas, err = loadSchemas()
+		if err != nil {
+			return Session{}, "", err
+		}
+	}
+
+	return session, email, nil
 }
 
 func ParseSessionString(ss string) (sess Session, err error) {

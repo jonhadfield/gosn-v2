@@ -60,6 +60,8 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 			Server:            gs.Server,
 			Token:             gs.Token,
 			MasterKey:         gs.MasterKey,
+			SchemaValidation:  gs.SchemaValidation,
+			Schemas:           gs.Schemas,
 			ItemsKeys:         gs.ItemsKeys,
 			KeyParams:         gs.KeyParams,
 			DefaultItemsKey:   gs.DefaultItemsKey,
@@ -88,5 +90,6 @@ func (s Session) Gosn() gosn.Session {
 		RefreshToken:      s.RefreshToken,
 		AccessExpiration:  s.AccessExpiration,
 		RefreshExpiration: s.RefreshExpiration,
+		SchemaValidation:  s.SchemaValidation,
 	}
 }

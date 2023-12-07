@@ -98,7 +98,6 @@ func (c *UserPreferencess) DeDupe() {
 	var deDuped UserPreferencess
 
 	for _, i := range *c {
-
 		if !slices.Contains(encountered, i.UUID) {
 			deDuped = append(deDuped, i)
 		}

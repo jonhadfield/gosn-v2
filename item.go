@@ -43,7 +43,7 @@ type ItemCommon struct {
 	ContentSize        int
 }
 
-func (i Items) Validate() error {
+func (i Items) Validate(session *Session) error {
 	var err error
 
 	for _, item := range i {
@@ -53,7 +53,7 @@ func (i Items) Validate() error {
 			err = Tags{*t}.Validate()
 		case *Note:
 			n := v
-			err = Notes{*n}.Validate()
+			err = Notes{*n}.Validate(session)
 		case *Component:
 			c := v
 			err = Components{*c}.Validate()

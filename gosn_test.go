@@ -63,5 +63,15 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
+	var err error
+	testSession.Schemas, err = loadSchemas()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(testSession.Schemas) == 0 {
+		log.Fatal("failed to load schemas")
+	}
+
 	os.Exit(m.Run())
 }
