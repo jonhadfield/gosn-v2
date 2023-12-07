@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/santhosh-tekuri/jsonschema/v5"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/santhosh-tekuri/jsonschema/v5"
 
 	"golang.org/x/term"
 )
