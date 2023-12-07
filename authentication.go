@@ -305,15 +305,16 @@ type KeyParams struct {
 	Version     string `json:"version"`
 }
 
-type user struct {
-	UUID  string `json:"uuid"`
-	Email string `json:"email"`
+type User struct {
+	UUID            string `json:"uuid"`
+	Email           string `json:"email"`
+	ProtocolVersion string `json:"protocolVersion"`
 }
 
 type signInResponseData struct {
 	Session   Session   `json:"Session"`
 	KeyParams KeyParams `json:"key_params"`
-	User      user      `json:"user"`
+	User      User      `json:"user"`
 }
 
 type signInResponseMeta struct {
@@ -348,7 +349,7 @@ type SignInInput struct {
 type SignInOutput struct {
 	Session   Session
 	KeyParams KeyParams
-	User      user
+	User      User
 	TokenName string
 }
 
@@ -388,6 +389,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	if input.APIServer == "" {
 		input.APIServer = apiServer
 	}
+
 	getAuthParamsInput := authParamsInput{
 		email:         input.Email,
 		password:      input.Password,
