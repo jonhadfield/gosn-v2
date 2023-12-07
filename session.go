@@ -50,6 +50,7 @@ type Session struct {
 	RefreshToken      string    `json:"refresh_token"`
 	AccessExpiration  int64     `json:"access_expiration"`
 	RefreshExpiration int64     `json:"refresh_expiration"`
+	ReadOnlyAccess    bool      `json:"readonly_access"`
 	PasswordNonce     string
 	Schemas           map[string]*jsonschema.Schema
 }
