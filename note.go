@@ -120,8 +120,10 @@ func NewNote(title string, text string, references ItemReferences) (note Note, e
 	note.Content.Title = title
 	note.Content.Text = text
 	note.Content.ItemReferences = references
+	note.Content.NoteType = "com.standardnotes.plain-text"
 	note.CreatedAt = now
 	note.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
+
 	return note, err
 }
 
@@ -135,7 +137,7 @@ func NewNoteContent() *NoteContent {
 
 type Notes []Note
 
-func (n Notes) Validate() error {
+func (n Notes) Validate(sess *Session) error {
 	var updatedTime time.Time
 
 	var err error
@@ -262,14 +264,16 @@ func (noteContent NoteContent) MarshalJSON() ([]byte, error) {
 }
 
 type NoteContent struct {
-	Title          string             `json:"title"`
-	Text           string             `json:"text"`
-	ItemReferences ItemReferences     `json:"references"`
-	AppData        NoteAppDataContent `json:"appData"`
-	PreviewPlain   string             `json:"preview_plain"`
-	Spellcheck     bool               `json:"spellcheck"`
-	PreviewHtml    string             `json:"preview_html"`
-	Trashed        *bool              `json:"trashed,omitempty"`
+	Title            string             `json:"title"`
+	Text             string             `json:"text"`
+	ItemReferences   ItemReferences     `json:"references"`
+	AppData          NoteAppDataContent `json:"appData"`
+	PreviewPlain     string             `json:"preview_plain"`
+	Spellcheck       bool               `json:"spellcheck"`
+	PreviewHtml      string             `json:"preview_html"`
+	NoteType         string             `json:"noteType"`
+	EditorIdentifier string             `json:"editorIdentifier"`
+	Trashed          *bool              `json:"trashed,omitempty"`
 }
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {

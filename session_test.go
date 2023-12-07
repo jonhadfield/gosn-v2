@@ -24,8 +24,7 @@ func (k MockKeyRingDodgy) Delete(service, user string) error {
 	return nil
 }
 
-type MockKeyRingDefined struct {
-}
+type MockKeyRingDefined struct{}
 
 func (k MockKeyRingDefined) Set(user, service, password string) error {
 	return nil
@@ -51,6 +50,19 @@ func (k MockKeyRingUnDefined) Get(service, user string) (r string, err error) {
 
 func (k MockKeyRingUnDefined) Delete(service, user string) error {
 	return nil
+}
+
+func TestLoadSchemas(t *testing.T) {
+	ts, err := loadSchemas()
+	require.NoError(t, err)
+	require.NotNil(t, ts)
+	for k, v := range ts {
+		fmt.Println(k)
+		fmt.Println(v.Title)
+		fmt.Println(v.String())
+		require.NotEmpty(t, k)
+		require.NotEmpty(t, v)
+	}
 }
 
 func TestMakeSessionString(t *testing.T) {

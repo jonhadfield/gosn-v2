@@ -1,6 +1,7 @@
 package gosn
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -594,13 +595,35 @@ func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
 }
 
+func TestNewNoteContent(t *testing.T) {
+	defer cleanup()
+
+	note, err := NewNote("test-title", "test-text", nil)
+	require.NoError(t, err, "NewNote Failed")
+	nc, err := json.Marshal(note.Content)
+	// nc, err := json.MarshalIndent(note.Content, "", "  ")
+	fmt.Println(string(nc))
+	require.NoError(t, err, "Marshal Failed")
+	var v interface{}
+	err = json.Unmarshal(nc, &v)
+	require.NoError(t, err, "Unmarshal Failed")
+	if testSession.Schemas[noteContentSchemaName] == nil {
+		err = fmt.Errorf("Schema %s not found", noteContentSchemaName)
+		require.NoError(t, err, "Schema Not Found")
+	}
+	err = validateContentSchema(testSession.Schemas[noteContentSchemaName], v)
+	require.NoError(t, err, "validateContentSchema Failed")
+
+	require.Equal(t, "test-text", note.Content.GetText())
+}
+
 func TestAddDeleteNote(t *testing.T) {
 	defer cleanup()
 
 	randPara := "TestText"
 	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession))
 	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	// fmt.Printf("NEW ?NOTE: %#+v\n", eItems)
 	var foundItemsKeyInList bool
@@ -1087,7 +1110,7 @@ func TestCreateAddUseItemsKey(t *testing.T) {
 	randPara := "TestText"
 	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession))
 	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 
 	require.NoError(t, err)
@@ -1167,7 +1190,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 	randPara := testParas[randInt(0, len(testParas))]
 	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession))
 
 	// eItems, err := dItems.Encrypt(*testSession)
 	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
@@ -1187,7 +1210,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	randPara := "TestText"
 	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession))
 	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
@@ -1268,7 +1291,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 	require.Contains(t, newComponent.Content.GetItemAssociations(), "d7d1dee3-42f6-3d27-871e-d2320bf3214a")
 
 	dItems := Items{&newComponent}
-	require.NoError(t, dItems.Validate())
+	require.NoError(t, dItems.Validate(testSession))
 
 	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
@@ -1435,7 +1458,7 @@ func TestNoteTagging(t *testing.T) {
 
 	// create base notes
 	newNotes := genNotes(10, 2)
-	require.NoError(t, newNotes.Validate())
+	require.NoError(t, newNotes.Validate(testSession))
 	eItems, err := newNotes.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 	_, err = Sync(SyncInput{
@@ -1510,7 +1533,7 @@ func TestNoteTagging(t *testing.T) {
 	allItems = append(allItems, updatedAnimalTagsOutput.Items...)
 	allItems = append(allItems, updatedFoodTagsOutput.Items...)
 
-	require.NoError(t, allItems.Validate())
+	require.NoError(t, allItems.Validate(testSession))
 	eItems, err = allItems.Encrypt(testSession, testSession.DefaultItemsKey)
 	require.NoError(t, err)
 

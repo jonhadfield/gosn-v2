@@ -3,13 +3,14 @@ package gosn
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/matryer/try"
 	"math"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/matryer/try"
 )
 
 // SyncInput defines the input for retrieving items.
@@ -265,7 +266,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	return processedOutput, err
 }
 
-// if sync'd items includes a new items key that's been saved, then set as default
+// if sync'd items includes a new items key that's been saved, then set as default.
 func processSessionItemsKeysInSavedItems(s *Session, output SyncOutput, err error) {
 	var iks ItemsKeys
 
@@ -469,7 +470,6 @@ func processConflict(input SyncInput, conflict ConflictedItem, refReMap map[stri
 	conflictsToSync = append(conflictsToSync, conflictedItem)
 
 	return conflictsToSync, err
-
 }
 
 func processConflicts(input SyncInput, syncOutput SyncOutput) (conflictsToSync EncryptedItems, err error) {
@@ -479,7 +479,6 @@ func processConflicts(input SyncInput, syncOutput SyncOutput) (conflictsToSync E
 	refReMap = make(map[string]string)
 
 	for _, conflict := range syncOutput.Conflicts {
-
 		var resolvedConflictedItems EncryptedItems
 		resolvedConflictedItems, err = processConflict(input, conflict, refReMap)
 		if err != nil {
@@ -838,7 +837,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	if len(input.Items) > 0 {
 		debugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem+1, len(input.Items)))
 		// fmt.Printf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items))
-
 	}
 
 	// fmt.Printf("finalItem: %d len(input.Items)-1): %d CursorToken: %s\n", finalItem, len(input.Items)-1, bodyContent.CursorToken)

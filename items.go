@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -195,6 +196,23 @@ func DecryptAndParseItem(ei EncryptedItem, s *Session) (o Item, err error) {
 		err = fmt.Errorf("DecryptAndParse | ParseItem | %w", err)
 
 		return
+	}
+
+	if s.SchemaValidation {
+		var contentSchema *jsonschema.Schema
+
+		switch it := o.(type) {
+		case *Note:
+			contentSchema = s.Schemas[noteContentSchemaName]
+			if contentSchema == nil {
+				err = fmt.Errorf("failed to get schema for %s", noteContentSchemaName)
+				return
+			}
+
+			if err = validateContentSchema(s.Schemas[noteContentSchemaName], it.Content); err != nil {
+				return
+			}
+		}
 	}
 
 	return
@@ -962,7 +980,7 @@ func writeJSON(c writeJSONConfig, items EncryptedItems) error {
 	content := strings.Builder{}
 	content.WriteString("{\n  \"version\": \"004\",")
 	content.WriteString("\n  \"items\": ")
-	content.WriteString(string(jsonExport))
+	content.Write(jsonExport)
 	content.WriteString(",")
 
 	// add keyParams
