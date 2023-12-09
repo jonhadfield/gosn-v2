@@ -1,45 +1,62 @@
 package cache
 
 import (
-	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/jonhadfield/gosn-v2/auth"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/session"
+	"os"
 
 	"github.com/asdine/storm/v3"
-	gosn "github.com/jonhadfield/gosn-v2"
 )
 
 type Session struct {
-	*gosn.Session
+	*session.Session
 	CacheDB     *storm.DB
 	CacheDBPath string
 }
 
 // ImportSession creates a new Session from an existing gosn.Session instance
 // with the option of specifying a path for the db other than the home folder.
-func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
+func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session, err error) {
+	if gs == nil {
+		panic("gs is nil")
+	}
 	s = &Session{}
+	s.Session = &session.Session{}
+	// if gs.Server != "" {
+	// if !gs.Valid() {
+	// 	return s, fmt.Errorf("invalid session")
+	// }
+	s.Session.HTTPClient = retryablehttp.NewClient()
+	s.Session.Debug = gs.Debug
+	s.Session.Server = os.Getenv("SN_SERVER")
+	s.Session.Token = gs.Token
+	s.Session.MasterKey = gs.MasterKey
+	// s.Session.ItemsKeys = gs.ItemsKeys
+	// s.Session.DefaultItemsKey = gs.DefaultItemsKey
+	s.Session.AccessToken = gs.AccessToken
+	s.Session.RefreshToken = gs.RefreshToken
+	s.Session.AccessExpiration = gs.AccessExpiration
+	s.Session.RefreshExpiration = gs.RefreshExpiration
+	s.Session.SchemaValidation = gs.SchemaValidation
+	s.Session.PasswordNonce = gs.PasswordNonce
 
-	if gs.Server != "" {
-		if !gs.Valid() {
-			return s, fmt.Errorf("invalid session")
-		}
+	if path == "" {
+		var dbPath string
 
-		s.Session = gs
-
-		if path == "" {
-			var dbPath string
-
-			dbPath, err = GenCacheDBPath(*s, dbPath, gosn.LibName)
-			if err != nil {
-				return
-			}
-
-			s.CacheDBPath = dbPath
-
+		dbPath, err = GenCacheDBPath(*s, dbPath, common.LibName)
+		if err != nil {
 			return
 		}
 
-		s.CacheDBPath = path
+		s.CacheDBPath = dbPath
+
+		return
 	}
+
+	s.CacheDBPath = path
+	// }
 
 	return s, err
 }
@@ -47,15 +64,15 @@ func ImportSession(gs *gosn.Session, path string) (s *Session, err error) {
 // GetSession returns a cache session that encapsulates a gosn-v2 session with additional
 // configuration for managing a local cache database.
 func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
-	var gs gosn.Session
+	var gs session.Session
 
-	gs, _, err = gosn.GetSession(loadSession, sessionKey, server, debug)
+	gs, _, err = session.GetSession(loadSession, sessionKey, server, debug)
 	if err != nil {
 		return
 	}
 
 	cs := Session{
-		Session: &gosn.Session{
+		Session: &session.Session{
 			Debug:             gs.Debug,
 			Server:            gs.Server,
 			Token:             gs.Token,
@@ -78,8 +95,8 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Sess
 	return cs, email, err
 }
 
-func (s Session) Gosn() gosn.Session {
-	return gosn.Session{
+func (s Session) Gosn() session.Session {
+	return session.Session{
 		Debug:             s.Debug,
 		Server:            s.Server,
 		Token:             s.Token,
