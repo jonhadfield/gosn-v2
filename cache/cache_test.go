@@ -2,6 +2,10 @@ package cache
 
 import (
 	"fmt"
+	"github.com/jonhadfield/gosn-v2/auth"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/items"
+	"github.com/jonhadfield/gosn-v2/session"
 	"math/rand"
 	"os"
 	"runtime"
@@ -11,14 +15,13 @@ import (
 	"time"
 
 	"github.com/asdine/storm/v3"
-	gosn "github.com/jonhadfield/gosn-v2"
 	"github.com/stretchr/testify/require"
 )
 
 var testSession *Session
 
 func testSetup() {
-	gs, err := gosn.CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"), true)
+	gs, err := auth.CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"), true)
 	if err != nil {
 		panic(err)
 	}
@@ -28,9 +31,15 @@ func testSetup() {
 		return
 	}
 
+	if testSession == nil {
+		panic("testSession is nil")
+	}
+
+	fmt.Printf("testSession: %#+v\n", testSession)
+
 	var path string
 
-	path, err = GenCacheDBPath(*testSession, "", gosn.LibName)
+	path, err = GenCacheDBPath(*testSession, "", common.LibName)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +69,7 @@ func TestMain(m *testing.M) {
 func TestSync600Notes(t *testing.T) {
 	defer cleanup(testSession.Session)
 
-	var originalNotes gosn.Notes
+	var originalNotes items.Notes
 
 	for i := 0; i < 600; i++ {
 		newNote, _ := createNote(strconv.Itoa(i), fmt.Sprintf("%d - this is some text", i))
@@ -74,8 +83,8 @@ func TestSync600Notes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, eNotes, 600)
 
-	var so gosn.SyncOutput
-	so, err = gosn.Sync(gosn.SyncInput{
+	var so items.SyncOutput
+	so, err = items.Sync(items.SyncInput{
 		Session: testSession.Session,
 		Items:   eNotes,
 	})
@@ -102,7 +111,7 @@ func TestSync600Notes(t *testing.T) {
 	for x := range gItems {
 		if gItems[x].GetContentType() == "Note" && !gItems[x].IsDeleted() {
 			item := gItems[x]
-			note := item.(*gosn.Note)
+			note := item.(*items.Note)
 			noteContent := note.Content
 			seen[noteContent.Title] = noteContent.Text
 		}
@@ -131,7 +140,7 @@ func TestSync600Notes(t *testing.T) {
 //
 // 	// create new note with random content
 // 	newNote, _ := createNote("test", "")
-// 	dItems := gosn.Items{&newNote}
+// 	dItems := items.Items{&newNote}
 // 	require.NoError(t, dItems.Validate(testSession))
 //
 // 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
@@ -183,7 +192,7 @@ func TestSync600Notes(t *testing.T) {
 //
 // 	// create new note with random content
 // 	newNote, _ := createNote("test", "ok")
-// 	dItems := gosn.Items{&newNote}
+// 	dItems := items.Items{&newNote}
 // 	require.NoError(t, dItems.Validate(testSession))
 //
 // 	// encrypt note
@@ -236,7 +245,7 @@ func TestSync600Notes(t *testing.T) {
 // 	})
 // 	require.NoError(t, err)
 //
-// 	gso, err := gosn.Sync(gosn.SyncInput{
+// 	gso, err := items.Sync(items.SyncInput{
 // 		Session: testSession.Session,
 // 		// SyncToken: "",
 // 	})
@@ -297,7 +306,7 @@ func TestSync600Notes(t *testing.T) {
 // }
 
 func TestSyncWithoutDatabase(t *testing.T) {
-	sio, err := gosn.SignIn(sInput)
+	sio, err := auth.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	session, err := ImportSession(&sio.Session, "")
@@ -328,7 +337,7 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 
 	defer removeDB(testSession.CacheDBPath)
 
-	sio, err := gosn.SignIn(sInput)
+	sio, err := auth.SignIn(sInput)
 	require.NoError(t, err)
 
 	session, err := ImportSession(&sio.Session, tempDBPath)
@@ -406,7 +415,7 @@ func TestSyncWithNewNote(t *testing.T) {
 
 	// create new note with random content
 	newNote, _ := createNote("test", "")
-	dItems := gosn.Items{&newNote}
+	dItems := items.Items{&newNote}
 	require.NoError(t, dItems.Validate(testSession.Session))
 
 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
@@ -465,7 +474,7 @@ func TestSyncWithNewNoteExportReauthenticateImport(t *testing.T) {
 
 	// create new note with random content
 	newNote, _ := createNote("test", "")
-	dItems := gosn.Items{&newNote}
+	dItems := items.Items{&newNote}
 	require.NoError(t, dItems.Validate(testSession.Session))
 
 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
@@ -527,7 +536,7 @@ func TestSyncOneExisting(t *testing.T) {
 
 	// create new note with random content and push to SN (not DB)
 	newNote, _ := createNote("test", "")
-	dItems := gosn.Items{&newNote}
+	dItems := items.Items{&newNote}
 	require.NoError(t, dItems.Validate(testSession.Session))
 
 	eItems, err := dItems.Encrypt(testSession.Session, testSession.DefaultItemsKey)
@@ -536,8 +545,8 @@ func TestSyncOneExisting(t *testing.T) {
 	require.NoError(t, eItems.Validate())
 
 	// push to SN
-	var gso gosn.SyncOutput
-	gso, err = gosn.Sync(gosn.SyncInput{
+	var gso items.SyncOutput
+	gso, err = items.Sync(items.SyncInput{
 		Session: testSession.Session,
 		Items:   eItems,
 	})
@@ -626,15 +635,15 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //
 //	// create new note with random content and push to SN (not DB)
 //	newNote, _ := createNote("test title", "some content")
-//	dItems := gosn.Items{&newNote}
+//	dItems := items.Items{&newNote}
 //	require.NoError(t, dItems.Validate(testSession))
 //
 //	eItems, err := dItems.Encrypt(testSession.Session.DefaultItemsKey, testSession.Session.MasterKey, testSession.Session.Debug)
 //	require.NoError(t, err)
 //
 //	// push new note to SN
-//	var gso gosn.SyncOutput
-//	gso, err = gosn.Sync(gosn.SyncInput{
+//	var gso items.SyncOutput
+//	gso, err = items.Sync(items.SyncInput{
 //		Session: testSession.Session,
 //		Items:   eItems,
 //	})
@@ -648,7 +657,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	//}
 //	//require.NoError(t, cso.DB.Drop("SyncToken"))
 //	//if err = cso.DB.Save(&sv); err != nil {
-//	//	debugPrint(testSession.Session.Debug, fmt.Sprintf("Sync | saving sync token %s to db", sv.SyncToken))
+//	//	logging.DebugPrint(testSession.Session.Debug, fmt.Sprintf("Sync | saving sync token %s to db", sv.SyncToken))
 //	//
 //	//	err = fmt.Errorf("saving token to db %w", err)
 //	//
@@ -679,7 +688,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	require.NoError(t, err)
 //	require.Greater(t, len(allPersistedItems), 0)
 //
-//	var items gosn.Items
+//	var items items.Items
 //	items, err = allPersistedItems.ToItems(testSession)
 //	require.NoError(t, err)
 //	require.NotEmpty(t, items)
@@ -688,7 +697,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //
 //	for x := range items {
 //		if items[x].GetContentType() == "Note" && items[x].GetUUID() == newNote.UUID {
-//			newNote = *items[x].(*gosn.Note)
+//			newNote = *items[x].(*items.Note)
 //			if newNote.Content.Title == "test title" && newNote.Content.Text == "some content" {
 //				newNoteFound = true
 //			}
@@ -705,7 +714,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	time.Sleep(1 * time.Second)
 //
 //	// items convert new items to 'persist' items and mark as dirty
-//	var ditems gosn.Items
+//	var ditems items.Items
 //	ditems = append(ditems, &newNote)
 //	fmt.Printf("New Note: %+v\n", newNote)
 //	eItems, err = dItems.Encrypt(testSession.Session.DefaultItemsKey, testSession.Session.MasterKey, testSession.Session.Debug)
@@ -740,7 +749,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //
 //	for x := range items {
 //		if items[x].GetContentType() == "Note" && items[x].GetUUID() == newNote.UUID {
-//			newNote1 := *items[x].(*gosn.Note)
+//			newNote1 := *items[x].(*items.Note)
 //
 //			if newNote1.Content.Title == "Modified Title" && newNote1.Content.Text == "Modified Text" {
 //				newNoteFound = true
@@ -751,8 +760,8 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	require.True(t, newNoteFound)
 //
 //	// now do a gosn sync and check item has updates
-//	var newSO gosn.SyncOutput
-//	newSO, err = gosn.Sync(gosn.SyncInput{
+//	var newSO items.SyncOutput
+//	newSO, err = items.Sync(items.SyncInput{
 //		Session: testSession.Session,
 //	})
 //	require.NoError(t, err)
@@ -771,16 +780,16 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //
 //	newEncItems := gosn.EncryptedItems{uItem}
 //
-//	var newDecItems gosn.Items
+//	var newDecItems items.Items
 //	newDecItems, err = newEncItems.DecryptAndParse(testSession.Session)
 //	require.NoError(t, err)
 //	require.NotEmpty(t, newDecItems)
-//	uNote := *newDecItems[0].(*gosn.Note)
+//	uNote := *newDecItems[0].(*items.Note)
 //	require.Equal(t, "Modified Title", uNote.Content.GetTitle())
 //	require.Equal(t, "Modified Text", uNote.Content.GetText())
 // }
 
-// func checkItemInDBTemp(db *storm.DB, inNote gosn.Note, title, text string) (found bool) {
+// func checkItemInDBTemp(db *storm.DB, inNote items.Note, title, text string) (found bool) {
 //	var allPersistedItems Items
 //
 //	err := db.All(&allPersistedItems)
@@ -797,7 +806,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	for x := range items {
 //		if items[x].GetContentType() == "Note" && items[x].GetUUID() == inNote.UUID {
 //			// panic("found new note in cache")
-//			foundNote := *items[x].(*gosn.Note)
+//			foundNote := *items[x].(*items.Note)
 //
 //			if foundNote.Content.Title == title && foundNote.Content.Text == text {
 //				return true
@@ -808,51 +817,51 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	return false
 // }
 
-func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
-	gnf := gosn.Filter{
+func _deleteAllTagsNotesComponents(session *session.Session) (err error) {
+	gnf := items.Filter{
 		Type: "Note",
 	}
-	gtf := gosn.Filter{
+	gtf := items.Filter{
 		Type: "Tag",
 	}
-	gcf := gosn.Filter{
+	gcf := items.Filter{
 		Type: "SN|Component",
 	}
-	f := gosn.ItemFilters{
-		Filters:  []gosn.Filter{gnf, gtf, gcf},
+	f := items.ItemFilters{
+		Filters:  []items.Filter{gnf, gtf, gcf},
 		MatchAny: true,
 	}
-	si := gosn.SyncInput{
+	si := items.SyncInput{
 		Session: session,
 	}
 
-	var so gosn.SyncOutput
+	var so items.SyncOutput
 
-	so, err = gosn.Sync(si)
+	so, err = items.Sync(si)
 	if err != nil {
 		return
 	}
 
-	var items gosn.Items
+	var its items.Items
 
-	items, err = so.Items.DecryptAndParse(session)
+	its, err = so.Items.DecryptAndParse(session)
 	if err != nil {
 		return
 	}
 
-	items.Filter(f)
+	its.Filter(f)
 
-	var toDel gosn.Items
+	var toDel items.Items
 
-	for x := range items {
-		md := items[x]
+	for x := range its {
+		md := its[x]
 		switch md.GetContentType() {
 		case "Note":
-			md.SetContent(gosn.NewNoteContent())
+			md.SetContent(items.NewNoteContent())
 		case "Tag":
-			md.SetContent(gosn.NewTagContent())
+			md.SetContent(items.NewTagContent())
 		case "SN|Component":
-			md.SetContent(gosn.NewComponentContent())
+			md.SetContent(items.NewComponentContent())
 		}
 
 		md.SetDeleted(true)
@@ -860,13 +869,14 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	}
 
 	if len(toDel) > 0 {
-		eToDel, err := toDel.Encrypt(testSession.Session, session.DefaultItemsKey)
-		si = gosn.SyncInput{
+		var eToDel items.EncryptedItems
+		eToDel, err = toDel.Encrypt(testSession.Session, session.DefaultItemsKey)
+		si = items.SyncInput{
 			Session: session,
 			Items:   eToDel,
 		}
 
-		_, err = gosn.Sync(si)
+		_, err = items.Sync(si)
 		if err != nil {
 			return fmt.Errorf("PutItems Failed: %v", err)
 		}
@@ -875,18 +885,18 @@ func _deleteAllTagsNotesComponents(session *gosn.Session) (err error) {
 	return err
 }
 
-func createNote(title, content string) (note gosn.Note, text string) {
+func createNote(title, content string) (note items.Note, text string) {
 	text = content
 	if content == "" {
 		text = testParas[randInt(0, len(testParas))]
 	}
 
-	newNote, _ := gosn.NewNote(title, text, nil)
+	newNote, _ := items.NewNote(title, text, nil)
 
 	return newNote, text
 }
 
-func cleanup(session *gosn.Session) {
+func cleanup(session *session.Session) {
 	if err := _deleteAllTagsNotesComponents(session); err != nil {
 		panic(err)
 	}
@@ -895,7 +905,7 @@ func cleanup(session *gosn.Session) {
 }
 
 var (
-	sInput = gosn.SignInInput{
+	sInput = auth.SignInInput{
 		Email:     os.Getenv("SN_EMAIL"),
 		Password:  os.Getenv("SN_PASSWORD"),
 		APIServer: os.Getenv("SN_SERVER"),
