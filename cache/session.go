@@ -1,13 +1,11 @@
 package cache
 
 import (
+	"github.com/asdine/storm/v3"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/session"
-	"os"
-
-	"github.com/asdine/storm/v3"
 )
 
 type Session struct {
@@ -22,15 +20,20 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session,
 	if gs == nil {
 		panic("gs is nil")
 	}
+
 	s = &Session{}
+
 	s.Session = &session.Session{}
-	// if gs.Server != "" {
+	if gs.Server == "" {
+		gs.Server = common.APIServer
+	}
+
 	// if !gs.Valid() {
 	// 	return s, fmt.Errorf("invalid session")
 	// }
 	s.Session.HTTPClient = retryablehttp.NewClient()
 	s.Session.Debug = gs.Debug
-	s.Session.Server = os.Getenv("SN_SERVER")
+	s.Session.Server = gs.Server
 	s.Session.Token = gs.Token
 	s.Session.MasterKey = gs.MasterKey
 	// s.Session.ItemsKeys = gs.ItemsKeys

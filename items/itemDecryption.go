@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/logging"
+	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 )
 
@@ -26,7 +26,7 @@ func DecryptItem(e EncryptedItem, s *session.Session, iks []session.SessionItems
 		key = s.MasterKey
 	default:
 		if e.ItemsKeyID == "" {
-			logging.DebugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType), common.MaxDebugChars)
+			log.DebugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType), common.MaxDebugChars)
 			err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
 				e.Deleted,
 				e.UUID,
@@ -127,7 +127,7 @@ func DecryptItems(s *session.Session, ei EncryptedItems, iks []session.SessionIt
 			key = s.MasterKey
 		default:
 			if e.ItemsKeyID == "" {
-				logging.DebugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType), common.MaxDebugChars)
+				log.DebugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType), common.MaxDebugChars)
 				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
 					e.Deleted,
 					e.UUID,

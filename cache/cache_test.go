@@ -35,7 +35,9 @@ func testSetup() {
 		panic("testSession is nil")
 	}
 
-	fmt.Printf("testSession: %#+v\n", testSession)
+	if testSession.Server == "" {
+		testSession.Server = common.APIServer
+	}
 
 	var path string
 
@@ -340,19 +342,19 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 	sio, err := auth.SignIn(sInput)
 	require.NoError(t, err)
 
-	session, err := ImportSession(&sio.Session, tempDBPath)
+	sess, err := ImportSession(&sio.Session, tempDBPath)
 	if err != nil {
 		return
 	}
 
-	session.CacheDBPath = tempDBPath
+	sess.CacheDBPath = tempDBPath
 
 	require.NoError(t, err, "sign-in failed", err)
 
 	var so SyncOutput
 
 	so, err = Sync(SyncInput{
-		Session: session,
+		Session: sess,
 	})
 	require.NoError(t, err)
 

@@ -9,7 +9,7 @@ import (
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
-	"github.com/jonhadfield/gosn-v2/logging"
+	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"github.com/spf13/viper"
 	"github.com/zalando/go-keyring"
@@ -387,6 +387,10 @@ func RemoveSession(k keyring.Keyring) string {
 func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 	var sess Session
 
+	if server == "" {
+		server = common.APIServer
+	}
+
 	var err error
 
 	var email, password, apiServer, errMsg string
@@ -402,7 +406,7 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 		return sess, email, err
 	}
 
-	logging.DebugPrint(debug, fmt.Sprintf("attempting cli sign-in with email: '%s' %d char password and server '%s'", email, len(password), apiServer), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("attempting cli sign-in with email: '%s' %d char password and server '%s'", email, len(password), apiServer), common.MaxDebugChars)
 
 	signInSession, err := auth.CliSignIn(email, password, apiServer, debug)
 	sess = Session{
@@ -421,7 +425,7 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 		ReadOnlyAccess:    signInSession.ReadOnlyAccess,
 	}
 	if err != nil {
-		logging.DebugPrint(debug, fmt.Sprintf("CliSignIn failed with: %+v", err), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("CliSignIn failed with: %+v", err), common.MaxDebugChars)
 
 		return sess, email, err
 	}
@@ -672,7 +676,7 @@ func (sess *Session) Refresh() error {
 
 	refreshSessionOutput, err := auth.RequestRefreshToken(sess.HTTPClient, server+common.AuthRefreshPath, sess.AccessToken, sess.RefreshToken, sess.Debug)
 	if err != nil {
-		logging.DebugPrint(sess.Debug, fmt.Sprintf("refresh session failure: %+v error: %+v", requestTokenFailure, err), common.MaxDebugChars)
+		log.DebugPrint(sess.Debug, fmt.Sprintf("refresh session failure: %+v error: %+v", requestTokenFailure, err), common.MaxDebugChars)
 
 		return err
 	}
@@ -712,23 +716,23 @@ func (s *Session) Valid() bool {
 
 	switch {
 	case s.RefreshToken == "":
-		logging.DebugPrint(s.Debug, "session is missing refresh token", common.MaxDebugChars)
+		log.DebugPrint(s.Debug, "session is missing refresh token", common.MaxDebugChars)
 		fmt.Print(s.Debug, "session is missing refresh token", common.MaxDebugChars)
 		return false
 	case s.AccessToken == "":
-		logging.DebugPrint(s.Debug, "session is missing access token", common.MaxDebugChars)
+		log.DebugPrint(s.Debug, "session is missing access token", common.MaxDebugChars)
 		fmt.Print(s.Debug, "session is missing access token", common.MaxDebugChars)
 		return false
 	case s.MasterKey == "":
-		logging.DebugPrint(s.Debug, "session is missing master key", common.MaxDebugChars)
+		log.DebugPrint(s.Debug, "session is missing master key", common.MaxDebugChars)
 		fmt.Print(s.Debug, "session is missing master key", common.MaxDebugChars)
 		return false
 	case s.AccessExpiration == 0:
-		logging.DebugPrint(s.Debug, "Access Expiration is 0", common.MaxDebugChars)
+		log.DebugPrint(s.Debug, "Access Expiration is 0", common.MaxDebugChars)
 		fmt.Print(s.Debug, "Access Expiration is 0", common.MaxDebugChars)
 		return false
 	case s.RefreshExpiration == 0:
-		logging.DebugPrint(s.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
+		log.DebugPrint(s.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
 		fmt.Print(s.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
 		return false
 	}

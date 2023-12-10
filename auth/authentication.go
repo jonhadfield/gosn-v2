@@ -11,10 +11,9 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
-	"github.com/jonhadfield/gosn-v2/logging"
+	"github.com/jonhadfield/gosn-v2/log"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -35,7 +34,7 @@ func (s cryptoSource) Int63() int64 {
 func (s cryptoSource) Uint64() (v uint64) {
 	err := binary.Read(crand.Reader, binary.BigEndian, &v)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 
 	return v
@@ -83,6 +82,10 @@ type RequestRefreshTokenOutput struct {
 }
 
 func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refreshToken string, debug bool) (output RefreshSessionResponse, err error) {
+	if client == nil {
+		client = common.NewHTTPClient()
+	}
+
 	var reqBodyBytes []byte
 
 	apiVer := "20200115"
@@ -91,7 +94,7 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 
 	var refreshSessionReq *retryablehttp.Request
 
-	logging.DebugPrint(debug, fmt.Sprintf("refresh token url: %s", url), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("refresh token url: %s", url), common.MaxDebugChars)
 
 	refreshSessionReq, err = retryablehttp.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
@@ -107,7 +110,7 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 	signInResp, err = client.Do(refreshSessionReq)
 	elapsed := time.Since(start)
 
-	logging.DebugPrint(debug, fmt.Sprintf("refresh session | request took: %+v", elapsed), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("refresh session | request took: %+v", elapsed), common.MaxDebugChars)
 
 	if err != nil {
 		return output, err
@@ -157,7 +160,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 
 	var signInURLReq *retryablehttp.Request
 
-	logging.DebugPrint(input.debug, fmt.Sprintf("sign-in url: %s", input.signInURL), common.MaxDebugChars)
+	log.DebugPrint(input.debug, fmt.Sprintf("sign-in url: %s", input.signInURL), common.MaxDebugChars)
 
 	signInURLReq, err = retryablehttp.NewRequest(http.MethodPost, input.signInURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
@@ -173,7 +176,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	signInResp, err = input.client.Do(signInURLReq)
 	elapsed := time.Since(start)
 
-	logging.DebugPrint(input.debug, fmt.Sprintf("requestToken | request took: %+v", elapsed), common.MaxDebugChars)
+	log.DebugPrint(input.debug, fmt.Sprintf("requestToken | request took: %+v", elapsed), common.MaxDebugChars)
 
 	if err != nil {
 		return signInSuccess, signInFailure, err
@@ -232,7 +235,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 
-		logging.DebugPrint(debug, fmt.Sprintf("status 404 %+v", errResp), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("status 404 %+v", errResp), common.MaxDebugChars)
 
 		return
 	case http.StatusBadRequest:
@@ -242,7 +245,7 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 
-		logging.DebugPrint(debug, fmt.Sprintf("status 400 %+v", errResp), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("status 400 %+v", errResp), common.MaxDebugChars)
 	case http.StatusUnauthorized:
 		// need mfa token
 		// unmarshal error response
@@ -253,8 +256,8 @@ func processDoAuthRequestResponse(response *http.Response, debug bool) (output d
 			return
 		}
 
-		logging.DebugPrint(debug, fmt.Sprintf("status 401 %+v", errResp), common.MaxDebugChars)
-		logging.DebugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("status 401 %+v", errResp), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp), common.MaxDebugChars)
 	case http.StatusForbidden:
 		// server has denied request
 		// unmarshal error response
@@ -500,8 +503,11 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	}
 
 	if input.HTTPClient == nil {
-		input.HTTPClient = retryablehttp.NewClient()
+		input.HTTPClient = common.NewHTTPClient()
+		fmt.Println("input.HTTPClient:", input.HTTPClient)
 	}
+
+	output.Session.HTTPClient = input.HTTPClient
 
 	getAuthParamsInput := authParamsInput{
 		client:        input.HTTPClient,
@@ -518,7 +524,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 
 	getAuthParamsOutput, err = getAuthParams(getAuthParamsInput)
 	if err != nil {
-		logging.DebugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err), common.MaxDebugChars)
+		log.DebugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err), common.MaxDebugChars)
 		err = processConnectionFailure(err, getAuthParamsInput.authParamsURL)
 		return
 	}
@@ -570,7 +576,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	})
 
 	if err != nil {
-		logging.DebugPrint(input.Debug, fmt.Sprintf("requestToken failure: %+v error: %+v", requestTokenFailure, err), common.MaxDebugChars)
+		log.DebugPrint(input.Debug, fmt.Sprintf("requestToken failure: %+v error: %+v", requestTokenFailure, err), common.MaxDebugChars)
 
 		return
 	}
@@ -603,7 +609,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 			panic(fmt.Sprintf("failed to parse SN_POST_SIGN_IN_DELAY value as int64: %v", pside))
 		}
 
-		logging.DebugPrint(input.Debug, fmt.Sprintf("SignIn | sleeping %d milliseconds post sign in", psid), common.MaxDebugChars)
+		log.DebugPrint(input.Debug, fmt.Sprintf("SignIn | sleeping %d milliseconds post sign in", psid), common.MaxDebugChars)
 		time.Sleep(time.Duration(psid) * time.Millisecond)
 	}
 
@@ -648,7 +654,7 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 	var errResp ErrorResponse
 	_ = json.Unmarshal(body, &errResp)
 
-	logging.DebugPrint(debug, fmt.Sprintf("processDoRegisterRequestResponse | status code: %d error %s",
+	log.DebugPrint(debug, fmt.Sprintf("processDoRegisterRequestResponse | status code: %d error %s",
 		response.StatusCode,
 		errResp.Data.Error.Message), common.MaxDebugChars)
 
@@ -673,7 +679,7 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 			return
 		}
 	case 404:
-		logging.DebugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message), common.MaxDebugChars)
 		// email address not recognized
 		err = fmt.Errorf("email address not recognized")
 	case 401:
@@ -686,7 +692,7 @@ func processDoRegisterRequestResponse(response *http.Response, debug bool) (toke
 			return
 		}
 	default:
-		logging.DebugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("status code: %d error %s", response.StatusCode, errResp.Data.Error.Message), common.MaxDebugChars)
 		err = fmt.Errorf("unhandled: %+v", response)
 
 		return
@@ -739,7 +745,7 @@ func (input RegisterInput) Register() (token string, err error) {
 	}()
 
 	token, err = processDoRegisterRequestResponse(response, input.Debug)
-	logging.DebugPrint(true, token, common.MaxDebugChars)
+	log.DebugPrint(true, token, common.MaxDebugChars)
 
 	if err != nil {
 		return
