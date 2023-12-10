@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/logging"
+	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 	"math"
 	"os"
@@ -50,7 +50,7 @@ type ConflictedItem struct {
 func syncItems(i SyncInput) (so SyncOutput, err error) {
 	giStart := time.Now()
 	defer func() {
-		logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)), common.MaxDebugChars)
+		log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | duration %v", time.Since(giStart)), common.MaxDebugChars)
 	}()
 
 	if !i.Session.Valid() {
@@ -69,7 +69,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 			return
 		}
 
-		logging.DebugPrint(i.Session.Debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
+		log.DebugPrint(i.Session.Debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
 			i.PostSyncRequestDelay), common.MaxDebugChars)
 	}
 
@@ -81,12 +81,12 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		if i.PageSize > 0 {
 			ps = i.PageSize
 		}
-		logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps), common.MaxDebugChars)
+		log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps), common.MaxDebugChars)
 		var rErr error
 
 		sResp, rErr = syncItemsViaAPI(i)
 		if rErr != nil {
-			logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()), common.MaxDebugChars)
+			log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()), common.MaxDebugChars)
 			switch {
 			case strings.Contains(strings.ToLower(rErr.Error()), "session token") &&
 				strings.Contains(strings.ToLower(rErr.Error()), "expired"):
@@ -95,13 +95,13 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
 				i.NextItem = sResp.LastItemPut
 				resizeForRetry(&i)
-				logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time as the request was too large so reducing to page size %d",
 					sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
 			case strings.Contains(strings.ToLower(rErr.Error()), "timeout"):
 				i.NextItem = sResp.LastItemPut
 				resizeForRetry(&i)
-				logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
 			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
 				i.NextItem = sResp.LastItemPut
@@ -111,7 +111,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
 				i.NextItem = sResp.LastItemPut
 				resizeForRetry(&i)
-				logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time due to EOF so reducing to page size %d", sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
 			default:
 				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
@@ -127,7 +127,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 
 	elapsed := time.Since(start)
 
-	logging.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | took %v to get all items", elapsed), common.MaxDebugChars)
+	log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | took %v to get all items", elapsed), common.MaxDebugChars)
 
 	so.Items = sResp.Items
 	so.Items.DeDupe()
@@ -152,7 +152,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 	so.SavedItems = updateTimestampsOnSavedItems(i.Items, so.SavedItems)
 	// fmt.Println("POST:", len(so.SavedItems))
 
-	logging.DebugPrint(i.Session.Debug,
+	log.DebugPrint(i.Session.Debug,
 		fmt.Sprintf("Sync | SN returned %d items, %d saved items, and %d conflicts, with syncToken %s",
 			len(so.Items), len(so.SavedItems), len(so.Conflicts), so.SyncToken), common.MaxDebugChars)
 
@@ -187,8 +187,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// we need to reset on completion it to avoid it being used in future
 	// defer func() { input.Session.ImporterItemsKeys = ItemsKeys{} }()
 
-	logging.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | called with %d items and syncToken %s", len(input.Items), input.SyncToken), common.MaxDebugChars)
-	logging.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | pre-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
+	log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | called with %d items and syncToken %s", len(input.Items), input.SyncToken), common.MaxDebugChars)
+	log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | pre-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
 	// if items have been passed but no default items key exists then return error
 	if len(input.Items) > 0 && input.Session.DefaultItemsKey.ItemsKey == "" {
 		err = fmt.Errorf("missing default items key in session")
@@ -214,7 +214,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	}
 
 	// if no conflicts to sync, then return
-	logging.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | resolvedConflictsToSync: %d", len(resolvedConflictsToSync)), common.MaxDebugChars)
+	log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | resolvedConflictsToSync: %d", len(resolvedConflictsToSync)), common.MaxDebugChars)
 	if len(resolvedConflictsToSync) == 0 {
 		processSessionItemsKeysInSavedItems(input.Session, processedOutput, err)
 
@@ -222,7 +222,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		items.DeDupe()
 
 		processedOutput.Items = items
-		logging.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | post-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
+		log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | post-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
 		return processedOutput, err
 	}
 
@@ -300,7 +300,7 @@ func processSyncConflict(s *session.Session, items EncryptedItems, conflict Conf
 	switch {
 	case conflict.ServerItem.Deleted:
 		// if server item is deleted then we will give unsaved item a new uuid and sync it
-		logging.DebugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace",
+		log.DebugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace",
 			conflict.ServerItem.UUID, conflict.ServerItem.ContentType), common.MaxDebugChars)
 
 		var found bool
@@ -321,12 +321,12 @@ func processSyncConflict(s *session.Session, items EncryptedItems, conflict Conf
 
 	case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
 		// if unsaved item is newer than that our server item, then unsaved wins
-		logging.DebugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp), common.MaxDebugChars)
 
 		conflictedItem = conflict.UnsavedItem
 		conflictedItem.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
 	default:
-		logging.DebugPrint(debug, "Sync | server item most recent, so set new UUID on the item that conflicted and set it as 'duplicate_of' original", common.MaxDebugChars)
+		log.DebugPrint(debug, "Sync | server item most recent, so set new UUID on the item that conflicted and set it as 'duplicate_of' original", common.MaxDebugChars)
 
 		var found bool
 
@@ -519,7 +519,7 @@ func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflict
 		return nil, syncOutput, err
 	}
 
-	logging.DebugPrint(debug, fmt.Sprintf("Sync | found %d conflicts", len(syncOutput.Conflicts)), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("Sync | found %d conflicts", len(syncOutput.Conflicts)), common.MaxDebugChars)
 	// Resync any conflicts
 	conflictsToSync, err := processConflicts(input, syncOutput)
 	if err != nil {
@@ -686,16 +686,16 @@ func (cis ConflictedItems) Validate(debug bool) error {
 	for _, ci := range cis {
 		switch ci.Type {
 		case "sync_conflict":
-			logging.DebugPrint(debug, fmt.Sprintf("Sync | sync conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID), common.MaxDebugChars)
+			log.DebugPrint(debug, fmt.Sprintf("Sync | sync conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID), common.MaxDebugChars)
 			continue
 		case "uuid_conflict":
-			logging.DebugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.UnsavedItem.ContentType, ci.UnsavedItem.UUID), common.MaxDebugChars)
+			log.DebugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.UnsavedItem.ContentType, ci.UnsavedItem.UUID), common.MaxDebugChars)
 			continue
 		case "uuid_error":
-			logging.DebugPrint(debug, "Sync | client is attempting to sync an item without uuid", common.MaxDebugChars)
+			log.DebugPrint(debug, "Sync | client is attempting to sync an item without uuid", common.MaxDebugChars)
 			panic("Sync | client is attempting to sync an item without a uuid")
 		case "content_error":
-			logging.DebugPrint(debug, "Sync | client is attempting to sync an item with invalid content", common.MaxDebugChars)
+			log.DebugPrint(debug, "Sync | client is attempting to sync an item with invalid content", common.MaxDebugChars)
 			panic("Sync | client is attempting to sync an item without a uuid")
 		default:
 			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
@@ -724,7 +724,7 @@ func (cis ConflictedItems) Validate(debug bool) error {
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
-	logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
 
 	// fmt.Printf("syncItemsViaAPI START\n")
 	// for x := range input.Items {
@@ -738,10 +738,10 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	switch {
 	case input.PageSize > 0:
-		logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize), common.MaxDebugChars)
 		limit = input.PageSize
 	default:
-		logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", common.PageSize), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", common.PageSize), common.MaxDebugChars)
 		limit = common.PageSize
 	}
 
@@ -755,7 +755,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	if len(input.Items) > 0 {
 		finalItem = lesserOf(len(input.Items)-1, input.NextItem+limit-1)
-		logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem+1, finalItem+1), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem+1, finalItem+1), common.MaxDebugChars)
 		// fmt.Printf("syncItemsViaAPI | going to put items: %d to %d\n", input.NextItem, finalItem)
 
 		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem : finalItem+1])
@@ -838,7 +838,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.LastItemPut = finalItem
 
 	if len(input.Items) > 0 {
-		logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem+1, len(input.Items)), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem+1, len(input.Items)), common.MaxDebugChars)
 		// fmt.Printf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items))
 	}
 
@@ -848,15 +848,15 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		var newOutput syncResponse
 
 		input.SyncToken = out.SyncToken
-		logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)), common.MaxDebugChars)
 
 		input.CursorToken = out.CursorToken
-		logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)), common.MaxDebugChars)
 
 		input.PageSize = limit
 		// sync was successful so set new item
 		if finalItem > 0 {
-			logging.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | sync successful so setting new item to finalItem+1: %d", finalItem+1), common.MaxDebugChars)
+			log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | sync successful so setting new item to finalItem+1: %d", finalItem+1), common.MaxDebugChars)
 			input.NextItem = finalItem + 1
 		}
 
@@ -956,7 +956,7 @@ func DeleteContent(session *session.Session, everything bool) (deleted int, err 
 	}
 
 	if len(itemsToPut) > 0 {
-		logging.DebugPrint(session.Debug, fmt.Sprintf("DeleteContent | removing %d items", len(itemsToPut)), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("DeleteContent | removing %d items", len(itemsToPut)), common.MaxDebugChars)
 	}
 
 	si.Items = itemsToPut

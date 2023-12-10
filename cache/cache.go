@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/items"
-	logging2 "github.com/jonhadfield/gosn-v2/logging"
+	logging2 "github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 	"log"
 	"os"

@@ -8,12 +8,12 @@ import (
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
-	"github.com/jonhadfield/gosn-v2/logging"
+	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 )
 
 func encryptItems(s *session.Session, decItems *Items, ik session.SessionItemsKey) (encryptedItems EncryptedItems, err error) {
-	logging.DebugPrint(s.Debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)), common.MaxDebugChars)
+	log.DebugPrint(s.Debug, fmt.Sprintf("encryptItems | encrypting %d items", len(*decItems)), common.MaxDebugChars)
 	d := *decItems
 
 	// fmt.Printf("Encrypt | encrypting %d items\n", len(*decItems))

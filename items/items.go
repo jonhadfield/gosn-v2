@@ -10,7 +10,7 @@ import (
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
-	"github.com/jonhadfield/gosn-v2/logging"
+	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 	"io/ioutil"
 	"net/http"
@@ -48,7 +48,7 @@ const retryScaleFactor = 0.25
 type EncryptedItems []EncryptedItem
 
 func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []session.SessionItemsKey, err error) {
-	logging.DebugPrint(debug, fmt.Sprintf("DecryptAndParseItemsKeys | encrypted items to check: %d", len(ei)), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("DecryptAndParseItemsKeys | encrypted items to check: %d", len(ei)), common.MaxDebugChars)
 
 	if len(ei) == 0 {
 		return
@@ -138,7 +138,7 @@ func (ei *EncryptedItems) Validate() error {
 }
 
 func ReEncryptItem(ei EncryptedItem, decryptionItemsKey session.SessionItemsKey, newItemsKey ItemsKey, newMasterKey string, s *session.Session) (o EncryptedItem, err error) {
-	logging.DebugPrint(s.Debug, fmt.Sprintf("ReEncrypt | item to re-encrypt %s %s", ei.ContentType, ei.UUID), common.MaxDebugChars)
+	log.DebugPrint(s.Debug, fmt.Sprintf("ReEncrypt | item to re-encrypt %s %s", ei.ContentType, ei.UUID), common.MaxDebugChars)
 
 	var di DecryptedItem
 
@@ -153,7 +153,7 @@ func ReEncryptItem(ei EncryptedItem, decryptionItemsKey session.SessionItemsKey,
 }
 
 func (ei EncryptedItems) ReEncrypt(s *session.Session, decryptionItemsKey session.SessionItemsKey, newItemsKey ItemsKey, newMasterKey string) (o EncryptedItems, err error) {
-	logging.DebugPrint(s.Debug, fmt.Sprintf("ReEncrypt | items: %d", len(ei)), common.MaxDebugChars)
+	log.DebugPrint(s.Debug, fmt.Sprintf("ReEncrypt | items: %d", len(ei)), common.MaxDebugChars)
 
 	var di DecryptedItems
 
@@ -186,7 +186,7 @@ func (ei EncryptedItems) ReEncrypt(s *session.Session, decryptionItemsKey sessio
 }
 
 func DecryptAndParseItem(ei EncryptedItem, s *session.Session) (o Item, err error) {
-	logging.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %s %s", ei.ContentType, ei.UUID), common.MaxDebugChars)
+	log.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %s %s", ei.ContentType, ei.UUID), common.MaxDebugChars)
 
 	var di DecryptedItem
 	//
@@ -232,7 +232,7 @@ func DecryptAndParseItem(ei EncryptedItem, s *session.Session) (o Item, err erro
 }
 
 func DecryptAndParseItems(ei EncryptedItems, s *session.Session) (o Items, err error) {
-	logging.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
+	log.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
 
 	for x := range ei {
 		var di Item
@@ -249,7 +249,7 @@ func DecryptAndParseItems(ei EncryptedItems, s *session.Session) (o Items, err e
 }
 
 func (ei EncryptedItems) DecryptAndParse(s *session.Session) (o Items, err error) {
-	logging.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
+	log.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
 
 	var di DecryptedItems
 
@@ -257,7 +257,7 @@ func (ei EncryptedItems) DecryptAndParse(s *session.Session) (o Items, err error
 	// 	logging.DebugPrint(s.Debug, "DecryptAndParse | using ImportersItemsKeys", common.MaxDebugChars)
 	// 	di, err = DecryptItems(s, ei, s.ImporterItemsKeys)
 	// } else {
-	logging.DebugPrint(s.Debug, "DecryptAndParse | using Session's ItemsKeys", common.MaxDebugChars)
+	log.DebugPrint(s.Debug, "DecryptAndParse | using Session's ItemsKeys", common.MaxDebugChars)
 	di, err = DecryptItems(s, ei, []session.SessionItemsKey{})
 	// }
 
@@ -404,6 +404,10 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 
 func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []byte, err error) {
 	// fmt.Println(string(reqBody))
+	if session.HTTPClient == nil {
+		log.DebugPrint(session.Debug, "makeSyncRequest | creating new http client", common.MaxDebugChars)
+		session.HTTPClient = retryablehttp.NewClient()
+	}
 
 	var request *retryablehttp.Request
 
@@ -422,7 +426,7 @@ func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []by
 	response, err = session.HTTPClient.Do(request)
 	elapsed := time.Since(start)
 
-	logging.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v", elapsed), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v", elapsed), common.MaxDebugChars)
 
 	if err != nil {
 		return
@@ -430,7 +434,7 @@ func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []by
 
 	defer func() {
 		if err := response.Body.Close(); err != nil {
-			logging.DebugPrint(session.Debug, "makeSyncRequest | failed to close body closed", common.MaxDebugChars)
+			log.DebugPrint(session.Debug, "makeSyncRequest | failed to close body closed", common.MaxDebugChars)
 		}
 	}()
 
@@ -445,7 +449,7 @@ func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []by
 	}
 
 	if response.StatusCode == 401 {
-		logging.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 
 		err = errors.New("server returned 401 unauthorized during sync request so most likely throttling due to excessive number of requests")
 
@@ -453,12 +457,12 @@ func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []by
 	}
 
 	if response.StatusCode > 400 {
-		logging.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 		return
 	}
 
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
-		logging.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 	}
 
 	// readStart := time.Now()

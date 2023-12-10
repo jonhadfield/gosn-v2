@@ -1,5 +1,11 @@
 package common
 
+import (
+	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+)
+
 const (
 	// API.
 	APIServer = "https://api.standardnotes.com"
@@ -27,3 +33,12 @@ const (
 	ConnectionTimeout  = 10  // HTTP transport dialer limit
 	KeepAliveTimeout   = 10  // HTTP transport dialer limit
 )
+
+func NewHTTPClient() *retryablehttp.Client {
+	c := retryablehttp.NewClient()
+	c.RetryMax = 3
+	c.HTTPClient.Timeout = RequestTimeout * time.Second
+	c.Logger = nil
+
+	return c
+}

@@ -1,9 +1,13 @@
-package logging
+package log
 
 import (
 	"github.com/jonhadfield/gosn-v2/common"
 	"log"
 )
+
+func Fatal(msg string) {
+	log.Fatal(common.LibName, "|", msg)
+}
 
 func DebugPrint(show bool, msg string, maxChars int) {
 	if show {

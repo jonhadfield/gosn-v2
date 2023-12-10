@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"strconv"
 	"strings"
@@ -149,16 +150,17 @@ func TestRefreshSession(t *testing.T) {
 	preRefreshExpiration := so.Session.RefreshExpiration
 
 	// wait for 2 seconds to ensure that the expiration times are different
-	time.Sleep(2 * time.Second)
-	// require.NoError(t, testSession.Refresh(), "refresh session failed", err)
-	require.NotEmpty(t, testSession.AccessToken)
-	require.NotEmpty(t, testSession.RefreshToken)
-	require.NotEmpty(t, testSession.RefreshExpiration)
-	require.NotEmpty(t, testSession.AccessExpiration)
-	require.NotEqual(t, preAccessToken, testSession.AccessToken)
-	require.NotEqual(t, preAccessExpiration, testSession.AccessExpiration)
-	require.NotEqual(t, preRefreshToken, testSession.RefreshToken)
-	require.NotEqual(t, preRefreshExpiration, testSession.RefreshExpiration)
+	time.Sleep(1 * time.Second)
+	rt, err := RequestRefreshToken(so.Session.HTTPClient, os.Getenv("SN_SERVER")+common.AuthRefreshPath, so.Session.AccessToken, so.Session.RefreshToken, true)
+	require.NoError(t, err)
+	require.NotEmpty(t, rt.Data.Session.AccessToken)
+	require.NotEmpty(t, rt.Data.Session.RefreshToken)
+	require.NotEmpty(t, rt.Data.Session.RefreshExpiration)
+	require.NotEmpty(t, rt.Data.Session.AccessExpiration)
+	assert.NotEqual(t, preAccessToken, rt.Data.Session.AccessToken)
+	assert.NotEqual(t, preAccessExpiration, rt.Data.Session.AccessExpiration)
+	assert.NotEqual(t, preRefreshToken, rt.Data.Session.RefreshToken)
+	assert.NotEqual(t, preRefreshExpiration, rt.Data.Session.RefreshExpiration)
 }
 
 func TestRegistrationWithInvalidShortPassword(t *testing.T) {
