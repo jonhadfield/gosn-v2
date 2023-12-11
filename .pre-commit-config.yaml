@@ -1,8 +1,8 @@
 repos:
-- repo: git://github.com/dnephin/pre-commit-golang
+- repo: https://github.com/dnephin/pre-commit-golang
   rev: v0.4.0
   hooks:
-    - id: go-fmt
+    - id: go-fmt # install golangci-lint https://golangci-lint.run/usage/install/#local-installation
       #    - id: go-vet
       #- id: go-lint
       #- id: go-imports
@@ -12,7 +12,7 @@ repos:
       #- id: no-go-testing
       #- id: gometalinter
 #    - id: golangci-lint
-    - id: go-critic
+    - id: go-critic # install go-critic $(go install -v github.com/go-critic/go-critic/cmd/gocritic@latest)
       args: [-disable=caseOrder]
       #- id: go-unit-tests
       #- id: go-build
