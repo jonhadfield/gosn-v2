@@ -19,7 +19,6 @@ import (
 	"github.com/jonhadfield/gosn-v2/crypto"
 	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
-
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
@@ -78,7 +77,6 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []se
 	}
 
 	dpiks, err := DecryptAndParseItemKeys(mk, eiks)
-
 	if err != nil {
 		err = fmt.Errorf("DecryptAndParseItemsKeys | %w", err)
 

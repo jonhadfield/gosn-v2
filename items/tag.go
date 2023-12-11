@@ -3,6 +3,7 @@ package items
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jonhadfield/gosn-v2/log"
 	"slices"
 	"strings"
 	"time"
@@ -36,9 +37,10 @@ func parseTag(i DecryptedItem) Item {
 
 	if !t.Deleted {
 		var content Content
+
 		content, err = processContentModel(i.ContentType, i.Content)
 		if err != nil {
-			fmt.Printf("failed to decrypt item %#+v\n", t)
+			log.Println("failed to decrypt item", t.GetContentType(), t.GetUUID())
 		}
 
 		t.Content = *content.(*TagContent)

@@ -57,9 +57,6 @@ func TestLoadSchemas(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ts)
 	for k, v := range ts {
-		fmt.Println(k)
-		fmt.Println(v.Title)
-		fmt.Println(v.String())
 		require.NotEmpty(t, k)
 		require.NotEmpty(t, v)
 	}

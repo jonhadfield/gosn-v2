@@ -718,23 +718,18 @@ func (s *Session) Valid() bool {
 	switch {
 	case s.RefreshToken == "":
 		log.DebugPrint(s.Debug, "session is missing refresh token", common.MaxDebugChars)
-		fmt.Print(s.Debug, "session is missing refresh token", common.MaxDebugChars)
 		return false
 	case s.AccessToken == "":
 		log.DebugPrint(s.Debug, "session is missing access token", common.MaxDebugChars)
-		fmt.Print(s.Debug, "session is missing access token", common.MaxDebugChars)
 		return false
 	case s.MasterKey == "":
 		log.DebugPrint(s.Debug, "session is missing master key", common.MaxDebugChars)
-		fmt.Print(s.Debug, "session is missing master key", common.MaxDebugChars)
 		return false
 	case s.AccessExpiration == 0:
 		log.DebugPrint(s.Debug, "Access Expiration is 0", common.MaxDebugChars)
-		fmt.Print(s.Debug, "Access Expiration is 0", common.MaxDebugChars)
 		return false
 	case s.RefreshExpiration == 0:
 		log.DebugPrint(s.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
-		fmt.Print(s.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
 		return false
 	}
 
