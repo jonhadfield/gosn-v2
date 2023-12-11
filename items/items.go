@@ -1500,7 +1500,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 // }
 
 func readJSON(filePath string) (items EncryptedItems, kp auth.KeyParams, err error) {
-	file, err := io.ReadFile(filePath)
+	file, err := os.ReadFile(filePath)
 	if err != nil {
 		err = fmt.Errorf("%w failed to open: %s", err, filePath)
 		return
