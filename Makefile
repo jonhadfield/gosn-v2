@@ -3,8 +3,8 @@ TEST_PATTERN?=.
 TEST_OPTIONS?=-race -v
 
 setup:
-	go get -u github.com/alecthomas/gometalinter
-	go get -u golang.org/x/tools/cmd/cover
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+	go install -v github.com/go-critic/go-critic/cmd/gocritic@latest
 	gometalinter --install --update
 
 test:
