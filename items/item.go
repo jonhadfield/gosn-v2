@@ -1,6 +1,9 @@
 package items
 
-import "github.com/jonhadfield/gosn-v2/session"
+import (
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/session"
+)
 
 // Item defines all types of SN item, e.g. Note, Tag, and Component.
 type Item interface {
@@ -80,5 +83,5 @@ func (i Items) Validate(session *session.Session) error {
 }
 
 func IsEncryptedWithMasterKey(t string) bool {
-	return t == "SN|ItemsKey"
+	return t == common.SNItemTypeItemsKey
 }

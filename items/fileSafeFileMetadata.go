@@ -3,9 +3,10 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/common"
 	"slices"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/common"
 )
 
 type FileSafeFileMetaDataContent struct {

@@ -73,8 +73,8 @@ func hexDecodeBytes(in []byte, noBytes int) (dn []byte, err error) {
 }
 
 func DecryptCipherText(cipherText, rawKey, nonce, rawAuthenticatedData string) (result []byte, err error) {
-	dct, e1 := base64.StdEncoding.DecodeString(cipherText)
-	if e1 != nil {
+	dct, err := base64.StdEncoding.DecodeString(cipherText)
+	if err != nil {
 		return nil, err
 	}
 
@@ -264,7 +264,7 @@ func Decrypt(key []byte, cryptoText string) (pt string, err error) {
 	stream := cipher.NewCFBDecrypter(block, iv)
 	stream.XORKeyStream(ciphertext, ciphertext)
 
-	pt = fmt.Sprintf("%s", ciphertext)
+	pt = string(ciphertext)
 
 	return
 }

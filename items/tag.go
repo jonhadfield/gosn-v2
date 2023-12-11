@@ -3,11 +3,12 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/session"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/session"
 )
 
 type Tag struct {

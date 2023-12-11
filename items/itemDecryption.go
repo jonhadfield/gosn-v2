@@ -3,6 +3,7 @@ package items
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
@@ -74,7 +75,7 @@ func DecryptItem(e EncryptedItem, s *session.Session, iks []session.SessionItems
 // and returns a list of items keys.
 func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, err error) {
 	for x := range eiks {
-		if eiks[x].ContentType != "SN|ItemsKey" {
+		if eiks[x].ContentType != common.SNItemTypeItemsKey {
 			continue
 		}
 
@@ -192,7 +193,7 @@ func (ei EncryptedItem) DecryptItemOnly(key string) (content []byte, err error) 
 }
 
 func (ei *EncryptedItem) Decrypt(mk string) (ik ItemsKey, err error) {
-	if ei.ContentType != "SN|ItemsKey" {
+	if ei.ContentType != common.SNItemTypeItemsKey {
 		return ik, fmt.Errorf("item passed to decrypt is of type %s, expected SN|ItemsKey", ik.ContentType)
 	}
 

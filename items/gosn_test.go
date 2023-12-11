@@ -2,16 +2,17 @@ package items
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/jonhadfield/gosn-v2/auth"
-	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/session"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/jonhadfield/gosn-v2/auth"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/session"
 )
 
 var (

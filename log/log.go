@@ -1,12 +1,17 @@
 package log
 
 import (
-	"github.com/jonhadfield/gosn-v2/common"
 	"log"
+
+	"github.com/jonhadfield/gosn-v2/common"
 )
 
 func Fatal(msg string) {
 	log.Fatal(common.LibName, "|", msg)
+}
+
+func Fatalf(format string, v ...interface{}) {
+	log.Fatalf(format, v...)
 }
 
 func DebugPrint(show bool, msg string, maxChars int) {
@@ -17,4 +22,8 @@ func DebugPrint(show bool, msg string, maxChars int) {
 
 		log.Println(common.LibName, "|", msg)
 	}
+}
+
+func Println(v ...any) {
+	log.Println(v...)
 }

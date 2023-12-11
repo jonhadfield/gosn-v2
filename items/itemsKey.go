@@ -4,8 +4,9 @@ import (
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/jonhadfield/gosn-v2/common"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/common"
 )
 
 // Encrypted ItemsKey has content
@@ -89,7 +90,7 @@ func NewItemsKey() ItemsKey {
 
 	var c ItemsKey
 
-	c.ContentType = "SN|ItemsKey"
+	c.ContentType = common.SNItemTypeItemsKey
 	c.CreatedAt = now
 	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()

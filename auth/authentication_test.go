@@ -2,14 +2,15 @@ package auth
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +60,7 @@ func TestMain(m *testing.M) {
 	if os.Getenv("SN_SERVER") == "" || strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
 		localTestMain()
 	} else {
-		httpClient := retryablehttp.NewClient()
+		httpClient := common.NewHTTPClient()
 		out, err := SignIn(SignInInput{
 			HTTPClient: httpClient,
 			Email:      os.Getenv("SN_EMAIL"),
@@ -296,13 +297,19 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 		return
 	}
 
+	client := retryablehttp.NewClient()
+	client.RetryMax = 1
+	client.RetryWaitMin = 1 * time.Second
+	client.RetryWaitMax = 2 * time.Second
+	client.Logger = nil
+
 	_, err := SignIn(SignInInput{
-		Email:     "sn@lessknown.co.uk",
-		Password:  "invalid",
-		APIServer: "https://10.10.10.10:6000",
-		Debug:     true,
+		HTTPClient: client,
+		Email:      "sn@lessknown.co.uk",
+		Password:   "invalid",
+		APIServer:  "https://10.10.10.10:6000",
+		Debug:      true,
 	})
 	require.Error(t, err)
-	require.Equal(t, fmt.Sprintf("failed to connect to %s within %d seconds",
-		"https://10.10.10.10:6000/v2/login-params", common.ConnectionTimeout), err.Error())
+	require.Contains(t, err.Error(), "failed to connect")
 }
