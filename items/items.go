@@ -5,6 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"slices"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
@@ -12,12 +19,6 @@ import (
 	"github.com/jonhadfield/gosn-v2/crypto"
 	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"slices"
-	"strings"
-	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
@@ -57,7 +58,7 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []se
 	var eiks EncryptedItems
 
 	for _, e := range ei {
-		if e.ContentType == "SN|ItemsKey" && !e.Deleted {
+		if e.ContentType == common.SNItemTypeItemsKey && !e.Deleted {
 			if e.UUID == "" {
 				panic("DecryptAndParseItemsKeys | items key has no uuid")
 			}
@@ -104,7 +105,7 @@ func IsEncryptedType(ct string) bool {
 	switch {
 	case strings.HasPrefix(ct, "SF"):
 		return false
-	case ct == "SN|ItemsKey":
+	case ct == common.SNItemTypeItemsKey:
 		return false
 	default:
 		return true
@@ -166,7 +167,7 @@ func (ei EncryptedItems) ReEncrypt(s *session.Session, decryptionItemsKey sessio
 
 	for x := range di {
 		// items key handled separately
-		if di[x].ContentType == "SN|ItemsKey" {
+		if di[x].ContentType == common.SNItemTypeItemsKey {
 			continue
 		}
 
@@ -406,7 +407,7 @@ func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []by
 	// fmt.Println(string(reqBody))
 	if session.HTTPClient == nil {
 		log.DebugPrint(session.Debug, "makeSyncRequest | creating new http client", common.MaxDebugChars)
-		session.HTTPClient = retryablehttp.NewClient()
+		session.HTTPClient = common.NewHTTPClient()
 	}
 
 	var request *retryablehttp.Request
@@ -525,7 +526,7 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 	var pi Item
 
 	switch di.ContentType {
-	case "SN|ItemsKey":
+	case common.SNItemTypeItemsKey:
 		// TODO: To be implemented separately so we don't parse as a normal item and,
 		// most importantly, don't return as a normal Item
 	case "Note":
@@ -570,7 +571,7 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 		var pi Item
 
 		switch i.ContentType {
-		case "SN|ItemsKey":
+		case common.SNItemTypeItemsKey:
 			// TODO: To be implemented separately so we don't parse as a normal item and,
 			// most importantly, don't return as a normal Item
 			continue
@@ -1129,7 +1130,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 // 	var exportedEncItems EncryptedItems
 //
 // 	for x := range encItemsToImport {
-// 		if encItemsToImport[x].ContentType == "SN|ItemsKey" {
+// 		if encItemsToImport[x].ContentType == common.SNItemTypeItemsKey {
 // 			logging.DebugPrint(s.Debug, fmt.Sprintf("Import | SN|ItemsKey loaded from export %s", encItemsToImport[x].UUID), common.MaxDebugChars)
 //
 // 			exportsEncItemsKeys = append(exportsEncItemsKeys, encItemsToImport[x])
@@ -1212,7 +1213,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 //
 // 		for y := range exportItems {
 // 			// check if we have a match for existing item and exported item
-// 			if existingItems[x].GetUUID() == exportItems[y].GetUUID() && exportItems[y].GetContentType() != "SN|ItemsKey" {
+// 			if existingItems[x].GetUUID() == exportItems[y].GetUUID() && exportItems[y].GetContentType() != common.SNItemTypeItemsKey {
 // 				logging.DebugPrint(s.Debug, fmt.Sprintf("Import | matching item found %s %s",
 // 					existingItems[x].GetContentType(), existingItems[x].GetUUID()), common.MaxDebugChars)
 //
@@ -1256,7 +1257,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 // 		}
 //
 // 		// if we didn't find a match for the item in the export (and it's not a key) then add to final list
-// 		if !match && existingItems[x].GetContentType() != "SN|ItemsKey" {
+// 		if !match && existingItems[x].GetContentType() != common.SNItemTypeItemsKey {
 // 			logging.DebugPrint(s.Debug, fmt.Sprintf("Import | no match found for existing item %s %s so add to items to re-encrypt",
 // 				existingItems[x].GetContentType(),
 // 				existingItems[x].GetUUID()), common.MaxDebugChars)
@@ -1325,7 +1326,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 //
 // 	// check initial items key differs from the new
 // 	for x := range so.SavedItems {
-// 		if so.SavedItems[x].ContentType == "SN|ItemsKey" {
+// 		if so.SavedItems[x].ContentType == common.SNItemTypeItemsKey {
 // 			itemsKey, err = so.SavedItems[x].Decrypt(s.MasterKey)
 // 			if err != nil {
 // 				return

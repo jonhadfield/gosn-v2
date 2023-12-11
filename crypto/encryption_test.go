@@ -9,6 +9,8 @@ import (
 
 // ### server not required for following tests.
 func TestGenerateSalt004(t *testing.T) {
+	t.Parallel()
+
 	identifier := "sn004@lessknown.co.uk"
 	nonce := "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
 	decodedHex64, _ := hex.DecodeString("7129955dbbbfb376fdcac49890ef17bc")
@@ -16,6 +18,8 @@ func TestGenerateSalt004(t *testing.T) {
 }
 
 func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
+	t.Parallel()
+
 	var testInput GenerateEncryptedPasswordInput
 	testInput.UserPassword = "debugtest"
 	testInput.Identifier = "sn004@lessknown.co.uk"
@@ -80,7 +84,7 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 // 	var noteIndex int
 //
 // 	for x := range so.SavedItems {
-// 		if so.SavedItems[x].ContentType == "SN|ItemsKey" {
+// 		if so.SavedItems[x].ContentType == common.SNItemTypeItemsKey {
 // 			require.Equal(t, ik.UUID, so.SavedItems[x].UUID)
 // 			require.Less(t, int64(0), so.SavedItems[x].UpdatedAtTimestamp)
 //

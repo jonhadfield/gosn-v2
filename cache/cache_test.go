@@ -2,10 +2,12 @@ package cache
 
 import (
 	"fmt"
+	"github.com/asdine/storm/v3"
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/items"
 	"github.com/jonhadfield/gosn-v2/session"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"runtime"
@@ -13,9 +15,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/asdine/storm/v3"
-	"github.com/stretchr/testify/require"
 )
 
 var testSession *Session
@@ -41,7 +40,12 @@ func testSetup() {
 
 	var path string
 
-	path, err = GenCacheDBPath(*testSession, "", common.LibName)
+	cacheDBPath, err := os.MkdirTemp("", "test")
+	if err != nil {
+		panic(err)
+	}
+
+	path, err = GenCacheDBPath(*testSession, cacheDBPath, common.LibName)
 	if err != nil {
 		panic(err)
 	}
@@ -263,7 +267,7 @@ func TestSync600Notes(t *testing.T) {
 //
 // 	// check items in db are in sync with SN
 // 	for x := range api {
-// 		if api[x].ContentType == "SN|ItemsKey" {
+// 		if api[x].ContentType == common.SNItemTypeItemsKey {
 // 			dbItemsKeyCount++
 // 		}
 //
@@ -287,7 +291,7 @@ func TestSync600Notes(t *testing.T) {
 // 	var snItemsKeyCount int
 //
 // 	for x := range gso.Items {
-// 		if gso.Items[x].ContentType == "SN|ItemsKey" {
+// 		if gso.Items[x].ContentType == common.SNItemTypeItemsKey {
 // 			snItemsKeyCount++
 // 		}
 //
@@ -301,7 +305,7 @@ func TestSync600Notes(t *testing.T) {
 // 			}
 // 		}
 //
-// 		if !found && gso.Items[x].ContentType != "SN|ItemsKey" {
+// 		if !found && gso.Items[x].ContentType != common.SNItemTypeItemsKey {
 // 			panic(fmt.Sprintf("item %+v not found in DB", gso.Items[x]))
 // 		}
 // 	}

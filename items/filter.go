@@ -2,7 +2,9 @@ package items
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
+
 	"strings"
 )
 
@@ -49,6 +51,10 @@ func (i *Items) Filter(f ItemFilters) {
 			component := ix[x].(*Component)
 			if found := applyComponentFilters(*component, f); found {
 				filtered = append(filtered, component)
+			}
+		default:
+			if found := applyAnyTypeFilters(ix[x], f); found {
+				filtered = append(filtered, ix[x])
 			}
 		}
 	}
@@ -309,7 +315,7 @@ func applyNoteFilters(item Note, itemFilters ItemFilters, tags Tags) bool {
 	var matchedAll, result, done bool
 
 	for i, filter := range itemFilters.Filters {
-		if filter.Type != "Note" {
+		if !slices.Contains([]string{"Note", "Item"}, filter.Type) {
 			continue
 		}
 
@@ -459,7 +465,7 @@ func applyTagFilters(item Tag, itemFilters ItemFilters) bool {
 	var matchedAll bool
 
 	for _, filter := range itemFilters.Filters {
-		if filter.Type != "Tag" {
+		if !slices.Contains([]string{"Tag", "Item"}, filter.Type) {
 			continue
 		}
 
@@ -546,7 +552,7 @@ func applyComponentFilters(item Component, itemFilters ItemFilters) bool {
 	var matchedAll bool
 
 	for _, filter := range itemFilters.Filters {
-		if filter.Type != "SN|Component" {
+		if !slices.Contains([]string{"SN|Component", "Item"}, filter.Type) {
 			continue
 		}
 
@@ -638,6 +644,33 @@ func applyComponentFilters(item Component, itemFilters ItemFilters) bool {
 			}
 		default:
 			matchedAll = true // if no criteria specified then filter applies to type only, so true
+		}
+	}
+
+	return matchedAll
+}
+
+func applyAnyTypeFilters(item Item, itemFilters ItemFilters) bool {
+	var matchedAll bool
+
+	for _, filter := range itemFilters.Filters {
+		switch strings.ToLower(filter.Key) {
+		case "uuid":
+			if item.GetUUID() == filter.Value {
+				if itemFilters.MatchAny {
+					return true
+				}
+
+				matchedAll = true
+			} else {
+				if !itemFilters.MatchAny {
+					return false
+				}
+
+				matchedAll = false
+			}
+		default:
+			matchedAll = false
 		}
 	}
 

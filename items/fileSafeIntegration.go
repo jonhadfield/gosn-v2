@@ -2,9 +2,10 @@ package items
 
 import (
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/common"
 	"slices"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/common"
 )
 
 func parseFileSafeIntegration(i DecryptedItem) Item {

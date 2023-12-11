@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
@@ -34,7 +35,7 @@ func encryptItems(s *session.Session, decItems *Items, ik session.SessionItemsKe
 func EncryptItemsKey(ik session.SessionItemsKey, s *session.Session, new bool) (encryptedItem EncryptedItem, err error) {
 	encryptedItem.UUID = ik.UUID
 
-	encryptedItem.ContentType = "SN|ItemsKey"
+	encryptedItem.ContentType = common.SNItemTypeItemsKey
 
 	// updatedat is set by SN so will be zero for a new key
 	// if !new {

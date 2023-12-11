@@ -3,15 +3,16 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/log"
-	"github.com/jonhadfield/gosn-v2/session"
 	"math"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/log"
+	"github.com/jonhadfield/gosn-v2/session"
 
 	"github.com/matryer/try"
 )
@@ -206,6 +207,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	processSessionItemsKeysInSavedItems(input.Session, output, err)
 
 	var resolvedConflictsToSync EncryptedItems
+
 	var processedOutput SyncOutput
 
 	resolvedConflictsToSync, processedOutput, err = processSyncOutput(input, output)
@@ -215,6 +217,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	// if no conflicts to sync, then return
 	log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | resolvedConflictsToSync: %d", len(resolvedConflictsToSync)), common.MaxDebugChars)
+
 	if len(resolvedConflictsToSync) == 0 {
 		processSessionItemsKeysInSavedItems(input.Session, processedOutput, err)
 
@@ -223,6 +226,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 		processedOutput.Items = items
 		log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | post-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
+
 		return processedOutput, err
 	}
 
@@ -253,11 +257,9 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	}
 
 	if len(processedOutput.SavedItems) > 0 {
-		// fmt.Println("LEN ERE:", len(clonedItems), len(processedOutput.SavedItems))
 		updatedSaved := updateTimestampsOnSavedItems(clonedItems, processedOutput.SavedItems)
 		processedOutput.SavedItems = updatedSaved
 	}
-	// fmt.Println("LEN SAVED HERE:", len(processedOutput.SavedItems))
 
 	processSessionItemsKeysInSavedItems(input.Session, processedOutput, err)
 
@@ -773,26 +775,26 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	case input.CursorToken == "":
 		if len(input.Items) == 0 {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) + `}`)
+				requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) + `}`)
 			} else {
-				requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
+				requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
 			}
 		} else {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","compute_integrity":false,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
+				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
 			} else {
-				requestBody = []byte(`{"api":"20200115","compute_integrity":false,"limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
+				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
 					`,"sync_token":"` + newST + `"}`)
 			}
 		}
 
 	case input.CursorToken == "null":
 		if input.SyncToken == "" {
-			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) +
 				`,"items":` + string(encItemJSON) +
 				`,"cursor_token":null}`)
 		} else {
-			requestBody = []byte(`{"api":"20200115","items":[],"compute_integrity":false,"limit":` + strconv.Itoa(limit) +
+			requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) +
 				`,"items":` + string(encItemJSON) +
 				`,"sync_token":"` + newST + `","cursor_token":null}`)
 		}
@@ -806,6 +808,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 			`,"items":` + string(encItemJSON) +
 			`,"compute_integrity":false,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
 	}
+
+	// eee, _ := json.MarshalIndent(string(requestBody), "", "  ")
+	// fmt.Println("requestBody", string(eee))
 
 	var responseBody []byte
 	responseBody, err = makeSyncRequest(*input.Session, requestBody)
@@ -976,7 +981,7 @@ func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
 
 	// check no items keys have an items key
 	for _, item := range output.Items {
-		if item.ContentType == "SN|ItemsKey" && item.ItemsKeyID != "" {
+		if item.ContentType == common.SNItemTypeItemsKey && item.ItemsKeyID != "" {
 			err = fmt.Errorf("SN|ItemsKey %s has an ItemsKeyID set", item.UUID)
 			return
 		}

@@ -8,10 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/crypto"
-	"github.com/jonhadfield/gosn-v2/log"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -21,6 +17,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/crypto"
+	"github.com/jonhadfield/gosn-v2/log"
 )
 
 type cryptoSource struct{}
@@ -793,7 +794,7 @@ func (input RegisterInput) Register() (token string, err error) {
 func GenerateAuthData(ct, uuid string, kp KeyParams) string {
 	var ad string
 
-	if ct == "SN|ItemsKey" {
+	if ct == common.SNItemTypeItemsKey {
 		ad = "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\":\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
 
 		return ad

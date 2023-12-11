@@ -3,9 +3,6 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/auth"
-	"github.com/jonhadfield/gosn-v2/crypto"
-	"github.com/jonhadfield/gosn-v2/session"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -15,6 +12,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/auth"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/crypto"
+	"github.com/jonhadfield/gosn-v2/session"
 
 	"github.com/stretchr/testify/require"
 )
@@ -111,13 +113,14 @@ func _createNotes(session *session.Session, input map[string]string) (so SyncOut
 func _createTags(session *session.Session, input []string) (output SyncOutput, err error) {
 	for _, tt := range input {
 		newTag, _ := NewTag(tt, nil)
-		// newTagContent := TagContent{
-		//	Title: tt,
-		// }
-		// newTagContent.SetUpdateTime(time.Now())
-		// newTag.Content = newTagContent
+		newTagContent := TagContent{
+			Title: tt,
+		}
+		newTagContent.SetUpdateTime(time.Now())
+		newTag.Content = newTagContent
 
 		var eItem EncryptedItem
+
 		eItem, err = EncryptItem(&newTag, session.DefaultItemsKey, session)
 		if err != nil {
 			return
@@ -218,6 +221,7 @@ func _getItems(session *session.Session, itemFilters ItemFilters) (items Items, 
 	so, err = Sync(si)
 	if err != nil {
 		err = fmt.Errorf("sync failed: %v", err)
+
 		return
 	}
 
@@ -331,7 +335,7 @@ func TestReEncrypt(t *testing.T) {
 //	items, key, err := testSession.Import(tmpfn, so.SyncToken)
 //	require.NoError(t, err)
 //	require.Len(t, items, 1)
-//	require.Equal(t, "SN|ItemsKey", items[0].ContentType)
+//	require.Equal(t, common.SNItemTypeItemsKey, items[0].ContentType)
 //	require.Equal(t, items[0].UUID, testSession.DefaultItemsKey.UUID)
 //	require.Equal(t, testSession.DefaultItemsKey.ItemsKey, key.ItemsKey)
 // }
@@ -370,12 +374,12 @@ func TestReEncrypt(t *testing.T) {
 // 	var keyIndex int
 //
 // 	for x := range items {
-// 		if items[x].ContentType == "SN|ItemsKey" {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
 // 			keyIndex = x
 // 		}
 // 	}
 //
-// 	require.Equal(t, "SN|ItemsKey", items[keyIndex].ContentType)
+// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
 // 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
 //
 // 	items, key, err = testSession.Import(tmpfn, "", "")
@@ -383,7 +387,7 @@ func TestReEncrypt(t *testing.T) {
 // 	require.Len(t, items, 2)
 //
 // 	for x := range items {
-// 		if items[x].ContentType == "SN|ItemsKey" {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
 // 			keyIndex = x
 // 		}
 // 	}
@@ -421,12 +425,12 @@ func TestReEncrypt(t *testing.T) {
 //
 // 	var keyIndex int
 // 	for x := range items {
-// 		if items[x].ContentType == "SN|ItemsKey" {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
 // 			keyIndex = x
 // 		}
 // 	}
 //
-// 	require.Equal(t, "SN|ItemsKey", items[keyIndex].ContentType)
+// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
 // 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
 // }
 //
@@ -493,12 +497,12 @@ func TestReEncrypt(t *testing.T) {
 // 	var keyIndex int
 //
 // 	for x := range items {
-// 		if items[x].ContentType == "SN|ItemsKey" {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
 // 			keyIndex = x
 // 		}
 // 	}
 //
-// 	require.Equal(t, "SN|ItemsKey", items[keyIndex].ContentType)
+// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
 // 	require.NotEqual(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
 //
 // 	// now sync and decrypt
@@ -725,7 +729,7 @@ func TestAddDeleteNote(t *testing.T) {
 func TestCreateItemsKey(t *testing.T) {
 	ik, err := CreateItemsKey()
 	require.NoError(t, err)
-	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
 	require.False(t, ik.Deleted)
 	require.NotEmpty(t, ik.UUID)
 	require.NotEmpty(t, ik.Content)
@@ -739,7 +743,7 @@ func TestCreateItemsKey(t *testing.T) {
 func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	ik, err := CreateItemsKey()
 	require.NoError(t, err)
-	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
 	require.False(t, ik.Deleted)
 	require.NotEmpty(t, ik.UUID)
 	require.NotEmpty(t, ik.Content)
@@ -1068,7 +1072,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 // 	testSession.Debug = true
 // 	ik, err := testSession.CreateItemsKey()
 // 	require.NoError(t, err)
-// 	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+// 	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
 // 	require.False(t, ik.Deleted)
 // 	require.NotEmpty(t, ik.UUID)
 // 	require.NotEmpty(t, ik.Content)
@@ -1889,6 +1893,53 @@ func TestSearchTagsByRegex(t *testing.T) {
 	}
 }
 
+// create a tag, get its uuid, and then retrieve it by uuid
+func TestSearchItemByUUID(t *testing.T) {
+	defer cleanup()
+
+	tagInput := []string{"Bungle"}
+	if _, err := _createTags(testSession, tagInput); err != nil {
+		t.Errorf("failed to create tags")
+	}
+
+	// find one note by text
+	var foundItems Items
+
+	filterOne := Filter{
+		Type:       "Tag",
+		Key:        "Title",
+		Comparison: "==",
+		Value:      "Bungle",
+	}
+
+	var itemFilters ItemFilters
+	itemFilters.Filters = []Filter{filterOne}
+
+	foundItems, err := _getItems(testSession, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// check single item returned
+	require.Len(t, foundItems, 1)
+	filterTwo := Filter{
+		Type:       "Item",
+		Key:        "uuid",
+		Comparison: "==",
+		Value:      foundItems[0].GetUUID(),
+	}
+
+	itemFilters.Filters = []Filter{filterTwo}
+
+	foundItemsTwo, err := _getItems(testSession, itemFilters)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	require.Len(t, foundItemsTwo, 1)
+	require.Equal(t, foundItemsTwo[0].GetUUID(), foundItems[0].GetUUID())
+
+}
+
 func genRandomText(paragraphs int) string {
 	var strBuilder strings.Builder
 
@@ -1914,12 +1965,12 @@ func genNotes(num int, textParas int) (notes Items) {
 // 	s := testSession
 // 	ik, err := CreateItemsKey()
 // 	require.NoError(t, err)
-// 	require.Equal(t, "SN|ItemsKey", ik.ContentType)
+// 	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
 // 	require.NotEmpty(t, ik.ItemsKey)
 //
 // 	eik, err := EncryptItemsKey(ik, testSession, true)
 // 	require.NoError(t, err)
-// 	require.Equal(t, "SN|ItemsKey", eik.ContentType)
+// 	require.Equal(t, common.SNItemTypeItemsKey, eik.ContentType)
 // 	require.NotEmpty(t, eik.EncItemKey)
 //
 // 	dik, err := DecryptAndParseItemKeys(s.MasterKey, []EncryptedItem{eik})

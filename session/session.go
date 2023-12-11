@@ -5,6 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
@@ -14,14 +23,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
-	"io/fs"
-	"net"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"syscall"
-	"time"
 )
 
 //go:embed schemas/*
