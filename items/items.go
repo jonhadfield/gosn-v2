@@ -384,11 +384,11 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 
 		switch item.GetContent().(type) {
 		case *NoteContent:
-			ic := item.GetContent()
+			ic := item.GetContent().(*NoteContent)
 			ic.UpsertReferences(refs)
 			item.SetContent(ic)
 		case *TagContent:
-			ic := item.GetContent()
+			ic := item.GetContent().(*TagContent)
 			ic.UpsertReferences(refs)
 			item.SetContent(ic)
 		}
