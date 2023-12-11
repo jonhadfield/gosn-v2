@@ -17,7 +17,6 @@ import (
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
 	"github.com/jonhadfield/gosn-v2/session"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -614,7 +613,6 @@ func TestNewNoteContent(t *testing.T) {
 	require.NoError(t, err, "NewNote Failed")
 	nc, err := json.Marshal(note.Content)
 	// nc, err := json.MarshalIndent(note.Content, "", "  ")
-	fmt.Println(string(nc))
 	require.NoError(t, err, "Marshal Failed")
 	var v interface{}
 	err = json.Unmarshal(nc, &v)
@@ -1893,7 +1891,7 @@ func TestSearchTagsByRegex(t *testing.T) {
 	}
 }
 
-// create a tag, get its uuid, and then retrieve it by uuid
+// create a tag, get its uuid, and then retrieve it by uuid.
 func TestSearchItemByUUID(t *testing.T) {
 	defer cleanup()
 
@@ -1937,7 +1935,6 @@ func TestSearchItemByUUID(t *testing.T) {
 
 	require.Len(t, foundItemsTwo, 1)
 	require.Equal(t, foundItemsTwo[0].GetUUID(), foundItems[0].GetUUID())
-
 }
 
 func genRandomText(paragraphs int) string {

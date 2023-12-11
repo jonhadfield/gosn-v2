@@ -505,7 +505,6 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 
 	if input.HTTPClient == nil {
 		input.HTTPClient = common.NewHTTPClient()
-		fmt.Println("input.HTTPClient:", input.HTTPClient)
 	}
 
 	output.Session.HTTPClient = input.HTTPClient
