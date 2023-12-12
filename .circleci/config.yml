@@ -4,5 +4,6 @@ jobs:
     docker:
       - image: cimg/go:1.21
     steps:
+      - apt-get update && apt-get install -y dbus-x11
       - checkout
       - run: go test -v -failfast -p 1 -parallel 1 ./...
