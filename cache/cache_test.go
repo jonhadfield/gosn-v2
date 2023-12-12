@@ -2,12 +2,6 @@ package cache
 
 import (
 	"fmt"
-	"github.com/asdine/storm/v3"
-	"github.com/jonhadfield/gosn-v2/auth"
-	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/items"
-	"github.com/jonhadfield/gosn-v2/session"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"runtime"
@@ -15,6 +9,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/asdine/storm/v3"
+	"github.com/jonhadfield/gosn-v2/auth"
+	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/items"
+	"github.com/jonhadfield/gosn-v2/session"
+	"github.com/stretchr/testify/require"
 )
 
 var testSession *Session
