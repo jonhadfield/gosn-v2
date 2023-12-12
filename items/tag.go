@@ -3,10 +3,11 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/log"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/log"
 
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/session"
