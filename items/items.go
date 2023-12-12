@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"slices"
@@ -466,7 +466,7 @@ func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []by
 
 	// readStart := time.Now()
 
-	responseBody, err = ioutil.ReadAll(response.Body)
+	responseBody, err = io.ReadAll(response.Body)
 
 	// fmt.Println(string(responseBody))
 	// logging.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
@@ -480,6 +480,8 @@ type ItemReference struct {
 	UUID string `json:"uuid"`
 	// type of item being referenced
 	ContentType string `json:"content_type"`
+	// type of reference, notetonote, tagtonote, etc
+	ReferenceType string `json:"reference_type,omitempty"`
 }
 
 type OrgStandardNotesSNDetail struct {
@@ -1339,7 +1341,7 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 // }
 
 func readJSON(filePath string) (items EncryptedItems, kp auth.KeyParams, err error) {
-	file, err := ioutil.ReadFile(filePath)
+	file, err := os.ReadFile(filePath)
 	if err != nil {
 		err = fmt.Errorf("%w failed to open: %s", err, filePath)
 		return
