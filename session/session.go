@@ -425,6 +425,7 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 		RefreshExpiration: signInSession.RefreshExpiration,
 		ReadOnlyAccess:    signInSession.ReadOnlyAccess,
 	}
+
 	if err != nil {
 		log.DebugPrint(debug, fmt.Sprintf("CliSignIn failed with: %+v", err), common.MaxDebugChars)
 
@@ -444,12 +445,15 @@ func LoadSchemas() (map[string]*jsonschema.Schema, error) {
 
 	for _, e := range rSchemas {
 		var sB []byte
+
 		sB, err = fs.ReadFile(fsSchemas, filepath.Join("schemas", e.Name()))
 		if err != nil {
 			return nil, err
 		}
+
 		sName := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
 		sName = strings.ReplaceAll(sName, "|", "-")
+
 		cSchemas[sName], err = jsonschema.CompileString(e.Name(), string(sB))
 		if err != nil {
 			return nil, err
