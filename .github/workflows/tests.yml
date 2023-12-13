@@ -37,4 +37,3 @@ jobs:
           SN_SKIP_SESSION_TESTS: true
           SN_PASSWORD: ${{ secrets.SN_PASSWORD }}
           SN_SKIP_SESSION_TESTS: true
-
