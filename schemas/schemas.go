@@ -3,10 +3,11 @@ package schemas
 import (
 	"embed"
 	"fmt"
-	"github.com/santhosh-tekuri/jsonschema/v5"
 	"io/fs"
 	"path/filepath"
 	"strings"
+
+	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 //go:embed files/*

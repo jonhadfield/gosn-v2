@@ -65,7 +65,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 	if psrd != "" {
 		i.PostSyncRequestDelay, err = strconv.ParseInt(psrd, 10, 64)
 		if err != nil {
-			err = fmt.Errorf("invalid SN_POST_SYNC_REQUEST_DELAY value: %v", err)
+			err = fmt.Errorf("invalid SN_POST_SYNC_REQUEST_DELAY value: %w", err)
 			return
 		}
 
@@ -224,6 +224,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 		items.DeDupe()
 
 		processedOutput.Items = items
+
 		log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | post-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
 
 		return processedOutput, err
@@ -484,10 +485,12 @@ func processConflicts(input SyncInput, syncOutput SyncOutput) (conflictsToSync E
 
 	for _, conflict := range syncOutput.Conflicts {
 		var resolvedConflictedItems EncryptedItems
+
 		resolvedConflictedItems, err = processConflict(input, conflict, refReMap)
 		if err != nil {
 			return
 		}
+
 		conflictsToSync = append(conflictsToSync, resolvedConflictedItems...)
 	}
 
@@ -726,13 +729,6 @@ func (cis ConflictedItems) Validate(debug bool) error {
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
 	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
-
-	// fmt.Printf("syncItemsViaAPI START\n")
-	// for x := range input.Items {
-	// 	fmt.Printf("syncItemsViaAPI----- %s %s\n", input.Items[x].ItemsKeyID, input.Items[x].EncItemKey)
-	// }
-	// fmt.Printf("syncItemsViaAPI\n")
-	// fmt.Printf("syncItemsViaAPI END\n")
 
 	// determine how many items to retrieve with each call
 	var limit int
