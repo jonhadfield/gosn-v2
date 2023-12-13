@@ -2,6 +2,7 @@ package items
 
 import (
 	"fmt"
+	"github.com/jonhadfield/gosn-v2/schemas"
 	"log"
 	"os"
 	"strconv"
@@ -95,7 +96,7 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	testSession.Schemas, err = session.LoadSchemas()
+	testSession.Schemas, err = schemas.LoadSchemas()
 	if err != nil {
 		log.Fatal(err)
 	}
