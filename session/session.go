@@ -1,15 +1,13 @@
 package session
 
 import (
-	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
+	"github.com/jonhadfield/gosn-v2/schemas"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -24,9 +22,6 @@ import (
 	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
 )
-
-//go:embed schemas/*
-var fsSchemas embed.FS
 
 const (
 	SNServerURL              = "https://api.standardnotes.com"
@@ -435,34 +430,6 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 	return sess, email, err
 }
 
-func LoadSchemas() (map[string]*jsonschema.Schema, error) {
-	cSchemas := make(map[string]*jsonschema.Schema)
-
-	rSchemas, err := fsSchemas.ReadDir("schemas")
-	if err != nil {
-		return nil, err
-	}
-
-	for _, e := range rSchemas {
-		var sB []byte
-
-		sB, err = fs.ReadFile(fsSchemas, filepath.Join("schemas", e.Name()))
-		if err != nil {
-			return nil, err
-		}
-
-		sName := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-		sName = strings.ReplaceAll(sName, "|", "-")
-
-		cSchemas[sName], err = jsonschema.CompileString(e.Name(), string(sB))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return cSchemas, nil
-}
-
 // func GetHttpClient() *retryablehttp.Client {
 // 	rc := retryablehttp.NewClient()
 // 	rc.RetryMax = 3
@@ -552,7 +519,8 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 
 	if os.Getenv("SN_SCHEMA_VALIDATION") != "" {
 		session.SchemaValidation = true
-		session.Schemas, err = LoadSchemas()
+
+		session.Schemas, err = schemas.LoadSchemas()
 		if err != nil {
 			return Session{}, "", err
 		}
