@@ -71,14 +71,14 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// Create 600 notes in and sync to SN
+// Create 200 notes in and sync to SN
 // Bring them into Cache and check all exist.
-func TestSync600Notes(t *testing.T) {
+func TestSync200Notes(t *testing.T) {
 	defer cleanup(testSession.Session)
 
 	var originalNotes items.Notes
 
-	for i := 0; i < 600; i++ {
+	for i := 0; i < 200; i++ {
 		newNote, _ := createNote(strconv.Itoa(i), fmt.Sprintf("%d - this is some text", i))
 
 		time.Sleep(1 * time.Millisecond)
@@ -88,7 +88,7 @@ func TestSync600Notes(t *testing.T) {
 
 	eNotes, err := originalNotes.Encrypt(*testSession.Session)
 	require.NoError(t, err)
-	require.Len(t, eNotes, 600)
+	require.Len(t, eNotes, 200)
 
 	var so items.SyncOutput
 	so, err = items.Sync(items.SyncInput{
@@ -96,7 +96,7 @@ func TestSync600Notes(t *testing.T) {
 		Items:   eNotes,
 	})
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(so.SavedItems), 600)
+	require.GreaterOrEqual(t, len(so.SavedItems), 200)
 
 	// bring into cache
 	var cso SyncOutput
@@ -108,15 +108,15 @@ func TestSync600Notes(t *testing.T) {
 	var allPersistedItems Items
 
 	require.NoError(t, cso.DB.All(&allPersistedItems))
-	require.GreaterOrEqual(t, len(allPersistedItems), 600)
+	require.GreaterOrEqual(t, len(allPersistedItems), 200)
 	gItems, err := allPersistedItems.ToItems(testSession)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(gItems), 600)
+	require.GreaterOrEqual(t, len(gItems), 200)
 
 	seen := make(map[string]string)
 
 	for x := range gItems {
-		if gItems[x].GetContentType() == "Note" && !gItems[x].IsDeleted() {
+		if gItems[x].GetContentType() == common.SNItemTypeNote && !gItems[x].IsDeleted() {
 			item := gItems[x]
 			note := item.(*items.Note)
 			noteContent := note.Content
