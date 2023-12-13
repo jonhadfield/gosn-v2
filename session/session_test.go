@@ -72,6 +72,10 @@ func TestMakeSessionString(t *testing.T) {
 }
 
 func TestWriteSession(t *testing.T) {
+	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+		t.Skip("skipping session test")
+	}
+
 	var kEmpty MockKeyRingDodgy
 
 	require.Error(t, writeSession("example", kEmpty))
@@ -83,6 +87,10 @@ func TestWriteSession(t *testing.T) {
 }
 
 func TestAddSession(t *testing.T) {
+	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+		t.Skip("skipping session test")
+	}
+
 	viper.SetEnvPrefix("sn")
 	require.NoError(t, viper.BindEnv("email"))
 	require.NoError(t, viper.BindEnv("password"))
@@ -103,6 +111,10 @@ func TestAddSession(t *testing.T) {
 }
 
 func TestSessionExists(t *testing.T) {
+	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+		t.Skip("skipping session test")
+	}
+
 	var kEmpty MockKeyRingUnDefined
 	require.Error(t, SessionExists(kEmpty))
 
@@ -111,6 +123,10 @@ func TestSessionExists(t *testing.T) {
 }
 
 func TestRemoveSession(t *testing.T) {
+	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+		t.Skip("skipping session test")
+	}
+
 	var kUndefined MockKeyRingUnDefined
 
 	require.Contains(t, RemoveSession(kUndefined), "failed")
@@ -121,6 +137,10 @@ func TestRemoveSession(t *testing.T) {
 }
 
 func TestSessionStatus(t *testing.T) {
+	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+		t.Skip("skipping session test")
+	}
+
 	// if Session is undefined then Session value should
 	// be empty and error returned to reflect that
 	var kUndefined MockKeyRingUnDefined
@@ -155,6 +175,10 @@ func TestSessionStatus(t *testing.T) {
 }
 
 func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
+	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+		t.Skip("skipping session test")
+	}
+
 	_ = os.Unsetenv("SN_SERVER")
 	_ = os.Unsetenv("SN_EMAIL")
 	_ = os.Unsetenv("SN_PASSWORD")
