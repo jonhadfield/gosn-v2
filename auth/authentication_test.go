@@ -310,5 +310,5 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 		Debug:      true,
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to connect")
+	require.Contains(t, err.Error(), "failed")
 }

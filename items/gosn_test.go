@@ -2,13 +2,14 @@ package items
 
 import (
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/schemas"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/schemas"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"

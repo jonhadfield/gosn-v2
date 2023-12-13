@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/schemas"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/jonhadfield/gosn-v2/schemas"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
@@ -444,6 +445,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 		if err != nil {
 			return
 		}
+
 		if rawSess == "" {
 			err = fmt.Errorf("session not found in keyring")
 
@@ -681,27 +683,27 @@ func createHTTPClient() *http.Client {
 	}
 }
 
-func (s *Session) Valid() bool {
-	if s == nil {
+func (sess *Session) Valid() bool {
+	if sess == nil {
 		fmt.Print("session is nil\n")
 		return false
 	}
 
 	switch {
-	case s.RefreshToken == "":
-		log.DebugPrint(s.Debug, "session is missing refresh token", common.MaxDebugChars)
+	case sess.RefreshToken == "":
+		log.DebugPrint(sess.Debug, "session is missing refresh token", common.MaxDebugChars)
 		return false
-	case s.AccessToken == "":
-		log.DebugPrint(s.Debug, "session is missing access token", common.MaxDebugChars)
+	case sess.AccessToken == "":
+		log.DebugPrint(sess.Debug, "session is missing access token", common.MaxDebugChars)
 		return false
-	case s.MasterKey == "":
-		log.DebugPrint(s.Debug, "session is missing master key", common.MaxDebugChars)
+	case sess.MasterKey == "":
+		log.DebugPrint(sess.Debug, "session is missing master key", common.MaxDebugChars)
 		return false
-	case s.AccessExpiration == 0:
-		log.DebugPrint(s.Debug, "Access Expiration is 0", common.MaxDebugChars)
+	case sess.AccessExpiration == 0:
+		log.DebugPrint(sess.Debug, "Access Expiration is 0", common.MaxDebugChars)
 		return false
-	case s.RefreshExpiration == 0:
-		log.DebugPrint(s.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
+	case sess.RefreshExpiration == 0:
+		log.DebugPrint(sess.Debug, "Refresh Expiration is 0", common.MaxDebugChars)
 		return false
 	}
 
