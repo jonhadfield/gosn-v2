@@ -34,5 +34,5 @@ jobs:
         env:
           SN_SERVER: ${{ secrets.SN_SERVER }}
           SN_EMAIL: ${{ secrets.SN_EMAIL }}
-          SN_PASSWORD: ${{ secrets.SN_PASSWORD }}
           SN_SKIP_SESSION_TESTS: true
+          SN_PASSWORD: ${{ secrets.SN_PASSWORD }}
