@@ -2,6 +2,8 @@ package auth
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -137,6 +139,7 @@ func TestRefreshSession(t *testing.T) {
 
 	// wait for 2 seconds to ensure that the expiration times are different
 	time.Sleep(1 * time.Second)
+
 	rt, err := RequestRefreshToken(so.Session.HTTPClient, os.Getenv("SN_SERVER")+common.AuthRefreshPath, so.Session.AccessToken, so.Session.RefreshToken, true)
 	require.NoError(t, err)
 	require.NotEmpty(t, rt.Data.Session.AccessToken)
@@ -247,22 +250,52 @@ func TestRegistrationAndSignInWithEmailWithPlusSign(t *testing.T) {
 func TestSignInWithUnresolvableHost(t *testing.T) {
 	t.Parallel()
 
+	client := retryablehttp.NewClient()
+	client.RetryMax = 1
+	client.RetryWaitMin = 1 * time.Second
+	client.RetryWaitMax = 2 * time.Second
+	client.StandardClient().Timeout = 5 * time.Second
+	client.Logger = nil
+	transport := http.Transport{
+		Dial: shortTimeoutDialer,
+	}
+
+	client.StandardClient().Transport = &transport
+
 	_, err := SignIn(SignInInput{
-		Email:     "sn@lessknown.co.uk",
-		Password:  "invalid",
-		APIServer: "https://standardnotes.example.com:443",
-		Debug:     true,
+		HTTPClient: client,
+		Email:      "sn@lessknown.co.uk",
+		Password:   "invalid",
+		APIServer:  "https://standardnotes.example.com:443",
+		Debug:      true,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "standardnotes.example.com cannot be resolved")
 }
 
+func shortTimeoutDialer(network, addr string) (net.Conn, error) {
+	return net.DialTimeout(network, addr, 3*time.Second)
+}
+
 func TestSignInWithInvalidURL(t *testing.T) {
 	t.Parallel()
 
+	client := retryablehttp.NewClient()
+	client.RetryMax = 1
+	client.RetryWaitMin = 1 * time.Second
+	client.RetryWaitMax = 2 * time.Second
+	client.StandardClient().Timeout = 5 * time.Second
+	transport := http.Transport{
+		Dial: shortTimeoutDialer,
+	}
+
+	client.StandardClient().Transport = &transport
+
 	_, err := SignIn(SignInInput{
-		Email:     "sn@lessknown.co.uk",
-		Password:  "invalid",
+		HTTPClient: client,
+		Email:      "sn@lessknown.co.uk",
+		Password:   "invalid",
+		// missing schema makes invalid
 		APIServer: "standardnotes.example.com:443",
 		Debug:     true,
 	})
@@ -294,7 +327,13 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 	client.RetryMax = 1
 	client.RetryWaitMin = 1 * time.Second
 	client.RetryWaitMax = 2 * time.Second
+	client.StandardClient().Timeout = 5 * time.Second
 	client.Logger = nil
+	transport := http.Transport{
+		Dial: shortTimeoutDialer,
+	}
+
+	client.StandardClient().Transport = &transport
 
 	_, err := SignIn(SignInInput{
 		HTTPClient: client,
