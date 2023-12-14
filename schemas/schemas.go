@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,6 +27,22 @@ func LoadSchemas() (map[string]*jsonschema.Schema, error) {
 
 	for _, e := range rSchemas {
 		var sB []byte
+
+		var cwd string
+		cwd, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+
+		fmt.Printf("cwd: %s\n", cwd)
+		fmt.Println("e.Name(): ", e.Name())
+
+		var absPath string
+		absPath, err = filepath.Abs(cwd)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("abs path:", absPath)
 
 		sB, err = fs.ReadFile(fsSchemas, filepath.Join(embedFilesDirName, e.Name()))
 		if err != nil {
