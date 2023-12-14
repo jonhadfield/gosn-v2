@@ -92,20 +92,6 @@ func TestMain(m *testing.M) {
 			testSession.Debug = true
 		}
 
-		// if _, err := items.Sync(items.SyncInput{Session: testSession}); err != nil {
-		// 	log.Fatal(err)
-		// }
-		//
-		// var err error
-		// testSession.Schemas, err = session.LoadSchemas()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		//
-		// if len(testSession.Schemas) == 0 {
-		// 	log.Fatal("failed to load schemas")
-		// }
-
 		os.Exit(m.Run())
 	}
 }
@@ -164,6 +150,8 @@ func TestRefreshSession(t *testing.T) {
 }
 
 func TestRegistrationWithInvalidShortPassword(t *testing.T) {
+	t.Parallel()
+
 	password := "secret"
 	rInput := RegisterInput{
 		Email:     testEmailAddr,
@@ -257,6 +245,8 @@ func TestRegistrationAndSignInWithEmailWithPlusSign(t *testing.T) {
 // }
 
 func TestSignInWithUnresolvableHost(t *testing.T) {
+	t.Parallel()
+
 	_, err := SignIn(SignInInput{
 		Email:     "sn@lessknown.co.uk",
 		Password:  "invalid",
@@ -268,6 +258,8 @@ func TestSignInWithUnresolvableHost(t *testing.T) {
 }
 
 func TestSignInWithInvalidURL(t *testing.T) {
+	t.Parallel()
+
 	_, err := SignIn(SignInInput{
 		Email:     "sn@lessknown.co.uk",
 		Password:  "invalid",
@@ -292,6 +284,8 @@ func TestSignInWithInvalidURL(t *testing.T) {
 //   }
 
 func TestSignInWithUnavailableServer(t *testing.T) {
+	t.Parallel()
+
 	if os.Getenv("SN_SERVER") == "http://ramea:3000" {
 		return
 	}
