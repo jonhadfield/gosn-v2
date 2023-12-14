@@ -44,7 +44,11 @@ func LoadSchemas() (map[string]*jsonschema.Schema, error) {
 		}
 		fmt.Println("abs path:", absPath)
 
-		sB, err = fs.ReadFile(fsSchemas, filepath.Join(embedFilesDirName, e.Name()))
+		// fmt.Println("going to reach schema file from:", filepath.Join(absPath, embedFilesDirName, e.Name()))
+		fmt.Println("going to reach schema file from: files/note.json")
+
+		// sB, err = fs.ReadFile(fsSchemas, filepath.Join(absPath, embedFilesDirName, e.Name()))
+		sB, err = fs.ReadFile(fsSchemas, fmt.Sprintf("%s/%s", embedFilesDirName, e.Name()))
 		if err != nil {
 			fmt.Printf("error reading schemas0: %s\n", err)
 
