@@ -51,7 +51,7 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
-	if os.Getenv("SN_SERVER") == "" || strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
 		localTestMain()
 
 		os.Exit(m.Run())

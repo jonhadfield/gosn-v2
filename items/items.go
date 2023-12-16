@@ -621,8 +621,11 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	switch contentType {
 	case "Note":
 		var nc NoteContent
+
 		if err = json.Unmarshal([]byte(input), &nc); err != nil {
 			err = fmt.Errorf("processContentModel | %w", err)
+
+			return output, err
 		}
 
 		return &nc, nil
@@ -631,7 +634,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		if err = json.Unmarshal([]byte(input), &tc); err != nil {
 			err = fmt.Errorf("processContentModel | %w", err)
 
-			return
+			return output, err
 		}
 
 		return &tc, nil

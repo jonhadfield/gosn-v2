@@ -813,6 +813,39 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	// require.Empty(t, dn.du)
 }
 
+func TestProcessContentModel(t *testing.T) {
+	output, err := processContentModel("Note", `
+    {
+        "title": "Todo1",
+        "text": "{\n  \"schemaVersion\": \"1.0.0\",\n  \"groups\": [\n    {\n      \"name\": \"ddd\",\n      \"tasks\": [\n        {\n          \"id\": \"23e56588-ba63-494f-89fe-44f556682fe3\",\n          \"description\": \"ddd-first\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-10T18:39:19.471Z\",\n          \"updatedAt\": \"2023-12-10T18:39:26.781Z\"\n        }\n      ],\n      \"lastActive\": \"2023-12-10T18:40:06.294Z\",\n      \"sections\": [\n        {\n          \"id\": \"open-tasks\",\n          \"name\": \"Open\",\n          \"collapsed\": false\n        },\n        {\n          \"id\": \"completed-tasks\",\n          \"name\": \"Completed\",\n          \"collapsed\": false\n        }\n      ],\n      \"collapsed\": false\n    },\n    {\n      \"name\": \"homelab\",\n      \"tasks\": [\n        {\n          \"id\": \"a2acb45d-14b6-4e0b-b24c-88596d7d10f4\",\n          \"description\": \"homelab-2\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-10T18:40:45.555Z\"\n        },\n        {\n          \"id\": \"2ff0639d-2f72-4cf5-a1df-e207e97ffe0b\",\n          \"description\": \"homelab-1\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-10T18:40:41.969Z\"\n        }\n      ],\n      \"lastActive\": \"2023-12-10T18:40:45.555Z\",\n      \"sections\": [\n        {\n          \"id\": \"open-tasks\",\n          \"name\": \"Open\",\n          \"collapsed\": false\n        },\n        {\n          \"id\": \"completed-tasks\",\n          \"name\": \"Completed\",\n          \"collapsed\": false\n        }\n      ],\n      \"collapsed\": false\n    }\n  ],\n  \"defaultSections\": [\n    {\n      \"id\": \"open-tasks\",\n      \"name\": \"Open\"\n    },\n    {\n      \"id\": \"completed-tasks\",\n      \"name\": \"Completed\"\n    }\n  ]\n}",
+        "references": [],
+        "appData": {
+          "org.standardnotes.sn": {
+            "client_updated_at": "2023-12-10T18:40:45.808Z",
+            "prefersPlainEditor": false,
+            "pinned": false
+          },
+          "org.standardnotes.sn.components": {
+            "f90fc73b-b53b-485c-beb2-ac7f1709d22a": {}
+          }
+        },
+        "preview_plain": "0/3 tasks completed",
+        "spellcheck": true,
+        "preview_html": "\\u003cdiv class=\"flex flex-grow items-center mb-3\"\\u003e\\u003csvg data-testid=\"circular-progress-bar\" class=\"sk-circular-progress\" viewBox=\"0 0 18 18\"\\u003e\\u003ccircle class=\"background\"\\u003e\\u003c/circle\\u003e\\u003ccircle class=\"progress p-0\"\\u003e\\u003c/circle\\u003e\\u003c/svg\\u003e\\u003cp class=\"ml-2 w-full font-medium\"\\u003e0\\u003c!-- --\\u003e/\\u003c!-- --\\u003e3\\u003c!-- --\\u003e tasks completed\\u003c/p\\u003e\\u003c/div\\u003e\\u003cdiv class=\"my-2\"\\u003e\\u003cp data-testid=\"group-summary\" class=\"mb-1\"\\u003eddd\\u003cspan class=\"px-2 neutral\"\\u003e0\\u003c!-- --\\u003e/\\u003c!-- --\\u003e1\\u003c/span\\u003e\\u003c/p\\u003e\\u003cp data-testid=\"group-summary\" class=\"mb-1\"\\u003ehomelab\\u003cspan class=\"px-2 neutral\"\\u003e0\\u003c!-- --\\u003e/\\u003c!-- --\\u003e2\\u003c/span\\u003e\\u003c/p\\u003e\\u003c/div\\u003e",
+        "noteType": "task",
+        "editorIdentifier": "com.sncommunity.advanced-checklist"
+    }`)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	noteContent := output.(*NoteContent)
+	require.Equal(t, "Todo1", noteContent.Title)
+	require.Empty(t, noteContent.References())
+	require.Equal(t, "com.sncommunity.advanced-checklist", noteContent.EditorIdentifier)
+	require.Equal(t, "task", noteContent.NoteType)
+	require.Equal(t, "0/3 tasks completed", noteContent.PreviewPlain)
+	require.True(t, noteContent.Spellcheck)
+}
+
 //
 // func TestImportFromFile(t *testing.T) {
 // 	cleanup()
