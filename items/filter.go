@@ -61,6 +61,20 @@ func (i *Items) Filter(f ItemFilters) {
 	*i = filtered
 }
 
+func (i *Items) FilterAllTypes(f ItemFilters) {
+	var filtered Items
+
+	ix := *i
+
+	for x := range ix {
+		if found := applyAnyTypeFilters(ix[x], f); found {
+			filtered = append(filtered, ix[x])
+		}
+	}
+
+	*i = filtered
+}
+
 func applyNoteTextFilter(f Filter, i Note, matchAny bool) (result, matchedAll, done bool) {
 	content := i.GetContent().(*NoteContent)
 	if content.Title == "" {
