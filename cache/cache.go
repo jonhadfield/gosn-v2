@@ -10,13 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/asdine/storm/v3"
+	"github.com/fatih/color"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/items"
 	log "github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
-
-	"github.com/asdine/storm/v3"
-	"github.com/fatih/color"
 	"github.com/mitchellh/go-homedir"
 )
 
