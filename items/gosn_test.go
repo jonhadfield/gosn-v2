@@ -9,11 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonhadfield/gosn-v2/schemas"
-
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/schemas"
 	"github.com/jonhadfield/gosn-v2/session"
 )
 
