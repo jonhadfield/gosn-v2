@@ -1,6 +1,7 @@
 package items
 
 import (
+	"fmt"
 	"github.com/jonhadfield/gosn-v2/common"
 	"regexp"
 	"slices"
@@ -103,6 +104,7 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 			}
 		case "==":
 			if content.EditorIdentifier == f.Value {
+				fmt.Println("GOT A MATCH")
 				if matchAny {
 					result = true
 					done = true
@@ -117,6 +119,7 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 					done = true
 					return
 				}
+
 				matchedAll = false
 			}
 		case "!=":
@@ -126,6 +129,7 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 					done = true
 					return
 				}
+
 				matchedAll = true
 			} else {
 				if !matchAny {
@@ -133,6 +137,7 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 					done = true
 					return
 				}
+
 				matchedAll = false
 			}
 		case "contains":
@@ -142,6 +147,7 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 					done = true
 					return
 				}
+
 				matchedAll = true
 			} else {
 				if !matchAny {
@@ -149,6 +155,7 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 					done = true
 					return
 				}
+
 				matchedAll = false
 			}
 		}
@@ -447,6 +454,20 @@ func applyNoteFilters(item Note, itemFilters ItemFilters, tags Tags) bool {
 			}
 		case "uuid": // UUID
 			if item.UUID == filter.Value {
+				if itemFilters.MatchAny {
+					return true
+				}
+
+				matchedAll = true
+			} else {
+				if !itemFilters.MatchAny {
+					return false
+				}
+				matchedAll = false
+			}
+		case "duplicateof": // string
+			if item.DuplicateOf == filter.Value {
+
 				if itemFilters.MatchAny {
 					return true
 				}
