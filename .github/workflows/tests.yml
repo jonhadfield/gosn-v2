@@ -30,9 +30,22 @@ jobs:
         name: Tests
         run: |
           go mod tidy
-          go test -cover -v -failfast -p 1 $(go list ./...)
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
+          go install github.com/axw/gocov/gocov
+          go install github.com/AlekSi/gocov-xml
+          go test -cover -v -failfast -p 1 $(go list ./...) -coverprofile cover.out
+          gocov convert cover.out | gocov-xml > coverage.xml
         env:
           SN_SERVER: ${{ secrets.SN_SERVER }}
           SN_SKIP_SESSION_TESTS: true
           SN_EMAIL: ${{ secrets.ACTIONS_SN_EMAIL }}
           SN_PASSWORD: ${{ secrets.ACTIONS_SN_PASSWORD }}
+      -
+        name: Codacy Coverage Reporter
+        uses: codacy/codacy-coverage-reporter-action@v1.3.0
+        with:
+          coverage-reports: coverage.xml
+
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
