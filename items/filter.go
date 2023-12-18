@@ -1,12 +1,11 @@
 package items
 
 import (
+	"github.com/jonhadfield/gosn-v2/common"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/jonhadfield/gosn-v2/common"
 )
 
 type ItemFilters struct {
@@ -75,6 +74,87 @@ func (i *Items) FilterAllTypes(f ItemFilters) {
 	}
 
 	*i = filtered
+}
+
+func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll, done bool) {
+	content := i.GetContent().(*NoteContent)
+	if content.EditorIdentifier == "" {
+		matchedAll = false
+	} else {
+		switch f.Comparison {
+		case "~":
+			// TODO: Don't compile every time
+			r := regexp.MustCompile(f.Value)
+			editorIdentifier := content.EditorIdentifier
+			if r.MatchString(editorIdentifier) {
+				if matchAny {
+					result = true
+					done = true
+					return
+				}
+				matchedAll = true
+			} else {
+				if !matchAny {
+					result = false
+					done = true
+					return
+				}
+				matchedAll = false
+			}
+		case "==":
+			if content.EditorIdentifier == f.Value {
+				if matchAny {
+					result = true
+					done = true
+
+					return
+				}
+
+				matchedAll = true
+			} else {
+				if !matchAny {
+					result = false
+					done = true
+					return
+				}
+				matchedAll = false
+			}
+		case "!=":
+			if content.EditorIdentifier != f.Value {
+				if matchAny {
+					result = true
+					done = true
+					return
+				}
+				matchedAll = true
+			} else {
+				if !matchAny {
+					result = false
+					done = true
+					return
+				}
+				matchedAll = false
+			}
+		case "contains":
+			if strings.Contains(content.EditorIdentifier, f.Value) {
+				if matchAny {
+					result = true
+					done = true
+					return
+				}
+				matchedAll = true
+			} else {
+				if !matchAny {
+					result = false
+					done = true
+					return
+				}
+				matchedAll = false
+			}
+		}
+	}
+
+	return result, matchedAll, done
 }
 
 func applyNoteTextFilter(f Filter, i Note, matchAny bool) (result, matchedAll, done bool) {
@@ -342,6 +422,11 @@ func applyNoteFilters(item Note, itemFilters ItemFilters, tags Tags) bool {
 			}
 		case "text": // Text
 			result, matchedAll, done = applyNoteTextFilter(filter, item, itemFilters.MatchAny)
+			if done {
+				return result
+			}
+		case "editor": // GetEditor
+			result, matchedAll, done = applyNoteEditorFilter(filter, item, itemFilters.MatchAny)
 			if done {
 				return result
 			}
