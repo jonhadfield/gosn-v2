@@ -930,12 +930,12 @@ func DeleteContent(session *session.Session, everything bool) (deleted int, err 
 	var itemsToPut EncryptedItems
 
 	typesToDelete := []string{
-		"Note",
-		"Tag",
+		common.SNItemTypeNote,
+		common.SNItemTypeTag,
 	}
 	if everything {
 		typesToDelete = append(typesToDelete, []string{
-			"SN|Component",
+			common.SNItemTypeComponent,
 			"SN|FileSafe|FileMetaData",
 			"SN|FileSafe|Credentials",
 			"SN|FileSafe|Integration",

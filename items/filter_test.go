@@ -3,13 +3,14 @@ package items
 import (
 	"testing"
 
+	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFilterNoteTitle(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Title",
 		Comparison: "==",
 		Value:      "GNU",
@@ -26,7 +27,7 @@ func TestFilterNoteUUID(t *testing.T) {
 	uuid := GenUUID()
 	gnuNote := createNote("GNU", "Is not Unix", uuid)
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "UUID",
 		Comparison: "==",
 		Value:      uuid,
@@ -55,32 +56,32 @@ func TestFilterNoteByTagUUID(t *testing.T) {
 
 	gnuRef := ItemReference{
 		UUID:        gnuNoteUUID,
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 	}
 	animalTag.Content.UpsertReferences(ItemReferences{gnuRef})
 
 	cheeseRef := ItemReference{
 		UUID:        cheeseNoteUUID,
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 	}
 	foodTag.Content.UpsertReferences(ItemReferences{cheeseRef})
 
 	animalTagUUIDFilter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagUUID",
 		Comparison: "==",
 		Value:      animalTagUUID,
 	}
 
 	foodTagUUIDFilter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagUUID",
 		Comparison: "==",
 		Value:      foodTagUUID,
 	}
 
 	animalTagUUIDFilterNegative := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagUUID",
 		Comparison: "!=",
 		Value:      animalTagUUID,
@@ -169,40 +170,40 @@ func TestFilterNoteByTagTitle(t *testing.T) {
 
 	gnuRef := ItemReference{
 		UUID:        gnuNoteUUID,
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 	}
 
 	animalTag.Content.UpsertReferences(ItemReferences{gnuRef})
 
 	cheeseRef := ItemReference{
 		UUID:        cheeseNoteUUID,
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 	}
 	foodTag.Content.UpsertReferences(ItemReferences{cheeseRef})
 
 	animalTagTitleRegexFilter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagTitle",
 		Comparison: "~",
 		Value:      "^[A-Z]nima.?$",
 	}
 
 	animalTagTitleEqualsFilter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagTitle",
 		Comparison: "==",
 		Value:      "Animal",
 	}
 
 	foodTagUUIDFilter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagTitle",
 		Comparison: "==",
 		Value:      "Food",
 	}
 
 	animalTagUUIDFilterNegative := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "TagUUID",
 		Comparison: "!=",
 		Value:      animalTagUUID,
@@ -304,7 +305,7 @@ func TestFilterNoteByTagTitle(t *testing.T) {
 func TestFilterNoteTitleContains(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Title",
 		Comparison: "contains",
 		Value:      "N",
@@ -320,7 +321,7 @@ func TestFilterNoteTitleContains(t *testing.T) {
 func TestFilterNoteText(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Text",
 		Comparison: "==",
 		Value:      "Is not Unix",
@@ -336,7 +337,7 @@ func TestFilterNoteText(t *testing.T) {
 func TestFilterNoteTextContains(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Text",
 		Comparison: "contains",
 		Value:      "Unix",
@@ -352,7 +353,7 @@ func TestFilterNoteTextContains(t *testing.T) {
 func TestFilterNoteTitleNotEqualTo(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Title",
 		Comparison: "!=",
 		Value:      "Potato",
@@ -368,7 +369,7 @@ func TestFilterNoteTitleNotEqualTo(t *testing.T) {
 func TestFilterNoteTextNotEqualTo(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Text",
 		Comparison: "!=",
 		Value:      "Potato",
@@ -384,7 +385,7 @@ func TestFilterNoteTextNotEqualTo(t *testing.T) {
 func TestFilterNoteTextByRegex(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Text",
 		Comparison: "~",
 		Value:      "^.*Unix",
@@ -400,7 +401,7 @@ func TestFilterNoteTextByRegex(t *testing.T) {
 func TestFilterNoteTitleByRegex(t *testing.T) {
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Title",
 		Comparison: "~",
 		Value:      "^.N.$",
@@ -416,7 +417,7 @@ func TestFilterNoteTitleByRegex(t *testing.T) {
 func TestFilterTagTitle(t *testing.T) {
 	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "Title",
 		Comparison: "==",
 		Value:      "GNU",
@@ -433,7 +434,7 @@ func TestFilterTagUUID(t *testing.T) {
 	uuid := GenUUID()
 	gnuTag, _ := createTag("GNU", uuid, nil)
 	filter := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "UUID",
 		Comparison: "==",
 		Value:      uuid,
@@ -449,7 +450,7 @@ func TestFilterTagUUID(t *testing.T) {
 func TestFilterTagTitleByRegex(t *testing.T) {
 	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "Title",
 		Comparison: "~",
 		Value:      "^.*U$",
@@ -465,7 +466,7 @@ func TestFilterTagTitleByRegex(t *testing.T) {
 func TestFilterTagTitleByNotEqualTo(t *testing.T) {
 	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "Title",
 		Comparison: "!=",
 		Value:      "potato",

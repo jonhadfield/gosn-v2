@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -519,7 +520,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 
 	session.Debug = debug
 
-	if os.Getenv("SN_SCHEMA_VALIDATION") != "" {
+	if slices.Contains([]string{"yes", "true", "1"}, os.Getenv("SN_SCHEMA_VALIDATION")) {
 		session.SchemaValidation = true
 
 		session.Schemas, err = schemas.LoadSchemas()

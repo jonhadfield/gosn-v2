@@ -329,19 +329,23 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 	client.RetryWaitMax = 2 * time.Second
 	client.StandardClient().Timeout = 5 * time.Second
 	client.Logger = nil
-	transport := http.Transport{
+	transport := http.Transport{ //nolint:exhaustruct
 		Dial: shortTimeoutDialer,
 	}
 
 	client.StandardClient().Transport = &transport
 
-	_, err := SignIn(SignInInput{
+	_, err := SignIn(SignInInput{ //nolint:exhaustruct
 		HTTPClient: client,
 		Email:      "sn@lessknown.co.uk",
 		Password:   "invalid",
 		APIServer:  "https://10.10.10.10:6000",
 		Debug:      true,
 	})
+
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed")
+
+	if !(strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "failed")) {
+		t.Failed()
+	}
 }

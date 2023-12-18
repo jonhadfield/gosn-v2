@@ -11,7 +11,7 @@ const (
 	APIServer = "https://api.standardnotes.com"
 	SyncPath  = "/items/sync" // remote path for making sync calls
 
-	// Type names
+	// Type names.
 	SNItemTypeNote      = "Note"
 	SNItemTypeTag       = "Tag"
 	SNItemTypeComponent = "SN|Component"
@@ -39,11 +39,12 @@ const (
 	RequestTimeout     = 30  // HTTP transport limit
 	ConnectionTimeout  = 3   // HTTP transport dialer limit
 	KeepAliveTimeout   = 60  // HTTP transport dialer limit
+	MaxRequestRetries  = 3
 )
 
 func NewHTTPClient() *retryablehttp.Client {
 	c := retryablehttp.NewClient()
-	c.RetryMax = 3
+	c.RetryMax = MaxRequestRetries
 	c.Backoff = retryablehttp.DefaultBackoff
 	c.HTTPClient.Timeout = RequestTimeout * time.Second
 	c.Logger = nil

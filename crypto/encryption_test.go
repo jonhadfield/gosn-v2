@@ -49,7 +49,7 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 //
 // 	require.NoError(t, err)
 // 	require.NotEmpty(t, eItem.ItemsKeyID)
-// 	require.Equal(t, "Note", eItem.ContentType)
+// 	require.Equal(t, SNItemTypeNote, eItem.ContentType)
 //
 // 	s.DefaultItemsKey = ik
 // 	s.ItemsKeys = []ItemsKey{ik}
@@ -91,7 +91,7 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 // 			foundKey = true
 // 		}
 //
-// 		if so.SavedItems[x].ContentType == "Note" {
+// 		if so.SavedItems[x].ContentType == SNItemTypeNote {
 // 			noteIndex = x
 // 			require.Equal(t, note.UUID, so.SavedItems[x].UUID)
 // 			require.Less(t, int64(0), so.SavedItems[x].UpdatedAtTimestamp)
@@ -121,7 +121,7 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 // 	require.Equal(t, 1, numDefaults)
 // 	require.Equal(t, ik.UUID, testSession.DefaultItemsKey.UUID)
 // 	require.Equal(t, ik.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
-// 	require.Equal(t, "Note", so.SavedItems[noteIndex].ContentType)
+// 	require.Equal(t, SNItemTypeNote, so.SavedItems[noteIndex].ContentType)
 //
 // 	_, err = DecryptAndParseItem(so.SavedItems[noteIndex], testSession)
 // 	require.NoError(t, err)
