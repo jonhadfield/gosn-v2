@@ -51,3 +51,9 @@ func NewHTTPClient() *retryablehttp.Client {
 
 	return c
 }
+
+const HeaderContentType = "Content-Type"
+
+const (
+	SNAPIContentType = "application/json"
+)

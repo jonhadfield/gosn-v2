@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -67,7 +66,7 @@ type AuthParamsOutput struct {
 	Verifier      generateLoginChallengeCodeVerifier
 }
 
-type RequestRefreshTokenInput struct {
+type requestRefreshTokenInput struct {
 	url          string
 	accessToken  string
 	refreshToken string
@@ -102,7 +101,7 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 		return
 	}
 
-	refreshSessionReq.Header.Set("content-Type", "application/json")
+	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	refreshSessionReq.Header.Set("Connection", "keep-alive")
 
 	var signInResp *http.Response
@@ -168,7 +167,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 		return
 	}
 
-	signInURLReq.Header.Set("content-Type", "application/json")
+	signInURLReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	signInURLReq.Header.Set("Connection", "keep-alive")
 
 	var signInResp *http.Response
@@ -213,7 +212,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 
 func processDoAuthRequestResponse(response *http.Response, debug bool) (output doAuthRequestOutput, errResp ErrorResponse, err error) {
 	var body []byte
-	body, err = ioutil.ReadAll(response.Body)
+	body, err = io.ReadAll(response.Body)
 
 	// fmt.Println("body:", string(body))
 	// fmt.Println("response:", response.StatusCode)
@@ -311,7 +310,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 		return
 	}
 
-	req.Header.Set("content-Type", "application/json")
+	req.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	req.Header.Set("Connection", "keep-alive")
 
 	var response *http.Response
@@ -716,6 +715,9 @@ func (input RegisterInput) Register() (token string, err error) {
 
 	var pwNonce, serverPassword string
 	_, pwNonce, _, serverPassword, err = generateInitialKeysAndAuthParamsForUser(input.Email, input.Password)
+	if err != nil {
+		return "", err
+	}
 
 	var req *retryablehttp.Request
 
@@ -728,7 +730,7 @@ func (input RegisterInput) Register() (token string, err error) {
 		return
 	}
 
-	req.Header.Set("content-Type", "application/json")
+	req.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	req.Header.Set("Connection", "keep-alive")
 
 	req.Host = input.APIServer
