@@ -1,4 +1,4 @@
-name: Test gosn-v2
+name: Tests
 
 on:
   push:
