@@ -349,6 +349,7 @@ type DecryptedItem struct {
 	ItemsKeyID         string `json:"items_key_id,omitempty"`
 	Content            string `json:"content"`
 	ContentType        string `json:"content_type"`
+	DuplicateOf        string `json:"duplicate_of,omitempty"`
 	Deleted            bool   `json:"deleted"`
 	Default            bool   `json:"isDefault"`
 	CreatedAt          string `json:"created_at"`

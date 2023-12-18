@@ -41,6 +41,7 @@ type ItemCommon struct {
 	EncryptedItemKey   string
 	ContentType        string
 	Deleted            bool
+	DuplicateOf        string
 	CreatedAt          string
 	UpdatedAt          string
 	CreatedAtTimestamp int64
