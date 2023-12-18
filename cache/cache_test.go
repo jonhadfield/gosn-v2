@@ -590,7 +590,7 @@ func TestSyncOneExisting(t *testing.T) {
 	var foundNotes int
 
 	for _, pi := range allPersistedItems {
-		if pi.ContentType == "Note" && pi.UUID == newNote.UUID {
+		if pi.ContentType == common.SNItemTypeNote && pi.UUID == newNote.UUID {
 			foundNotes++
 		}
 	}
@@ -703,7 +703,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	var newNoteFound bool
 //
 //	for x := range items {
-//		if items[x].GetContentType() == "Note" && items[x].GetUUID() == newNote.UUID {
+//		if items[x].GetContentType() == SNItemTypeNote && items[x].GetUUID() == newNote.UUID {
 //			newNote = *items[x].(*items.Note)
 //			if newNote.Content.Title == "test title" && newNote.Content.Text == "some content" {
 //				newNoteFound = true
@@ -755,7 +755,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	newNoteFound = false
 //
 //	for x := range items {
-//		if items[x].GetContentType() == "Note" && items[x].GetUUID() == newNote.UUID {
+//		if items[x].GetContentType() == SNItemTypeNote && items[x].GetUUID() == newNote.UUID {
 //			newNote1 := *items[x].(*items.Note)
 //
 //			if newNote1.Content.Title == "Modified Title" && newNote1.Content.Text == "Modified Text" {
@@ -811,7 +811,7 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 //	}
 //
 //	for x := range items {
-//		if items[x].GetContentType() == "Note" && items[x].GetUUID() == inNote.UUID {
+//		if items[x].GetContentType() == SNItemTypeNote && items[x].GetUUID() == inNote.UUID {
 //			// panic("found new note in cache")
 //			foundNote := *items[x].(*items.Note)
 //
@@ -826,13 +826,13 @@ func TestSyncRetainsSyncToken(t *testing.T) {
 
 func _deleteAllTagsNotesComponents(session *session.Session) (err error) {
 	gnf := items.Filter{
-		Type: "Note",
+		Type: common.SNItemTypeNote,
 	}
 	gtf := items.Filter{
-		Type: "Tag",
+		Type: common.SNItemTypeTag,
 	}
 	gcf := items.Filter{
-		Type: "SN|Component",
+		Type: common.SNItemTypeComponent,
 	}
 	f := items.ItemFilters{
 		Filters:  []items.Filter{gnf, gtf, gcf},
@@ -863,11 +863,11 @@ func _deleteAllTagsNotesComponents(session *session.Session) (err error) {
 	for x := range its {
 		md := its[x]
 		switch md.GetContentType() {
-		case "Note":
+		case common.SNItemTypeNote:
 			md.SetContent(items.NewNoteContent())
-		case "Tag":
+		case common.SNItemTypeTag:
 			md.SetContent(items.NewTagContent())
-		case "SN|Component":
+		case common.SNItemTypeComponent:
 			md.SetContent(items.NewComponentContent())
 		}
 

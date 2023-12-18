@@ -529,11 +529,11 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 	case common.SNItemTypeItemsKey:
 		// TODO: To be implemented separately so we don't parse as a normal item and,
 		// most importantly, don't return as a normal Item
-	case "Note":
+	case common.SNItemTypeNote:
 		pi = parseNote(di)
-	case "Tag":
+	case common.SNItemTypeTag:
 		pi = parseTag(di)
-	case "SN|Component":
+	case common.SNItemTypeComponent:
 		pi = parseComponent(di)
 	case "SN|Theme":
 		pi = parseTheme(di)
@@ -575,11 +575,11 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			// TODO: To be implemented separately so we don't parse as a normal item and,
 			// most importantly, don't return as a normal Item
 			continue
-		case "Note":
+		case common.SNItemTypeNote:
 			pi = parseNote(i)
-		case "Tag":
+		case common.SNItemTypeTag:
 			pi = parseTag(i)
-		case "SN|Component":
+		case common.SNItemTypeComponent:
 			pi = parseComponent(i)
 		case "SN|Theme":
 			pi = parseTheme(i)
@@ -619,7 +619,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	// identify content model
 	// try and unmarshall Item
 	switch contentType {
-	case "Note":
+	case common.SNItemTypeNote:
 		var nc NoteContent
 
 		if err = json.Unmarshal([]byte(input), &nc); err != nil {
@@ -629,7 +629,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &nc, nil
-	case "Tag":
+	case common.SNItemTypeTag:
 		var tc TagContent
 		if err = json.Unmarshal([]byte(input), &tc); err != nil {
 			err = fmt.Errorf("processContentModel | %w", err)
@@ -638,7 +638,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &tc, nil
-	case "SN|Component":
+	case common.SNItemTypeComponent:
 		var cc ComponentContent
 		if err = json.Unmarshal([]byte(input), &cc); err != nil {
 			err = fmt.Errorf("processContentModel | %w", err)
@@ -986,12 +986,12 @@ func compareItems(input CompareItemsInput) (same, unsupported bool, err error) {
 	second := input.SecondItem
 
 	switch first.GetContentType() {
-	case "Note":
+	case common.SNItemTypeNote:
 		n1 := first.(*Note)
 		n2 := second.(*Note)
 
 		return n1.Content.Title == n2.Content.Title && n1.Content.Text == n2.Content.Text, unsupported, nil
-	case "Tag":
+	case common.SNItemTypeTag:
 		t1 := first.(*Tag)
 		t2 := second.(*Tag)
 
@@ -1047,12 +1047,12 @@ func compareEncryptedItems(input CompareEncryptedItemsInput) (same, unsupported 
 	second := sPar[0]
 
 	switch first.GetContentType() {
-	case "Note":
+	case common.SNItemTypeNote:
 		n1 := first.(*Note)
 		n2 := second.(*Note)
 
 		return n1.Content.Title == n2.Content.Title && n1.Content.Text == n2.Content.Text, unsupported, nil
-	case "Tag":
+	case common.SNItemTypeTag:
 		t1 := first.(*Tag)
 		t2 := second.(*Tag)
 
@@ -1438,7 +1438,7 @@ func DecryptContent(e EncryptedItem, encryptionKey string) (content []byte, err 
 	if !slices.Contains([]string{
 		"SN|FileSafe|Integration",
 		"SN|FileSafe|Credentials",
-		"SN|Component",
+		common.SNItemTypeComponent,
 		"SN|Theme",
 	}, e.ContentType) && len(c) > 250 {
 		return

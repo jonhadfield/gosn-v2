@@ -67,7 +67,7 @@ func parseTag(i DecryptedItem) Item {
 
 func (i Items) Tags() (t Tags) {
 	for _, x := range i {
-		if x.GetContentType() == "Tag" {
+		if x.GetContentType() == common.SNItemTypeTag {
 			tag := x.(*Tag)
 			t = append(t, *tag)
 		}
@@ -118,7 +118,7 @@ func NewTag(title string, refs ItemReferences) (tag Tag, err error) {
 	c.Title = title
 	c.ItemReferences = refs
 	tag.Content = *c
-	tag.ContentType = "Tag"
+	tag.ContentType = common.SNItemTypeTag
 	tag.CreatedAt = now
 	tag.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	tag.UUID = GenUUID()

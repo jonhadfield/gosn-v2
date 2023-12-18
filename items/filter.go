@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/jonhadfield/gosn-v2/common"
 )
 
 type ItemFilters struct {
@@ -328,7 +330,7 @@ func applyNoteFilters(item Note, itemFilters ItemFilters, tags Tags) bool {
 	var matchedAll, result, done bool
 
 	for i, filter := range itemFilters.Filters {
-		if !slices.Contains([]string{"Note", "Item"}, filter.Type) {
+		if !slices.Contains([]string{common.SNItemTypeNote, "Item"}, filter.Type) {
 			continue
 		}
 
@@ -478,7 +480,7 @@ func applyTagFilters(item Tag, itemFilters ItemFilters) bool {
 	var matchedAll bool
 
 	for _, filter := range itemFilters.Filters {
-		if !slices.Contains([]string{"Tag", "Item"}, filter.Type) {
+		if !slices.Contains([]string{common.SNItemTypeTag, "Item"}, filter.Type) {
 			continue
 		}
 
@@ -565,7 +567,7 @@ func applyComponentFilters(item Component, itemFilters ItemFilters) bool {
 	var matchedAll bool
 
 	for _, filter := range itemFilters.Filters {
-		if !slices.Contains([]string{"SN|Component", "Item"}, filter.Type) {
+		if !slices.Contains([]string{common.SNItemTypeComponent, "Item"}, filter.Type) {
 			continue
 		}
 

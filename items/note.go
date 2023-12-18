@@ -68,7 +68,7 @@ func parseNote(i DecryptedItem) Item {
 
 func (i Items) Notes() (n Notes) {
 	for _, x := range i {
-		if x.GetContentType() == "Note" {
+		if x.GetContentType() == common.SNItemTypeNote {
 			note := x.(*Note)
 			n = append(n, *note)
 		}
@@ -112,7 +112,7 @@ func NewNote(title string, text string, references ItemReferences) (note Note, e
 	now := time.Now().UTC().Format(common.TimeLayout)
 
 	note.UUID = GenUUID()
-	note.ContentType = "Note"
+	note.ContentType = common.SNItemTypeNote
 
 	if strings.TrimSpace(title) == "" {
 		return note, fmt.Errorf("title cannot be empty")

@@ -84,7 +84,7 @@ func (c Component) IsDefault() bool {
 
 func (i Items) Components() (c Components) {
 	for _, x := range i {
-		if x.GetContentType() == "SN|Component" {
+		if x.GetContentType() == common.SNItemTypeComponent {
 			component := x.(*Component)
 			c = append(c, *component)
 		}
@@ -115,7 +115,7 @@ func NewComponent() Component {
 
 	var c Component
 
-	c.ContentType = "SN|Component"
+	c.ContentType = common.SNItemTypeComponent
 	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.CreatedAt = now
 	c.UUID = GenUUID()

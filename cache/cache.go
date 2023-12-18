@@ -11,21 +11,12 @@ import (
 	"time"
 
 	"github.com/asdine/storm/v3"
-	"github.com/fatih/color"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/items"
 	log "github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 	"github.com/mitchellh/go-homedir"
 )
-
-const (
-	// LOGGING.
-	libName       = "gosn-v2 | cache" // name of library used in logging
-	maxDebugChars = 120               // number of characters to display when logging API response body
-)
-
-var HiWhite = color.New(color.FgHiWhite).SprintFunc()
 
 type Item struct {
 	UUID               string `storm:"id,unique"`

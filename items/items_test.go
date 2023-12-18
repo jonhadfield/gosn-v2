@@ -175,11 +175,11 @@ func _deleteAllTagsNotesComponents(s *session.Session) (err error) {
 		var del bool
 
 		switch item.ContentType {
-		case "Note":
+		case common.SNItemTypeNote:
 			del = true
-		case "Tag":
+		case common.SNItemTypeTag:
 			del = true
-		case "SN|Component":
+		case common.SNItemTypeComponent:
 			del = true
 		case "SN|UserPreferences":
 			del = true
@@ -361,7 +361,7 @@ func TestReEncrypt(t *testing.T) {
 // 	require.NoError(t, err)
 // 	initKey := testSession.DefaultItemsKey
 // 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, "Tag", so.SavedItems[0].ContentType)
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
 //
 // 	tmpfn := tempFilePath()
 // 	require.NoError(t, testSession.Export(tmpfn))
@@ -414,7 +414,7 @@ func TestReEncrypt(t *testing.T) {
 // 	require.NoError(t, err)
 // 	initKey := testSession.DefaultItemsKey
 // 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, "Tag", so.SavedItems[0].ContentType)
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
 //
 // 	tmpfn := tempFilePath()
 // 	require.NoError(t, testSession.Export(tmpfn))
@@ -457,7 +457,7 @@ func TestReEncrypt(t *testing.T) {
 // 	initKey := testSession.DefaultItemsKey
 //
 // 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, "Tag", so.SavedItems[0].ContentType)
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
 //
 // 	tmpfn := tempFilePath()
 // 	require.NoError(t, testSession.Export(tmpfn))
@@ -516,7 +516,7 @@ func TestReEncrypt(t *testing.T) {
 //
 // 	var found bool
 // 	for x := range dis {
-// 		if dis[x].GetContentType() == "Tag" {
+// 		if dis[x].GetContentType() == common.SNItemTypeTag {
 // 			nt := dis[x].(*Tag)
 // 			require.Equal(t, nt.Content.Title, tag.Content.Title)
 // 			// these won't be equal as we're importing an item with the same UUID as
@@ -558,7 +558,7 @@ func TestReEncrypt(t *testing.T) {
 // 	})
 // 	initKey := testSession.DefaultItemsKey
 // 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, "Tag", so.SavedItems[0].ContentType)
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
 //
 // 	tmpfn := tempFilePath()
 // 	require.NoError(t, testSession.Export(tmpfn))
@@ -591,7 +591,7 @@ func TestReEncrypt(t *testing.T) {
 // 	var finalEncTags EncryptedItems
 //
 // 	for x := range items {
-// 		if items[x].ContentType == "Tag" {
+// 		if items[x].ContentType == common.SNItemTypeTag {
 // 			finalEncTags = append(finalEncTags, items[x])
 // 		}
 // 	}
@@ -679,7 +679,7 @@ func TestAddDeleteNote(t *testing.T) {
 			//
 			// ni := items[i].(*Note)
 			//
-			// if ni.ContentType != "Note" {
+			// if ni.ContentType != common.SNItemTypeNote {
 			// 	t.Errorf("content type of new item is incorrect - expected: Note got: %s",
 			// 		items[i].GetContentType())
 			// }
@@ -763,7 +763,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	require.NotEmpty(t, ei.CreatedAtTimestamp)
 	require.NotEmpty(t, ei.CreatedAt)
 	require.False(t, ei.Deleted)
-	require.Equal(t, "Note", ei.ContentType)
+	require.Equal(t, common.SNItemTypeNote, ei.ContentType)
 	require.NotEmpty(t, ei.Content)
 	require.Empty(t, ei.DuplicateOf)
 
@@ -795,14 +795,14 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 	var dn Note
 
 	for _, dItem := range di {
-		if dItem.ContentType == "Note" {
+		if dItem.ContentType == common.SNItemTypeNote {
 			dn = *parseNote(dItem).(*Note)
 			break
 		}
 	}
 
 	require.NotEmpty(t, dn.Content)
-	require.Equal(t, "Note", dn.ContentType)
+	require.Equal(t, common.SNItemTypeNote, dn.ContentType)
 	require.Equal(t, "test title", dn.Content.GetTitle())
 	require.Equal(t, "test content", dn.Content.GetText())
 	require.NotEmpty(t, dn.UUID)
@@ -814,7 +814,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 }
 
 func TestProcessContentModel(t *testing.T) {
-	output, err := processContentModel("Note", `
+	output, err := processContentModel(common.SNItemTypeNote, `
     {
         "title": "Todo1",
         "text": "{\n  \"schemaVersion\": \"1.0.0\",\n  \"groups\": [\n    {\n      \"name\": \"ddd\",\n      \"tasks\": [\n        {\n          \"id\": \"23e56588-ba63-494f-89fe-44f556682fe3\",\n          \"description\": \"ddd-first\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-10T18:39:19.471Z\",\n          \"updatedAt\": \"2023-12-10T18:39:26.781Z\"\n        }\n      ],\n      \"lastActive\": \"2023-12-10T18:40:06.294Z\",\n      \"sections\": [\n        {\n          \"id\": \"open-tasks\",\n          \"name\": \"Open\",\n          \"collapsed\": false\n        },\n        {\n          \"id\": \"completed-tasks\",\n          \"name\": \"Completed\",\n          \"collapsed\": false\n        }\n      ],\n      \"collapsed\": false\n    },\n    {\n      \"name\": \"homelab\",\n      \"tasks\": [\n        {\n          \"id\": \"a2acb45d-14b6-4e0b-b24c-88596d7d10f4\",\n          \"description\": \"homelab-2\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-10T18:40:45.555Z\"\n        },\n        {\n          \"id\": \"2ff0639d-2f72-4cf5-a1df-e207e97ffe0b\",\n          \"description\": \"homelab-1\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-10T18:40:41.969Z\"\n        }\n      ],\n      \"lastActive\": \"2023-12-10T18:40:45.555Z\",\n      \"sections\": [\n        {\n          \"id\": \"open-tasks\",\n          \"name\": \"Open\",\n          \"collapsed\": false\n        },\n        {\n          \"id\": \"completed-tasks\",\n          \"name\": \"Completed\",\n          \"collapsed\": false\n        }\n      ],\n      \"collapsed\": false\n    }\n  ],\n  \"defaultSections\": [\n    {\n      \"id\": \"open-tasks\",\n      \"name\": \"Open\"\n    },\n    {\n      \"id\": \"completed-tasks\",\n      \"name\": \"Completed\"\n    }\n  ]\n}",
@@ -873,7 +873,7 @@ func TestProcessContentModel(t *testing.T) {
 // 	require.NoError(t, err)
 // 	var noteFound bool
 // 	for _, d := range dis {
-// 		if d.GetContentType() == "Note" {
+// 		if d.GetContentType() == common.SNItemTypeNote {
 // 			noteFound = true
 // 		}
 // 	}
@@ -899,7 +899,7 @@ func TestProcessContentModel(t *testing.T) {
 //
 // 	require.NoError(t, err)
 // 	require.NotEmpty(t, so.SavedItems)
-// 	require.Equal(t, "Note", so.SavedItems[0].ContentType)
+// 	require.Equal(t, common.SNItemTypeNote, so.SavedItems[0].ContentType)
 // 	eitd := append(so.SavedItems, so.Items...)
 // 	itemsToExport, err := eitd.DecryptAndParse(testSession)
 // 	require.NoError(t, err)
@@ -913,7 +913,7 @@ func TestProcessContentModel(t *testing.T) {
 // 	var foundNote bool
 //
 // 	for x := range importedItems {
-// 		if importedItems[x].ContentType == "Note" {
+// 		if importedItems[x].ContentType == common.SNItemTypeNote {
 // 			var i Item
 // 			i, err = DecryptAndParseItem(importedItems[x], testSession)
 //
@@ -962,7 +962,7 @@ func TestProcessContentModel(t *testing.T) {
 //	var importedNote *Note
 //
 //	for x := range importedItems {
-//		if importedItems[x].GetContentType() == "Note" {
+//		if importedItems[x].GetContentType() == common.SNItemTypeNote {
 //			in := importedItems[x].(*Note)
 //			require.Equal(t, n.Content.Title, in.Content.Title)
 //			require.Equal(t, n.Content.Text, in.Content.Text)
@@ -1043,7 +1043,7 @@ func TestProcessContentModel(t *testing.T) {
 // 	var foundNote bool
 //
 // 	for x := range importedItems {
-// 		if importedItems[x].ContentType == "Note" {
+// 		if importedItems[x].ContentType == common.SNItemTypeNote {
 // 			var i Item
 // 			i, err = DecryptAndParseItem(importedItems[x], testSession)
 //
@@ -1084,7 +1084,7 @@ func TestProcessContentModel(t *testing.T) {
 //	var foundNote bool
 //
 //	for x := range importedItems {
-//		if importedItems[x].GetContentType() == "Note" {
+//		if importedItems[x].GetContentType() == common.SNItemTypeNote {
 //			in := importedItems[x].(*Note)
 //			require.Equal(t, n.Content.Title, in.Content.Title)
 //			require.Equal(t, n.Content.Text, in.Content.Text)
@@ -1120,7 +1120,7 @@ func TestProcessContentModel(t *testing.T) {
 // 	require.NotEmpty(t, encItems[0].CreatedAtTimestamp)
 // 	require.NotEmpty(t, encItems[0].CreatedAt)
 // 	require.False(t, encItems[0].Deleted)
-// 	require.Equal(t, "Note", encItems[0].ContentType)
+// 	require.Equal(t, common.SNItemTypeNote, encItems[0].ContentType)
 // 	require.NotEmpty(t, encItems[0].Content)
 // 	require.Empty(t, encItems[0].DuplicateOf)
 //
@@ -1133,14 +1133,14 @@ func TestProcessContentModel(t *testing.T) {
 // 	var dn Note
 //
 // 	for _, dItem := range di {
-// 		if dItem.ContentType == "Note" {
+// 		if dItem.ContentType == common.SNItemTypeNote {
 // 			dn = *parseNote(dItem).(*Note)
 // 			break
 // 		}
 // 	}
 //
 // 	require.NotEmpty(t, dn.Content)
-// 	require.Equal(t, "Note", dn.ContentType)
+// 	require.Equal(t, common.SNItemTypeNote, dn.ContentType)
 // 	require.Equal(t, "test title", dn.Content.GetTitle())
 // 	require.Equal(t, "test content", dn.Content.GetText())
 // 	require.NotEmpty(t, dn.UUID)
@@ -1195,7 +1195,7 @@ func TestCreateAddUseItemsKey(t *testing.T) {
 
 			ni := items[i].(*Note)
 
-			if ni.ContentType != "Note" {
+			if ni.ContentType != common.SNItemTypeNote {
 				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
 					items[i].GetContentType())
 			}
@@ -1288,7 +1288,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 
 			ni := items[i].(*Note)
 
-			if ni.ContentType != "Note" {
+			if ni.ContentType != common.SNItemTypeNote {
 				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
 					items[i].GetContentType())
 			}
@@ -1366,7 +1366,7 @@ func TestPutItemsAddSingleComponent(t *testing.T) {
 		if items[i].GetUUID() == uuidOfNewItem {
 			foundCreatedItem = true
 
-			require.Equal(t, "SN|Component", items[i].GetContentType())
+			require.Equal(t, common.SNItemTypeComponent, items[i].GetContentType())
 			require.Equal(t, false, items[i].IsDeleted())
 			require.Equal(t, "Minimal Markdown Editor", items[i].(*Component).Content.GetName())
 		}
@@ -1403,19 +1403,19 @@ func TestDecryptedItemsRemoveDeleted(t *testing.T) {
 	diOne := DecryptedItem{
 		UUID:        "1234",
 		Content:     "abcd",
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 		Deleted:     false,
 	}
 	diTwo := DecryptedItem{
 		UUID:        "2345",
 		Content:     "abcd",
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 		Deleted:     true,
 	}
 	diThree := DecryptedItem{
 		UUID:        "3456",
 		Content:     "abcd",
-		ContentType: "Note",
+		ContentType: common.SNItemTypeNote,
 		Deleted:     false,
 	}
 	dis := DecryptedItems{diOne, diTwo, diThree}
@@ -1593,7 +1593,7 @@ func TestNoteTagging(t *testing.T) {
 
 	getAnimalNotesFilters := ItemFilters{
 		Filters: []Filter{{
-			Type:       "Note",
+			Type:       common.SNItemTypeNote,
 			Key:        "TagTitle",
 			Comparison: "~",
 			Value:      "Animal Facts",
@@ -1634,7 +1634,7 @@ func TestNoteTagging(t *testing.T) {
 
 	// get using regex
 	regexFilter := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Comparison: "~",
 		Key:        "Text",
 		Value:      `not\s(Unix|a vegetable)`,
@@ -1701,7 +1701,7 @@ func TestSearchNotesByUUID(t *testing.T) {
 	var foundItems Items
 
 	filterOne := Filter{
-		Type:  "Note",
+		Type:  common.SNItemTypeNote,
 		Key:   "UUID",
 		Value: dogFactUUID,
 	}
@@ -1757,7 +1757,7 @@ func TestSearchNotesByText(t *testing.T) {
 	var foundItems Items
 
 	filterOne := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Text",
 		Comparison: "contains",
 		Value:      "Cheese",
@@ -1808,7 +1808,7 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 	var foundItems Items
 
 	filterOne := Filter{
-		Type:       "Note",
+		Type:       common.SNItemTypeNote,
 		Key:        "Title",
 		Comparison: "~",
 		Value:      "^Do.*",
@@ -1858,7 +1858,7 @@ func TestSearchTagsByText(t *testing.T) {
 	var foundItems Items
 
 	filterOne := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "Title",
 		Comparison: "contains",
 		Value:      "Bungle",
@@ -1897,7 +1897,7 @@ func TestSearchTagsByRegex(t *testing.T) {
 	var foundItems Items
 
 	filterOne := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "Title",
 		Comparison: "~",
 		Value:      "pp",
@@ -1937,7 +1937,7 @@ func TestSearchItemByUUID(t *testing.T) {
 	var foundItems Items
 
 	filterOne := Filter{
-		Type:       "Tag",
+		Type:       common.SNItemTypeTag,
 		Key:        "Title",
 		Comparison: "==",
 		Value:      "Bungle",
