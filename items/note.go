@@ -30,6 +30,7 @@ func parseNote(i DecryptedItem) Item {
 	n.Deleted = i.Deleted
 	n.UpdatedAt = i.UpdatedAt
 	n.CreatedAt = i.CreatedAt
+	n.DuplicateOf = i.DuplicateOf
 	n.UpdatedAtTimestamp = i.UpdatedAtTimestamp
 	n.CreatedAtTimestamp = i.CreatedAtTimestamp
 	n.ContentSize = len(i.Content)
@@ -277,6 +278,23 @@ type NoteContent struct {
 	NoteType         string             `json:"noteType"`
 	EditorIdentifier string             `json:"editorIdentifier"`
 	Trashed          *bool              `json:"trashed,omitempty"`
+}
+
+func (noteContent NoteContent) ToCheckList() (Checklist, error) {
+	if noteContent.EditorIdentifier != "com.sncommunity.advanced-checklist" {
+		return Checklist{}, fmt.Errorf("note is not a checklist")
+	}
+
+	var checklist Checklist
+
+	err := json.Unmarshal([]byte(noteContent.Text), &checklist)
+	if err != nil {
+		return Checklist{}, err
+	}
+
+	checklist.Title = noteContent.Title
+
+	return checklist, nil
 }
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
