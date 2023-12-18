@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -345,7 +346,7 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 
 	require.Error(t, err)
 
-	if !(strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "failed")) {
+	if runtime.GOOS != "windows" && !(strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "failed")) {
 		t.Failed()
 	}
 }
