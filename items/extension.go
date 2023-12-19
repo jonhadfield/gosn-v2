@@ -72,7 +72,7 @@ func (c Extension) IsDefault() bool {
 
 func (i Items) Extension() (c Extensions) {
 	for _, x := range i {
-		if x.GetContentType() == "Extension" {
+		if x.GetContentType() == common.SNItemTypeExtension {
 			component := x.(*Extension)
 			c = append(c, *component)
 		}
@@ -103,7 +103,7 @@ func NewExtension() Extension {
 
 	var c Extension
 
-	c.ContentType = "Extension"
+	c.ContentType = common.SNItemTypeExtension
 	c.CreatedAt = now
 	c.UUID = GenUUID()
 

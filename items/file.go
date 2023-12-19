@@ -74,7 +74,7 @@ func (c File) IsDefault() bool {
 
 func (i Items) File() (c Files) {
 	for _, x := range i {
-		if slices.Contains([]string{"File", "SN|File"}, x.GetContentType()) {
+		if slices.Contains([]string{"File", common.SNItemTypeFile}, x.GetContentType()) {
 			component := x.(*File)
 			c = append(c, *component)
 		}

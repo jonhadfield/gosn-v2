@@ -478,3 +478,31 @@ func TestFilterTagTitleByNotEqualTo(t *testing.T) {
 	res := applyTagFilters(*gnuTag, itemFilters)
 	require.True(t, res, "failed to match tag by title negative title match")
 }
+
+func TestFilterNoteByTitleAndDeletion(t *testing.T) {
+	scotlandNote := createNote("Scotland", "example", "")
+	englandNote := createNote("England", "example", "")
+	englandNote.Deleted = true
+
+	itemFilters := ItemFilters{
+		Filters: []Filter{
+			{
+				Type:       common.SNItemTypeNote,
+				Key:        "Title",
+				Comparison: "Contans",
+				Value:      "land",
+			},
+			{
+				Type:       common.SNItemTypeNote,
+				Key:        "Deleted",
+				Comparison: "==",
+				Value:      "False",
+			},
+		},
+		MatchAny: true,
+	}
+	res := applyNoteFilters(*scotlandNote, itemFilters, nil)
+	require.True(t, res, "failed to match note by title and deletion status")
+	res = applyNoteFilters(*englandNote, itemFilters, nil)
+	require.False(t, res, "failed to match note by title and deletion status")
+}

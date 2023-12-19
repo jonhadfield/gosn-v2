@@ -12,10 +12,22 @@ const (
 	SyncPath  = "/items/sync" // remote path for making sync calls
 
 	// Type names.
-	SNItemTypeNote      = "Note"
-	SNItemTypeTag       = "Tag"
-	SNItemTypeComponent = "SN|Component"
-	SNItemTypeItemsKey  = "SN|ItemsKey"
+	SNItemTypeNote                 = "Note"
+	SNItemTypeTag                  = "Tag"
+	SNItemTypeComponent            = "SN|Component"
+	SNItemTypeItemsKey             = "SN|ItemsKey"
+	SNItemTypeTheme                = "SN|Theme"
+	SNItemTypePrivileges           = "SN|Privileges"
+	SNItemTypeExtension            = "Extension"
+	SNItemTypeSFExtension          = "SF|Extension"
+	SNItemTypeSFMFA                = "SF|MFA"
+	SNItemTypeSmartTag             = "SN|SmartTag"
+	SNItemTypeFileSafeFileMetaData = "SN|FileSafe|FileMetadata"
+	SNItemTypeFileSafeIntegration  = "SN|FileSafe|Integration"
+	SNItemTypeFileSafeCredentials  = "SN|FileSafe|Credentials"
+	SNItemTypeUserPreferences      = "SN|UserPreferences"
+	SNItemTypeExtensionRepo        = "SN|File"
+	SNItemTypeFile                 = "SN|ExtensionRepo"
 
 	// Authentication.
 	AuthParamsPath    = "/v2/login-params" // remote path for getting auth parameters
