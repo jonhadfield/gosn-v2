@@ -325,11 +325,17 @@ type EncryptedItem struct {
 	EncItemKey  string `json:"enc_item_key"`
 	Deleted     bool   `json:"deleted"`
 	// Default            bool    `json:"isDefault"`
-	CreatedAt          string  `json:"created_at"`
-	UpdatedAt          string  `json:"updated_at"`
-	CreatedAtTimestamp int64   `json:"created_at_timestamp"`
-	UpdatedAtTimestamp int64   `json:"updated_at_timestamp"`
-	DuplicateOf        *string `json:"duplicate_of,omitempty"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+	CreatedAtTimestamp  int64   `json:"created_at_timestamp"`
+	UpdatedAtTimestamp  int64   `json:"updated_at_timestamp"`
+	DuplicateOf         *string `json:"duplicate_of,omitempty"`
+	AuthHash            *string `json:"auth_hash,omitempty"`
+	UpdatedWithSession  *string `json:"updated_with_session,omitempty"`
+	KeySystemIdentifier *string `json:"key_system_identifier,omitempty"`
+	SharedVaultUUID     *string `json:"shared_vault_uuid,omitempty"`
+	UserUUID            *string `json:"user_uuid,omitempty"`
+	LastEditedByUUID    *string `json:"last_edited_by_uuid,omitempty"`
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
@@ -345,17 +351,23 @@ func (ei EncryptedItem) IsDeleted() bool {
 }
 
 type DecryptedItem struct {
-	UUID               string `json:"uuid"`
-	ItemsKeyID         string `json:"items_key_id,omitempty"`
-	Content            string `json:"content"`
-	ContentType        string `json:"content_type"`
-	DuplicateOf        string `json:"duplicate_of,omitempty"`
-	Deleted            bool   `json:"deleted"`
-	Default            bool   `json:"isDefault"`
-	CreatedAt          string `json:"created_at"`
-	UpdatedAt          string `json:"updated_at"`
-	CreatedAtTimestamp int64  `json:"created_at_timestamp"`
-	UpdatedAtTimestamp int64  `json:"updated_at_timestamp"`
+	UUID                string  `json:"uuid"`
+	ItemsKeyID          string  `json:"items_key_id,omitempty"`
+	Content             string  `json:"content"`
+	ContentType         string  `json:"content_type"`
+	DuplicateOf         string  `json:"duplicate_of,omitempty"`
+	Deleted             bool    `json:"deleted"`
+	Default             bool    `json:"isDefault"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+	CreatedAtTimestamp  int64   `json:"created_at_timestamp"`
+	UpdatedAtTimestamp  int64   `json:"updated_at_timestamp"`
+	AuthHash            *string `json:"auth_hash,omitempty"`
+	UpdatedWithSession  *string `json:"updated_with_session,omitempty"`
+	KeySystemIdentifier *string `json:"key_system_identifier,omitempty"`
+	SharedVaultUUID     *string `json:"shared_vault_uuid,omitempty"`
+	UserUUID            *string `json:"user_uuid,omitempty"`
+	LastEditedByUUID    *string `json:"last_edited_by_uuid,omitempty"`
 }
 
 type DecryptedItems []DecryptedItem
@@ -536,29 +548,29 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 		pi = parseTag(di)
 	case common.SNItemTypeComponent:
 		pi = parseComponent(di)
-	case "SN|Theme":
+	case common.SNItemTypeTheme:
 		pi = parseTheme(di)
-	case "SN|Privileges":
+	case common.SNItemTypePrivileges:
 		pi = parsePrivileges(di)
-	case "Extension":
+	case common.SNItemTypeExtension:
 		pi = parseExtension(di)
-	case "SF|Extension":
+	case common.SNItemTypeSFExtension:
 		pi = parseSFExtension(di)
-	case "SF|MFA":
+	case common.SNItemTypeSFMFA:
 		pi = parseSFMFA(di)
-	case "SN|SmartTag":
+	case common.SNItemTypeSmartTag:
 		pi = parseSmartTag(di)
-	case "SN|FileSafe|FileMetadata":
+	case common.SNItemTypeFileSafeFileMetaData:
 		pi = parseFileSafeFileMetadata(di)
-	case "SN|FileSafe|Integration":
+	case common.SNItemTypeFileSafeIntegration:
 		pi = parseFileSafeIntegration(di)
-	case "SN|UserPreferences":
+	case common.SNItemTypeUserPreferences:
 		pi = parseUserPreferences(di)
-	case "SN|ExtensionRepo":
+	case common.SNItemTypeExtensionRepo:
 		pi = parseExtensionRepo(di)
-	case "SN|FileSafe|Credentials":
+	case common.SNItemTypeFileSafeCredentials:
 		pi = parseFileSafeCredentials(di)
-	case "SN|File":
+	case common.SNItemTypeFile:
 		pi = parseFile(di)
 	default:
 		return nil, fmt.Errorf("unhandled type1 '%s' %s", di.ContentType, di.Content)
@@ -582,29 +594,29 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseTag(i)
 		case common.SNItemTypeComponent:
 			pi = parseComponent(i)
-		case "SN|Theme":
+		case common.SNItemTypeTheme:
 			pi = parseTheme(i)
-		case "SN|Privileges":
+		case common.SNItemTypePrivileges:
 			pi = parsePrivileges(i)
-		case "Extension":
+		case common.SNItemTypeExtension:
 			pi = parseExtension(i)
-		case "SF|Extension":
+		case common.SNItemTypeSFExtension:
 			pi = parseSFExtension(i)
-		case "SF|MFA":
+		case common.SNItemTypeSFMFA:
 			pi = parseSFMFA(i)
-		case "SN|SmartTag":
+		case common.SNItemTypeSmartTag:
 			pi = parseSmartTag(i)
-		case "SN|FileSafe|FileMetadata":
+		case common.SNItemTypeFileSafeFileMetaData:
 			pi = parseFileSafeFileMetadata(i)
-		case "SN|FileSafe|Integration":
+		case common.SNItemTypeFileSafeIntegration:
 			pi = parseFileSafeIntegration(i)
-		case "SN|UserPreferences":
+		case common.SNItemTypeUserPreferences:
 			pi = parseUserPreferences(i)
-		case "SN|ExtensionRepo":
+		case common.SNItemTypeExtensionRepo:
 			pi = parseExtensionRepo(i)
-		case "SN|FileSafe|Credentials":
+		case common.SNItemTypeFileSafeCredentials:
 			pi = parseFileSafeCredentials(i)
-		case "SN|File":
+		case common.SNItemTypeFile:
 			pi = parseFile(i)
 		default:
 			return nil, fmt.Errorf("unhandled type2 '%s' %s", i.ContentType, i.Content)
@@ -648,7 +660,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &cc, nil
-	case "SN|Theme":
+	case common.SNItemTypeTheme:
 		var tc ThemeContent
 		if err = json.Unmarshal([]byte(input), &tc); err != nil {
 			err = fmt.Errorf("processContentModel | %w", err)
@@ -657,7 +669,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &tc, nil
-	case "SN|Privileges":
+	case common.SNItemTypePrivileges:
 		var pc PrivilegesContent
 		if err = json.Unmarshal([]byte(input), &pc); err != nil {
 			if err = json.Unmarshal([]byte(input), &pc); err != nil {
@@ -668,7 +680,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &pc, nil
-	case "Extension":
+	case common.SNItemTypeExtension:
 		var ec ExtensionContent
 		if err = json.Unmarshal([]byte(input), &ec); err != nil {
 			err = fmt.Errorf("processContentModel | %w", err)
@@ -677,7 +689,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &ec, nil
-	case "SF|Extension":
+	case common.SNItemTypeSFExtension:
 		var sfe SFExtensionContent
 
 		if len(input) > 0 {
@@ -689,7 +701,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &sfe, nil
-	case "SF|MFA":
+	case common.SNItemTypeSFMFA:
 		var sfm SFMFAContent
 
 		if len(input) > 0 {
@@ -701,7 +713,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &sfm, nil
-	case "SN|SmartTag":
+	case common.SNItemTypeSmartTag:
 		var st SmartTagContent
 
 		if len(input) > 0 {
@@ -714,7 +726,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		return &st, nil
 
-	case "SN|FileSafe|FileMetadata":
+	case common.SNItemTypeFileSafeFileMetaData:
 		var fsfm FileSafeFileMetaDataContent
 
 		if len(input) > 0 {
@@ -727,7 +739,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		return &fsfm, nil
 
-	case "SN|FileSafe|Integration":
+	case common.SNItemTypeFileSafeIntegration:
 		var fsi FileSafeIntegrationContent
 
 		if len(input) > 0 {
@@ -739,7 +751,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &fsi, nil
-	case "SN|UserPreferences":
+	case common.SNItemTypeUserPreferences:
 		var upc UserPreferencesContent
 
 		if len(input) > 0 {
@@ -751,7 +763,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &upc, nil
-	case "SN|ExtensionRepo":
+	case common.SNItemTypeExtensionRepo:
 		var erc ExtensionRepoContent
 
 		if len(input) > 0 {
@@ -763,7 +775,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &erc, nil
-	case "SN|FileSafe|Credentials":
+	case common.SNItemTypeFileSafeCredentials:
 		var fsc FileSafeCredentialsContent
 
 		if len(input) > 0 {
@@ -775,7 +787,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &fsc, nil
-	case "SN|File":
+	case common.SNItemTypeFile:
 		var fc FileContent
 
 		if len(input) > 0 {
@@ -823,7 +835,7 @@ func (ei *EncryptedItems) RemoveUnsupported() {
 	var supported EncryptedItems
 
 	for _, i := range *ei {
-		if !slices.Contains([]string{"SF|Extension"}, i.ContentType) && !strings.HasPrefix(i.Content, "003") {
+		if !slices.Contains([]string{common.SNItemTypeSFExtension}, i.ContentType) && !strings.HasPrefix(i.Content, "003") {
 			supported = append(supported, i)
 		}
 		// if !strings.HasPrefix(i.Content, "003") {
@@ -1437,10 +1449,10 @@ func DecryptContent(e EncryptedItem, encryptionKey string) (content []byte, err 
 
 	c := string(content)
 	if !slices.Contains([]string{
-		"SN|FileSafe|Integration",
-		"SN|FileSafe|Credentials",
+		common.SNItemTypeFileSafeIntegration,
+		common.SNItemTypeFileSafeCredentials,
 		common.SNItemTypeComponent,
-		"SN|Theme",
+		common.SNItemTypeTheme,
 	}, e.ContentType) && len(c) > 250 {
 		return
 	}

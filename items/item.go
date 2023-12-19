@@ -36,17 +36,23 @@ type Content interface {
 
 // ItemCommon contains the fields common to all SN Items.
 type ItemCommon struct {
-	UUID               string
-	ItemsKeyID         string
-	EncryptedItemKey   string
-	ContentType        string
-	Deleted            bool
-	DuplicateOf        string
-	CreatedAt          string
-	UpdatedAt          string
-	CreatedAtTimestamp int64
-	UpdatedAtTimestamp int64
-	ContentSize        int
+	UUID                string
+	ItemsKeyID          string
+	EncryptedItemKey    string
+	ContentType         string
+	Deleted             bool
+	DuplicateOf         string
+	CreatedAt           string
+	UpdatedAt           string
+	CreatedAtTimestamp  int64
+	UpdatedAtTimestamp  int64
+	ContentSize         int
+	AuthHash            *string
+	UpdatedWithSession  *string
+	KeySystemIdentifier *string
+	SharedVaultUUID     *string
+	UserUUID            *string
+	LastEditedByUUID    *string
 }
 
 func GetMatchingItem(uuid string, iks []session.SessionItemsKey) session.SessionItemsKey {

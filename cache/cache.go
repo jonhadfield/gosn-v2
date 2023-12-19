@@ -489,9 +489,9 @@ func (i Items) Validate() error {
 			return fmt.Errorf("cache item is missing content_type: %+v", i[x])
 		case i[x].Content == "":
 			return fmt.Errorf("cache item is missing content: %+v", i[x])
-		case i[x].EncItemKey == "" && i[x].ContentType != "SF|Extension":
+		case i[x].EncItemKey == "" && i[x].ContentType != common.SNItemTypeSFExtension:
 			return fmt.Errorf("cache item is missing enc_item_key: %+v", i[x])
-		case i[x].ContentType != common.SNItemTypeItemsKey && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "":
+		case i[x].ContentType != common.SNItemTypeItemsKey && i[x].ContentType != common.SNItemTypeSFExtension && i[x].ItemsKeyID == "":
 			return fmt.Errorf("cache item is missing items_key_id: %+v", i[x])
 		}
 	}
@@ -513,9 +513,9 @@ func (i Items) ValidateSaved() error {
 			return fmt.Errorf("cache item is missing content_type: %+v", i[x])
 			// case i[x].Content == "":
 			// 	return fmt.Errorf("cache item is missing content: %+v", i[x])
-			// case i[x].EncItemKey == "" && i[x].ContentType != "SF|Extension":
+			// case i[x].EncItemKey == "" && i[x].ContentType != common.SNItemTypeSFExtension:
 			// 	return fmt.Errorf("cache item is missing enc_item_key: %+v", i[x])
-			// case i[x].ContentType != common.SNItemTypeItemsKey && i[x].ContentType != "SF|Extension" && i[x].ItemsKeyID == "":
+			// case i[x].ContentType != common.SNItemTypeItemsKey && i[x].ContentType != common.SNItemTypeSFExtension && i[x].ItemsKeyID == "":
 			// 	return fmt.Errorf("cache item is missing items_key_id: %+v", i[x])
 			// }
 		}
