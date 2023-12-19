@@ -106,7 +106,7 @@ func NewTheme() Theme {
 
 	var c Theme
 
-	c.ContentType = "SN|Theme"
+	c.ContentType = common.SNItemTypeTheme
 	c.CreatedAt = now
 	c.UUID = GenUUID()
 

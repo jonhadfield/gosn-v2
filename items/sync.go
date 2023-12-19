@@ -937,14 +937,14 @@ func DeleteContent(session *session.Session, everything bool) (deleted int, err 
 		typesToDelete = append(typesToDelete, []string{
 			common.SNItemTypeComponent,
 			"SN|FileSafe|FileMetaData",
-			"SN|FileSafe|Credentials",
-			"SN|FileSafe|Integration",
-			"SN|Theme",
-			"SN|ExtensionRepo",
-			"SN|Privileges",
-			"Extension",
-			"SN|UserPreferences",
-			"SN|File",
+			common.SNItemTypeFileSafeCredentials,
+			common.SNItemTypeFileSafeIntegration,
+			common.SNItemTypeTheme,
+			common.SNItemTypeExtensionRepo,
+			common.SNItemTypePrivileges,
+			common.SNItemTypeExtension,
+			common.SNItemTypeUserPreferences,
+			common.SNItemTypeFile,
 		}...)
 	}
 

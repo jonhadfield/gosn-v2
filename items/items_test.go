@@ -181,7 +181,7 @@ func _deleteAllTagsNotesComponents(s *session.Session) (err error) {
 			del = true
 		case common.SNItemTypeComponent:
 			del = true
-		case "SN|UserPreferences":
+		case common.SNItemTypeUserPreferences:
 			del = true
 
 		default:

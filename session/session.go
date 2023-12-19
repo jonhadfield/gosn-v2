@@ -98,6 +98,7 @@ type MinimalSession struct {
 	RefreshToken      string         `json:"refresh_token"`
 	AccessExpiration  int64          `json:"access_expiration"`
 	RefreshExpiration int64          `json:"refresh_expiration"`
+	SchemaValidation  bool
 }
 
 // func (s *Session) Export(path string) error {
@@ -327,6 +328,7 @@ func makeMinimalSessionString(s Session) string {
 		RefreshToken:      s.RefreshToken,
 		AccessExpiration:  s.AccessExpiration,
 		RefreshExpiration: s.RefreshExpiration,
+		SchemaValidation:  s.SchemaValidation,
 	}
 
 	sb, err := json.Marshal(ms)
