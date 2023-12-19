@@ -8,6 +8,7 @@ import (
 )
 
 func validateContentSchema(schema *jsonschema.Schema, itemContent interface{}) error {
+	// fmt.Printf("validateContentSchema: %v\n", itemContent)
 	if schema == nil {
 		return fmt.Errorf("schema is nil")
 	}

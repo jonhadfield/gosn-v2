@@ -75,7 +75,7 @@ func (c FileSafeIntegration) IsDefault() bool {
 
 func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
 	for _, x := range i {
-		if slices.Contains([]string{"FileSafeIntegration", "SN|FileSafe|Integration"}, x.GetContentType()) {
+		if slices.Contains([]string{"FileSafeIntegration", common.SNItemTypeFileSafeIntegration}, x.GetContentType()) {
 			component := x.(*FileSafeIntegration)
 			c = append(c, *component)
 		}

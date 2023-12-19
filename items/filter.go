@@ -2,11 +2,12 @@ package items
 
 import (
 	"fmt"
-	"github.com/jonhadfield/gosn-v2/common"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/jonhadfield/gosn-v2/common"
 )
 
 type ItemFilters struct {
@@ -467,7 +468,6 @@ func applyNoteFilters(item Note, itemFilters ItemFilters, tags Tags) bool {
 			}
 		case "duplicateof": // string
 			if item.DuplicateOf == filter.Value {
-
 				if itemFilters.MatchAny {
 					return true
 				}

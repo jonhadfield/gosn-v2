@@ -101,7 +101,7 @@ func NewPrivileges() Privileges {
 
 	var c Privileges
 
-	c.ContentType = "SN|Privileges"
+	c.ContentType = common.SNItemTypePrivileges
 	c.CreatedAt = now
 	c.UUID = GenUUID()
 
