@@ -180,6 +180,10 @@ func (c FileSafeCredentials) GetUUID() string {
 	return c.UUID
 }
 
+func (c FileSafeCredentials) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *FileSafeCredentials) SetUUID(u string) {
 	c.UUID = u
 }

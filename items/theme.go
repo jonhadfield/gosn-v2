@@ -181,6 +181,10 @@ func (c Theme) GetUUID() string {
 	return c.UUID
 }
 
+func (c Theme) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *Theme) SetUUID(u string) {
 	c.UUID = u
 }

@@ -1,7 +1,6 @@
 package items
 
 import (
-	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
@@ -105,7 +104,6 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 			}
 		case "==":
 			if content.EditorIdentifier == f.Value {
-				fmt.Println("GOT A MATCH")
 				if matchAny {
 					result = true
 					done = true

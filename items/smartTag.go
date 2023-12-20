@@ -176,6 +176,10 @@ func (c SmartTag) GetUUID() string {
 	return c.UUID
 }
 
+func (c SmartTag) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *SmartTag) SetUUID(u string) {
 	c.UUID = u
 }
