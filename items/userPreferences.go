@@ -192,6 +192,10 @@ func (c UserPreferences) GetUUID() string {
 	return c.UUID
 }
 
+func (c UserPreferences) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *UserPreferences) SetUUID(u string) {
 	c.UUID = u
 }

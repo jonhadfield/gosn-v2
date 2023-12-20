@@ -72,6 +72,8 @@ func (i Items) Notes() (n Notes) {
 	for _, x := range i {
 		if x.GetContentType() == common.SNItemTypeNote {
 			note := x.(*Note)
+			note.DuplicateOf = x.GetDuplicateOf()
+
 			n = append(n, *note)
 		}
 	}
@@ -196,6 +198,10 @@ func (n Note) GetUUID() string {
 	return n.UUID
 }
 
+func (c Note) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (n *Note) SetUUID(u string) {
 	n.UUID = u
 }
@@ -294,6 +300,11 @@ func (noteContent NoteContent) ToCheckList() (Checklist, error) {
 	}
 
 	checklist.Title = noteContent.Title
+	if noteContent.Trashed != nil {
+		checklist.Trashed = *noteContent.Trashed
+	}
+
+	// checklist.
 
 	return checklist, nil
 }

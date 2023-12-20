@@ -191,6 +191,10 @@ func (c Component) GetUUID() string {
 	return c.UUID
 }
 
+func (c Component) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *Component) SetUUID(u string) {
 	c.UUID = u
 }

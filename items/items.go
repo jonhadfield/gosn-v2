@@ -194,7 +194,7 @@ func DecryptAndParseItem(ei EncryptedItem, s *session.Session) (o Item, err erro
 	// 	ik := GetMatchingItem(ei.ItemsKeyID, s.ImporterItemsKeys)
 	//
 	// 	di, err = DecryptItem(ei, s, ItemsKeys{ik})
-	// } else {
+	// } else
 	di, err = DecryptItem(ei, s, []session.SessionItemsKey{})
 	// }
 
@@ -534,6 +534,16 @@ func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
 type ItemReferences []ItemReference
 
 type Items []Item
+
+func (i Items) UUIDs() []string {
+	var uuids []string
+
+	for _, ii := range i {
+		uuids = append(uuids, ii.GetUUID())
+	}
+
+	return uuids
+}
 
 func ParseItem(di DecryptedItem) (p Item, err error) {
 	var pi Item
@@ -1448,6 +1458,7 @@ func DecryptContent(e EncryptedItem, encryptionKey string) (content []byte, err 
 	}
 
 	c := string(content)
+
 	if !slices.Contains([]string{
 		common.SNItemTypeFileSafeIntegration,
 		common.SNItemTypeFileSafeCredentials,

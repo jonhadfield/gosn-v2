@@ -178,6 +178,10 @@ func (c SFExtension) GetUUID() string {
 	return c.UUID
 }
 
+func (c SFExtension) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *SFExtension) SetUUID(u string) {
 	c.UUID = u
 }

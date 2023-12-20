@@ -66,6 +66,17 @@ func DecryptItem(e EncryptedItem, s *session.Session, iks []session.SessionItems
 	di.CreatedAt = e.CreatedAt
 	di.CreatedAtTimestamp = e.CreatedAtTimestamp
 	di.UpdatedAtTimestamp = e.UpdatedAtTimestamp
+
+	if e.DuplicateOf != nil {
+		di.DuplicateOf = *e.DuplicateOf
+	}
+
+	di.AuthHash = e.AuthHash
+	di.UpdatedWithSession = e.UpdatedWithSession
+	di.KeySystemIdentifier = e.KeySystemIdentifier
+	di.SharedVaultUUID = e.SharedVaultUUID
+	di.UserUUID = e.UserUUID
+	di.LastEditedByUUID = e.LastEditedByUUID
 	di.Content = string(content)
 
 	return di, err
@@ -169,6 +180,18 @@ func DecryptItems(s *session.Session, ei EncryptedItems, iks []session.SessionIt
 		di.CreatedAt = e.CreatedAt
 		di.CreatedAtTimestamp = e.CreatedAtTimestamp
 		di.UpdatedAtTimestamp = e.UpdatedAtTimestamp
+
+		if e.DuplicateOf != nil {
+			di.DuplicateOf = *e.DuplicateOf
+		}
+
+		di.AuthHash = e.AuthHash
+		di.UpdatedWithSession = e.UpdatedWithSession
+		di.KeySystemIdentifier = e.KeySystemIdentifier
+		di.SharedVaultUUID = e.SharedVaultUUID
+		di.UserUUID = e.UserUUID
+		di.LastEditedByUUID = e.LastEditedByUUID
+
 		di.Content = string(content)
 
 		o = append(o, di)
