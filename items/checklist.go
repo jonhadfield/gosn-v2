@@ -28,9 +28,14 @@ type ChecklistGroup struct {
 	Collapsed  bool               `json:"collapsed"`
 }
 type Checklist struct {
+	UUID            string
+	Duplicates      []Checklist
 	Title           string
 	SchemaVersion   string           `json:"schemaVersion"`
 	Groups          []ChecklistGroup `json:"groups"`
 	DefaultSections []DefaultSection `json:"defaultSections"`
+	UpdatedAt       time.Time        `json:"updatedAt"`
+	Trashed         bool             `json:"trashed"`
 }
+
 type Checklists []Checklist

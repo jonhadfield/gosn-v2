@@ -180,6 +180,10 @@ func (c File) GetUUID() string {
 	return c.UUID
 }
 
+func (c File) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *File) SetUUID(u string) {
 	c.UUID = u
 }

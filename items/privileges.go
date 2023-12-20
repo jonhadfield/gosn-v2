@@ -176,6 +176,10 @@ func (c Privileges) GetUUID() string {
 	return c.UUID
 }
 
+func (c Privileges) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *Privileges) SetUUID(u string) {
 	c.UUID = u
 }
