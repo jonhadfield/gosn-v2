@@ -226,6 +226,10 @@ func (t Tag) GetUUID() string {
 	return t.UUID
 }
 
+func (c Tag) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (t *Tag) SetUUID(u string) {
 	t.UUID = u
 }

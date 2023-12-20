@@ -178,6 +178,10 @@ func (c Extension) GetUUID() string {
 	return c.UUID
 }
 
+func (c Extension) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *Extension) SetUUID(u string) {
 	c.UUID = u
 }

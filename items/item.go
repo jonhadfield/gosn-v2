@@ -27,6 +27,7 @@ type Item interface {
 	GetContent() Content
 	SetContent(Content)
 	IsDefault() bool
+	GetDuplicateOf() string
 }
 
 type Content interface {

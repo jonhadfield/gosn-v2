@@ -179,6 +179,10 @@ func (c ExtensionRepo) GetUUID() string {
 	return c.UUID
 }
 
+func (c ExtensionRepo) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *ExtensionRepo) SetUUID(u string) {
 	c.UUID = u
 }

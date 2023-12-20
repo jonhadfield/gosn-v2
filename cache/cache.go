@@ -49,6 +49,20 @@ type SyncOutput struct {
 
 type Items []Item
 
+func (i Items) UUIDs() []string {
+	var uuids []string
+
+	for _, ii := range i {
+		if ii.Deleted {
+			continue
+		}
+
+		uuids = append(uuids, ii.UUID)
+	}
+
+	return uuids
+}
+
 func (s *Session) gosn() *session.Session {
 	gs := session.Session{
 		Debug:             s.Debug,
@@ -102,6 +116,10 @@ func (pi Items) ToItems(s *Session) (its items.Items, err error) {
 			UpdatedAt:          ei.UpdatedAt,
 			DuplicateOf:        ei.DuplicateOf,
 		})
+
+		if ei.ContentType == common.SNItemTypeNote && ei.DuplicateOf != nil {
+			log.DebugPrint(s.Debug, fmt.Sprintf("%s is duplicate of %s:", ei.UUID, *ei.DuplicateOf), 30)
+		}
 	}
 
 	if eItems != nil {

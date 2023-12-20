@@ -178,6 +178,10 @@ func (c SFMFA) GetUUID() string {
 	return c.UUID
 }
 
+func (c SFMFA) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *SFMFA) SetUUID(u string) {
 	c.UUID = u
 }

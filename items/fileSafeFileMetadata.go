@@ -178,6 +178,10 @@ func (c FileSafeFileMetaData) GetUUID() string {
 	return c.UUID
 }
 
+func (c FileSafeFileMetaData) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *FileSafeFileMetaData) SetUUID(u string) {
 	c.UUID = u
 }

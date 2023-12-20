@@ -181,6 +181,10 @@ func (c FileSafeIntegration) GetUUID() string {
 	return c.UUID
 }
 
+func (c FileSafeIntegration) GetDuplicateOf() string {
+	return c.DuplicateOf
+}
+
 func (c *FileSafeIntegration) SetUUID(u string) {
 	c.UUID = u
 }

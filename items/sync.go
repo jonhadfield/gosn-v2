@@ -162,7 +162,6 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 func updateTimestampsOnSavedItems(orig, synced EncryptedItems) (updatedSaved EncryptedItems) {
 	// for each saved item, update the times on the input items	}
 	for x := range synced {
-		// fmt.Printf("SAVED ***** %#+v\n", syncOutput.SavedItems[x])
 		for y := range orig {
 			if synced[x].UUID == orig[y].UUID {
 				updated := orig[y]
