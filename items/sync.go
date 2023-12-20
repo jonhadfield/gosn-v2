@@ -118,7 +118,7 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 			}
 		}
 
-		return attempt < 3, rErr
+		return attempt < 4, rErr
 	})
 
 	if rErr != nil {
@@ -136,21 +136,15 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 	so.Unsaved.DeDupe()
 	so.Unsaved.RemoveUnsupported()
 	so.SavedItems = sResp.SavedItems
-	// fmt.Println("PRE0:", len(so.SavedItems))
-
 	so.SavedItems.DeDupe()
-	// fmt.Println("PRE1:", len(so.SavedItems))
 	so.SavedItems.RemoveUnsupported()
-	// fmt.Println("PRE2:", len(so.SavedItems))
 	so.Conflicts = sResp.Conflicts
 	so.Conflicts.DeDupe()
 	so.Cursor = sResp.CursorToken
 	so.SyncToken = sResp.SyncToken
 
 	// update timestamps on saved items
-	// fmt.Println("PRE:", len(so.SavedItems))
 	so.SavedItems = updateTimestampsOnSavedItems(i.Items, so.SavedItems)
-	// fmt.Println("POST:", len(so.SavedItems))
 
 	log.DebugPrint(i.Session.Debug,
 		fmt.Sprintf("Sync | SN returned %d items, %d saved items, and %d conflicts, with syncToken %s",
@@ -759,6 +753,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 		if err != nil {
 			panic(err)
 		}
+
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | request size: %d bytes",
+			len(encItemJSON)), common.MaxDebugChars)
 	}
 
 	var requestBody []byte
