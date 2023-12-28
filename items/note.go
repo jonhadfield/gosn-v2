@@ -287,16 +287,16 @@ type NoteContent struct {
 	Trashed          *bool              `json:"trashed,omitempty"`
 }
 
-func (noteContent NoteContent) ToCheckList() (Checklist, error) {
+func (noteContent NoteContent) ToAdvancedCheckList() (AdvancedChecklist, error) {
 	if noteContent.EditorIdentifier != "com.sncommunity.advanced-checklist" {
-		return Checklist{}, fmt.Errorf("note is not a checklist")
+		return AdvancedChecklist{}, fmt.Errorf("note is not a checklist")
 	}
 
-	var checklist Checklist
+	var checklist AdvancedChecklist
 
 	err := json.Unmarshal([]byte(noteContent.Text), &checklist)
 	if err != nil {
-		return Checklist{}, err
+		return AdvancedChecklist{}, err
 	}
 
 	checklist.Title = noteContent.Title
@@ -307,6 +307,26 @@ func (noteContent NoteContent) ToCheckList() (Checklist, error) {
 	// checklist.
 
 	return checklist, nil
+}
+
+func (noteContent NoteContent) ToTaskList() (Tasklist, error) {
+	if noteContent.EditorIdentifier != "org.standardnotes.simple-task-editor" {
+		return Tasklist{}, fmt.Errorf("note is not a task list")
+	}
+
+	var taskList Tasklist
+
+	err := json.Unmarshal([]byte(noteContent.Text), &taskList)
+	if err != nil {
+		return Tasklist{}, err
+	}
+
+	taskList.Title = noteContent.Title
+	if noteContent.Trashed != nil {
+		taskList.Trashed = *noteContent.Trashed
+	}
+
+	return taskList, nil
 }
 
 func (noteContent *NoteContent) GetUpdateTime() (time.Time, error) {
