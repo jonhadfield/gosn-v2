@@ -4,13 +4,12 @@ go 1.20
 
 require (
 	github.com/asdine/storm/v3 v3.2.1
-	github.com/dlclark/regexp2 v1.10.0
 	github.com/google/uuid v1.5.0
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
-	github.com/spf13/viper v1.18.1
+	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.8.4
 	github.com/zalando/go-keyring v0.2.3
 	go.elara.ws/pcre v0.0.0-20230805032557-4ce849193f64
