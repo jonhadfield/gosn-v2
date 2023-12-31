@@ -83,6 +83,8 @@ func (s *Session) gosn() *session.Session {
 func (pi Items) ToItems(s *Session) (its items.Items, err error) {
 	log.DebugPrint(s.Debug, fmt.Sprintf("ToItems | Converting %d cache items to gosn items", len(pi)), common.MaxDebugChars)
 
+	// start := time.Now()
+
 	var eItems items.EncryptedItems
 
 	for _, ei := range pi {
@@ -118,7 +120,7 @@ func (pi Items) ToItems(s *Session) (its items.Items, err error) {
 		})
 
 		if ei.ContentType == common.SNItemTypeNote && ei.DuplicateOf != nil {
-			log.DebugPrint(s.Debug, fmt.Sprintf("%s is duplicate of %s:", ei.UUID, *ei.DuplicateOf), 30)
+			log.DebugPrint(s.Debug, fmt.Sprintf("%s: %s is duplicate of %s", ei.ContentType, ei.UUID, *ei.DuplicateOf), 120)
 		}
 	}
 
@@ -132,11 +134,12 @@ func (pi Items) ToItems(s *Session) (its items.Items, err error) {
 		}
 
 		its, err = eItems.DecryptAndParse(s.Session)
-
 		if err != nil {
 			return
 		}
 	}
+
+	// log.DebugPrint(s.Debug, fmt.Sprintf("ToItems took: %s", time.Since(start).String()), 50)
 
 	return
 }
