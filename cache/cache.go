@@ -977,12 +977,6 @@ func processCachedItemsKeys(s *Session, eiks items.EncryptedItems) error {
 		log.DebugPrint(s.Debug, fmt.Sprintf("Sync | decrypting and parsing %d ItemsKeys", len(eiks)), common.MaxDebugChars)
 	}
 
-	// fmt.Printf("PRE-SYNC ITEMS KEYS === START\n")
-	// for _, x := range eiks {
-	// fmt.Printf("ITEMS KEY: %+v\n", x)
-	// }
-	// fmt.Printf("PRE-SYNC ITEMS KEYS === END\n")
-
 	iks, err := items.DecryptAndParseItemKeys(s.MasterKey, eiks)
 	if err != nil {
 		return err
