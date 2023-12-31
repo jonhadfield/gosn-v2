@@ -269,7 +269,7 @@ func TestCompleteAdvancedChecklistTask(t *testing.T) {
 func TestDeleteAdvancedChecklistTask(t *testing.T) {
 	cl := testAdvancedChecklist()
 
-	require.NoError(t, cl.DeleteAdvancedChecklistTask("Group 1", "Task 2"))
+	require.NoError(t, cl.DeleteTask("Group 1", "Task 2"))
 	require.Len(t, cl.Groups, 2)
 	require.Len(t, cl.Groups[0].Tasks, 2)
 	require.Len(t, cl.Groups[1].Tasks, 3)
