@@ -701,23 +701,6 @@ func (cis ConflictedItems) Validate(debug bool) error {
 	return nil
 }
 
-//
-// func lesserOf(first, second int) int {
-//	if first < second {
-//		if first < 0 {
-//			return 0
-//		}
-//
-//		return first
-//	}
-//
-//	if second < 0 {
-//		return 0
-//	}
-//
-//	return second
-// }
-
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
 	// log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
