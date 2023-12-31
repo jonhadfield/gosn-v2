@@ -1,6 +1,7 @@
 package common
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -24,7 +25,7 @@ const (
 	SNItemTypeSmartTag             = "SN|SmartTag"
 	SNItemTypeFileSafeFileMetaData = "SN|FileSafe|FileMetadata"
 	SNItemTypeFileSafeIntegration  = "SN|FileSafe|Integration"
-	SNItemTypeFileSafeCredentials  = "SN|FileSafe|Credentials"
+	SNItemTypeFileSafeCredentials  = "SN|FileSafe|Credentials" //nolint:gosec
 	SNItemTypeUserPreferences      = "SN|UserPreferences"
 	SNItemTypeExtensionRepo        = "SN|File"
 	SNItemTypeFile                 = "SN|ExtensionRepo"
@@ -56,6 +57,13 @@ const (
 
 func NewHTTPClient() *retryablehttp.Client {
 	c := retryablehttp.NewClient()
+
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConns = 100
+	t.MaxConnsPerHost = 100
+	t.MaxIdleConnsPerHost = 100
+	c.HTTPClient.Transport = t
+
 	c.RetryMax = MaxRequestRetries
 	c.Backoff = retryablehttp.DefaultBackoff
 	c.HTTPClient.Timeout = RequestTimeout * time.Second
