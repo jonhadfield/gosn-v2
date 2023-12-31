@@ -83,7 +83,6 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		}
 		log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | attempt %d with page size %d", attempt, ps), common.MaxDebugChars)
 		var rErr error
-
 		sResp, rErr = syncItemsViaAPI(i)
 		if rErr != nil {
 			log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()), common.MaxDebugChars)
@@ -721,7 +720,7 @@ func (cis ConflictedItems) Validate(debug bool) error {
 
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
-	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
+	// log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
 
 	// determine how many items to retrieve with each call
 	var limit int
@@ -804,7 +803,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	// fmt.Println("requestBody", string(eee))
 
 	var responseBody []byte
-	responseBody, err = makeSyncRequest(*input.Session, requestBody)
+	responseBody, err = makeSyncRequest(input.Session, requestBody)
 	// fmt.Println("responseBody", string(responseBody))
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
