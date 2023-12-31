@@ -288,15 +288,17 @@ type NoteContent struct {
 }
 
 func (noteContent NoteContent) ToAdvancedCheckList() (AdvancedChecklist, error) {
-	if noteContent.EditorIdentifier != "com.sncommunity.advanced-checklist" {
+	if noteContent.EditorIdentifier != AdvancedChecklistNoteType {
 		return AdvancedChecklist{}, fmt.Errorf("note is not a checklist")
 	}
 
 	var checklist AdvancedChecklist
 
-	err := json.Unmarshal([]byte(noteContent.Text), &checklist)
-	if err != nil {
-		return AdvancedChecklist{}, err
+	if noteContent.Text != "" {
+		err := json.Unmarshal([]byte(noteContent.Text), &checklist)
+		if err != nil {
+			return AdvancedChecklist{}, err
+		}
 	}
 
 	checklist.Title = noteContent.Title
@@ -310,13 +312,13 @@ func (noteContent NoteContent) ToAdvancedCheckList() (AdvancedChecklist, error) 
 }
 
 func (noteContent NoteContent) ToTaskList() (Tasklist, error) {
-	if noteContent.EditorIdentifier != "org.standardnotes.simple-task-editor" {
+	if noteContent.EditorIdentifier != SimpleTaskEditorNoteType {
 		return Tasklist{}, fmt.Errorf("note is not a task list")
 	}
 
 	var taskList Tasklist
 
-	err := json.Unmarshal([]byte(noteContent.Text), &taskList)
+	tasks, err := NoteTextToTasks(noteContent.Text)
 	if err != nil {
 		return Tasklist{}, err
 	}
@@ -325,6 +327,8 @@ func (noteContent NoteContent) ToTaskList() (Tasklist, error) {
 	if noteContent.Trashed != nil {
 		taskList.Trashed = *noteContent.Trashed
 	}
+
+	taskList.Tasks = tasks
 
 	return taskList, nil
 }

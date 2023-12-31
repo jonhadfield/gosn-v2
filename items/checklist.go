@@ -1,11 +1,26 @@
 package items
 
 import (
+	"errors"
 	"fmt"
-	"go.elara.ws/pcre"
 	"sort"
 	"strings"
 	"time"
+
+	"go.elara.ws/pcre"
+)
+
+const (
+	SimpleTaskEditorNoteType = "org.standardnotes.simple-task-editor"
+	taskAlreadyCompleted     = "task already complete"
+	taskNotOpen              = "task not open"
+	taskAlreadyOpen          = "task already open"
+)
+
+var (
+	errMissingContent = errors.New("missing content")
+	errGroupNotFound  = errors.New("group not found")
+	errTaskNotFound   = errors.New("task not found")
 )
 
 type Tasks []Task
@@ -25,10 +40,19 @@ type Tasklist struct {
 }
 
 func NoteTextToTasks(text string) (tasks Tasks, err error) {
+	if len(text) == 0 {
+		return Tasks{}, errMissingContent
+	}
+
 	var matches []string
 
-	r := pcre.MustCompile(`(?<!\\)\\n`)
-	matches = r.Split(text, -1)
+	// support both formats
+	if strings.Contains(text, "\n") {
+		matches = strings.Split(text, "\n")
+	} else {
+		r := pcre.MustCompile(`(?<!\\)\\n`)
+		matches = r.Split(text, -1)
+	}
 
 	for _, match := range matches {
 		i := strings.Index(match, "]")
@@ -49,13 +73,13 @@ func NoteTextToTasks(text string) (tasks Tasks, err error) {
 	return tasks, nil
 }
 
-func (tasks *Tasks) Sort() {
-	dt := *tasks
+func (ts *Tasks) Sort() {
+	dt := *ts
 	sort.Slice(dt, func(i, j int) bool {
 		return !dt[i].Completed && dt[j].Completed
 	})
 
-	*tasks = dt
+	*ts = dt
 }
 
 func TasksToNoteText(tasks Tasks) string {
@@ -69,7 +93,9 @@ func TasksToNoteText(tasks Tasks) string {
 			completed = "x"
 		}
 
-		sep := "\\n"
+		// TODO: previously required \\n?
+		// sep := "\\n"
+		sep := "\n"
 		if x == len(tasks)-1 {
 			sep = ""
 		}
@@ -89,7 +115,7 @@ func (c *Tasklist) AddTask(taskTitle string) error {
 		Completed: false,
 	}
 
-	c.Tasks = append(c.Tasks, newTask)
+	c.Tasks = append([]Task{newTask}, c.Tasks...)
 
 	return nil
 }
@@ -101,37 +127,88 @@ func (c *Tasklist) CompleteTask(taskTitle string) error {
 	var updatedTasks []Task
 
 	for _, t := range c.Tasks {
-		taskFound = true
-		t.Completed = true
+		if t.Title == taskTitle {
+			if t.Completed {
+				return fmt.Errorf(taskAlreadyCompleted)
+			}
+
+			taskFound = true
+			t.Completed = true
+			updatedTasks = append(updatedTasks, t)
+
+			continue
+		}
+
 		updatedTasks = append(updatedTasks, t)
+	}
+
+	if !taskFound {
+		return errTaskNotFound
 	}
 
 	c.Tasks = updatedTasks
 
-	if !taskFound {
-		return fmt.Errorf("task not found")
-	}
-
 	return nil
 }
 
-func (c *Tasklist) DeleteTask(taskTitle string) error {
+func (c *Tasklist) ReopenTask(taskTitle string) error {
 	// check group exists
 	var taskFound bool
 
 	var updatedTasks []Task
 
-	for _, g := range c.Tasks {
-		if g.Title != taskTitle {
-			updatedTasks = append(updatedTasks, g)
+	for _, t := range c.Tasks {
+		if t.Title == taskTitle {
+			if !t.Completed {
+				return fmt.Errorf(taskAlreadyOpen)
+			}
+
+			taskFound = true
+			t.Completed = false
+			updatedTasks = append(updatedTasks, t)
+
+			continue
 		}
 
-		c.Tasks = updatedTasks
+		updatedTasks = append(updatedTasks, t)
 	}
 
 	if !taskFound {
-		return fmt.Errorf("task not found")
+		return errTaskNotFound
 	}
+
+	c.Tasks = updatedTasks
+
+	return nil
+}
+
+func (c *Tasklist) removeTask(taskTitle string) ([]Task, bool) {
+	var taskFound bool
+
+	var updatedTasks []Task
+
+	for _, task := range c.Tasks {
+		if task.Title == taskTitle {
+			taskFound = true
+
+			continue
+		}
+
+		updatedTasks = append(updatedTasks, task)
+	}
+
+	return updatedTasks, taskFound
+}
+
+func (c *Tasklist) DeleteTask(taskTitle string) error {
+	// check group exists
+	updatedTasks, taskFound := c.removeTask(taskTitle)
+
+	if !taskFound {
+		return errTaskNotFound
+	}
+
+	c.Tasks = updatedTasks
 
 	return nil
 }

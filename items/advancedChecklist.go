@@ -3,10 +3,13 @@ package items
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 	"time"
+)
+
+const (
+	AdvancedChecklistNoteType = "com.sncommunity.advanced-checklist"
 )
 
 type AdvancedChecklistTasks []AdvancedChecklistTask
@@ -132,7 +135,7 @@ func (c *AdvancedChecklist) AddTask(groupName, taskTitle string) error {
 	// find and update existing group
 	for x := range c.Groups {
 		if c.Groups[x].Name == groupName {
-			c.Groups[x].Tasks = append(c.Groups[x].Tasks, newTask)
+			c.Groups[x].Tasks = append([]AdvancedChecklistTask{newTask}, c.Groups[x].Tasks...)
 			break
 		}
 	}
@@ -164,6 +167,10 @@ func (c *AdvancedChecklist) CompleteTask(groupName, taskTitle string) error {
 				continue
 			}
 
+			if t.Completed {
+				return errors.New(taskAlreadyCompleted)
+			}
+
 			taskFound = true
 
 			t.Completed = true
@@ -177,11 +184,60 @@ func (c *AdvancedChecklist) CompleteTask(groupName, taskTitle string) error {
 	}
 
 	if !groupFound {
-		return fmt.Errorf("group not found")
+		return errGroupNotFound
 	}
 
 	if !taskFound {
-		return fmt.Errorf("task not found")
+		return errTaskNotFound
+	}
+
+	c.Groups = groups
+
+	return nil
+}
+
+func (c *AdvancedChecklist) ReopenTask(groupName, taskTitle string) error {
+	// check group exists
+	var groupFound, taskFound bool
+
+	var groups []AdvancedChecklistGroup
+
+	for _, g := range c.Groups {
+		if g.Name != groupName {
+			groups = append(groups, g)
+
+			continue
+		}
+
+		groupFound = true
+
+		var updatedTasks []AdvancedChecklistTask
+
+		for _, t := range g.Tasks {
+			if t.Description != taskTitle {
+				updatedTasks = append(updatedTasks, t)
+
+				continue
+			}
+
+			taskFound = true
+
+			t.Completed = false
+
+			updatedTasks = append(updatedTasks, t)
+		}
+
+		g.Tasks = updatedTasks
+
+		groups = append(groups, g)
+	}
+
+	if !groupFound {
+		return errGroupNotFound
+	}
+
+	if !taskFound {
+		return errTaskNotFound
 	}
 
 	c.Groups = groups
@@ -222,11 +278,11 @@ func (c *AdvancedChecklist) DeleteTask(groupName, taskTitle string) error {
 	}
 
 	if !groupFound {
-		return fmt.Errorf("group not found")
+		return errGroupNotFound
 	}
 
 	if !taskFound {
-		return fmt.Errorf("task not found")
+		return errTaskNotFound
 	}
 
 	c.Groups = groups
@@ -281,7 +337,7 @@ func (c *AdvancedChecklist) DeleteGroup(groupName string) error {
 	}
 
 	if !groupFound {
-		return fmt.Errorf("group not found")
+		return errGroupNotFound
 	}
 
 	c.Groups = groups
@@ -289,10 +345,10 @@ func (c *AdvancedChecklist) DeleteGroup(groupName string) error {
 	return nil
 }
 
-func (c *AdvancedChecklist) GetGroup(Title string) (AdvancedChecklistGroup, bool) {
+func (c *AdvancedChecklist) GetGroup(title string) (AdvancedChecklistGroup, bool) {
 	// find group
 	for _, g := range c.Groups {
-		if g.Name == Title {
+		if g.Name == title {
 			return g, true
 		}
 	}
@@ -316,7 +372,7 @@ func (c *AdvancedChecklist) Sort() {
 	}
 }
 
-func (t *Tasks) FilterAdvancedChecklistTasks(tasks Tasks, completed bool) (filtered Tasks) {
+func (ts *Tasks) FilterAdvancedChecklistTasks(tasks Tasks, completed bool) (filtered Tasks) {
 	for _, task := range tasks {
 		if task.Completed == completed {
 			filtered = append(filtered, task)
@@ -339,4 +395,49 @@ func (t *AdvancedChecklistTasks) Sort() {
 		dt := *t
 		return dt[i].UpdatedAt.Unix() > dt[j].UpdatedAt.Unix()
 	})
+}
+
+func (c *AdvancedChecklist) DeleteAdvancedChecklistTask(groupName, taskTitle string) error {
+	// check group exists
+	var groupFound, taskFound bool
+
+	var groups []AdvancedChecklistGroup
+
+	for _, g := range c.Groups {
+		if g.Name != groupName {
+			groups = append(groups, g)
+
+			continue
+		}
+
+		groupFound = true
+
+		var updatedTasks []AdvancedChecklistTask
+
+		for _, t := range g.Tasks {
+			if t.Description != taskTitle {
+				updatedTasks = append(updatedTasks, t)
+
+				continue
+			}
+
+			taskFound = true
+		}
+
+		g.Tasks = updatedTasks
+
+		groups = append(groups, g)
+	}
+
+	if !groupFound {
+		return errGroupNotFound
+	}
+
+	if !taskFound {
+		return errTaskNotFound
+	}
+
+	c.Groups = groups
+
+	return nil
 }

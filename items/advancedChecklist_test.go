@@ -1,7 +1,6 @@
 package items
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -205,7 +204,6 @@ func TestAdvancedChecklistToNoteText(t *testing.T) {
 	}
 
 	nt := AdvancedCheckListToNoteText(checklist)
-	fmt.Println("Note Title:", nt)
 	require.NotEmpty(t, nt)
 	require.Contains(t, nt, "AdvancedChecklistTask 1")
 	require.Contains(t, nt, "1.0.0")
@@ -235,32 +233,101 @@ func TestAddAdvancedChecklistTask(t *testing.T) {
 
 	require.NoError(t, cl.AddTask("Group 1", "AdvancedChecklistTask 2"))
 	require.Len(t, cl.Groups[0].Tasks, 2)
-	require.Equal(t, "AdvancedChecklistTask 2", cl.Groups[0].Tasks[1].Description)
+	require.Equal(t, "AdvancedChecklistTask 2", cl.Groups[0].Tasks[0].Description)
+	// create group if not found
+	require.NoError(t, cl.AddTask("Group 69", "AdvancedChecklistTask 2"))
+	// check exists, with task
+	var foundGroup, foundTask bool
+
+	for x := range cl.Groups {
+		if cl.Groups[x].Name == "Group 69" {
+			foundGroup = true
+
+			for y := range cl.Groups[x].Tasks {
+				if cl.Groups[x].Tasks[y].Description == "AdvancedChecklistTask 2" {
+					foundTask = true
+				}
+			}
+		}
+	}
+
+	require.True(t, foundGroup)
+	require.True(t, foundTask)
 }
 
 func TestCompleteAdvancedChecklistTask(t *testing.T) {
-	cl := AdvancedChecklist{
+	cl := testAdvancedChecklist()
+
+	require.NoError(t, cl.CompleteTask("Group 1", "Task 2"))
+	require.Len(t, cl.Groups, 2)
+	require.Len(t, cl.Groups[0].Tasks, 3)
+	require.False(t, cl.Groups[0].Tasks[0].Completed)
+	require.True(t, cl.Groups[0].Tasks[1].Completed)
+	require.True(t, cl.Groups[0].Tasks[2].Completed)
+}
+
+func TestDeleteAdvancedChecklistTask(t *testing.T) {
+	cl := testAdvancedChecklist()
+
+	require.NoError(t, cl.DeleteAdvancedChecklistTask("Group 1", "Task 2"))
+	require.Len(t, cl.Groups, 2)
+	require.Len(t, cl.Groups[0].Tasks, 2)
+	require.Len(t, cl.Groups[1].Tasks, 3)
+	require.False(t, cl.Groups[0].Tasks[0].Completed)
+	require.True(t, cl.Groups[0].Tasks[1].Completed)
+	require.False(t, cl.Groups[1].Tasks[0].Completed)
+	require.False(t, cl.Groups[1].Tasks[1].Completed)
+	require.True(t, cl.Groups[1].Tasks[2].Completed)
+}
+
+func TestReopenAdvancedChecklistTask(t *testing.T) {
+	cl := testAdvancedChecklist()
+
+	require.NoError(t, cl.ReopenTask("Group 2", "Task 6"))
+	require.Len(t, cl.Groups, 2)
+	require.Len(t, cl.Groups[0].Tasks, 3)
+	require.Len(t, cl.Groups[1].Tasks, 3)
+	require.False(t, cl.Groups[0].Tasks[0].Completed)
+	require.False(t, cl.Groups[0].Tasks[1].Completed)
+	require.True(t, cl.Groups[0].Tasks[2].Completed)
+	require.False(t, cl.Groups[1].Tasks[0].Completed)
+	require.False(t, cl.Groups[1].Tasks[1].Completed)
+	require.False(t, cl.Groups[1].Tasks[2].Completed)
+
+	// missing group
+	err := cl.ReopenTask("Group 3", "Task 6")
+	require.Error(t, err)
+	require.ErrorIs(t, err, errGroupNotFound)
+
+	// missing task
+	err = cl.ReopenTask("Group 2", "Task 7")
+	require.Error(t, err)
+	require.ErrorIs(t, err, errTaskNotFound)
+}
+
+func testAdvancedChecklist() AdvancedChecklist {
+	return AdvancedChecklist{
 		Groups: []AdvancedChecklistGroup{
 			{
 				Name: "Group 1",
 				Tasks: []AdvancedChecklistTask{
 					{
 						Id:          "0ff7fc6c-c196-4b02-b70e-ad7b3d01fe48",
-						Description: "AdvancedChecklistTask 1",
+						Description: "Task 1",
 						Completed:   false,
 						CreatedAt:   time.Now(),
 						UpdatedAt:   time.Now(),
 					},
 					{
 						Id:          "1ef7fc6c-c196-4b02-b70e-ad7b3d01fe48",
-						Description: "AdvancedChecklistTask 2",
+						Description: "Task 2",
 						Completed:   false,
 						CreatedAt:   time.Now(),
 						UpdatedAt:   time.Now(),
 					},
 					{
 						Id:          "6bf7fc6c-c196-4b02-b70e-ad7b3d01fe48",
-						Description: "AdvancedChecklistTask 3",
+						Description: "Task 3",
 						Completed:   true,
 						CreatedAt:   time.Now(),
 						UpdatedAt:   time.Now(),
@@ -272,21 +339,21 @@ func TestCompleteAdvancedChecklistTask(t *testing.T) {
 				Tasks: []AdvancedChecklistTask{
 					{
 						Id:          "0aa7fc6c-c196-4b02-b70e-ad7b3d01fe48",
-						Description: "AdvancedChecklistTask 4",
+						Description: "Task 4",
 						Completed:   false,
 						CreatedAt:   time.Now(),
 						UpdatedAt:   time.Now(),
 					},
 					{
 						Id:          "1aa7fc6c-c196-4b02-b70e-ad7b3d01fe48",
-						Description: "AdvancedChecklistTask 5",
+						Description: "Task 5",
 						Completed:   false,
 						CreatedAt:   time.Now(),
 						UpdatedAt:   time.Now(),
 					},
 					{
 						Id:          "6aa7fc6c-c196-4b02-b70e-ad7b3d01fe48",
-						Description: "AdvancedChecklistTask 6",
+						Description: "Task 6",
 						Completed:   true,
 						CreatedAt:   time.Now(),
 						UpdatedAt:   time.Now(),
@@ -295,11 +362,4 @@ func TestCompleteAdvancedChecklistTask(t *testing.T) {
 			},
 		},
 	}
-
-	require.NoError(t, cl.CompleteTask("Group 1", "AdvancedChecklistTask 2"))
-	require.Len(t, cl.Groups, 2)
-	require.Len(t, cl.Groups[0].Tasks, 3)
-	require.False(t, cl.Groups[0].Tasks[0].Completed)
-	require.True(t, cl.Groups[0].Tasks[1].Completed)
-	require.True(t, cl.Groups[0].Tasks[2].Completed)
 }

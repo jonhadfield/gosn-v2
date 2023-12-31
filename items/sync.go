@@ -832,13 +832,6 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	out.Conflicts = bodyContent.Conflicts
 	out.LastItemPut = finalItem
 
-	if len(input.Items) > 0 {
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem+1, len(input.Items)), common.MaxDebugChars)
-		// fmt.Printf("syncItemsViaAPI | final item put: %d total items to put: %d", finalItem, len(input.Items))
-	}
-
-	// fmt.Printf("finalItem: %d len(input.Items)-1): %d CursorToken: %s\n", finalItem, len(input.Items)-1, bodyContent.CursorToken)
-
 	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
 		var newOutput syncResponse
 

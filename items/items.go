@@ -414,7 +414,7 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 	}
 }
 
-func makeSyncRequest(session session.Session, reqBody []byte) (responseBody []byte, err error) {
+func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []byte, err error) {
 	// fmt.Println(string(reqBody))
 	if session.HTTPClient == nil {
 		log.DebugPrint(session.Debug, "makeSyncRequest | creating new http client", common.MaxDebugChars)
@@ -978,6 +978,7 @@ func writeJSON(c writeJSONConfig, items EncryptedItems) error {
 	content.WriteString("\n  }")
 
 	content.WriteString("\n}")
+
 	_, err = file.WriteString(content.String())
 	if err != nil {
 		return fmt.Errorf("writeJSON | %w", err)
