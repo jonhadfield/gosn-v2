@@ -313,7 +313,7 @@ func UpdateSession(sess *Session, k keyring.Keyring, debug bool) error {
 		return fmt.Errorf("failed to write refreshed session: %w", err)
 	}
 
-	fmt.Println("session refreshed successfully")
+	// fmt.Println("session refreshed successfully")
 
 	return nil
 }
