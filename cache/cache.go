@@ -1074,38 +1074,25 @@ func mergeItemsKeysSlices(sessionList, another []session.SessionItemsKey) (out [
 // - the server URL (so that caches are server specific)
 // - the requesting application name (so that caches are application specific).
 func GenCacheDBPath(session Session, dir, appName string) (string, error) {
-	var err error
-
-	if !session.Valid() {
-		return "", fmt.Errorf("invalid session")
+	if !session.Valid() || appName == "" {
+		return "", fmt.Errorf("invalid session or appName")
 	}
 
-	if appName == "" {
-		return "", fmt.Errorf("appName is a required")
-	}
-
-	// if cache directory not defined then create dot path in home directory
 	if dir == "" {
-		var homeDir string
-
-		homeDir, err = homedir.Dir()
+		homeDir, err := homedir.Dir()
 		if err != nil {
 			return "", err
 		}
-
 		dir = filepath.Join(homeDir, "."+appName)
 	}
 
-	err = os.MkdirAll(dir, 0o700)
-	if err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("failed to make cache directory: %s", dir)
 	}
 
 	h := sha256.New()
-
 	h.Write([]byte(session.MasterKey[:2] + session.MasterKey[len(session.MasterKey)-2:] + session.MasterKey + appName))
-	bs := h.Sum(nil)
-	hexedDigest := hex.EncodeToString(bs)[:8]
+	hexedDigest := hex.EncodeToString(h.Sum(nil))[:8]
 
-	return filepath.Join(dir, appName+"-"+hexedDigest+".db"), err
+	return filepath.Join(dir, appName+"-"+hexedDigest+".db"), nil
 }
