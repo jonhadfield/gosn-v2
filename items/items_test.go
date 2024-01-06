@@ -3,17 +3,13 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
 	"github.com/jonhadfield/gosn-v2/session"
@@ -21,12 +17,6 @@ import (
 )
 
 var (
-	sInput = auth.SignInInput{
-		Email:     os.Getenv("SN_EMAIL"),
-		Password:  os.Getenv("SN_PASSWORD"),
-		APIServer: os.Getenv("SN_SERVER"),
-		Debug:     true,
-	}
 	testParas = []string{
 		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut venenatis est sit amet lectus aliquam, ac rutrum nibh vulputate. Etiam vel nulla dapibus, lacinia neque et, porttitor elit. Nulla scelerisque elit sem, ac posuere est gravida dignissim. Fusce laoreet, enim gravida vehicula aliquam, tellus sem iaculis lorem, rutrum congue ex lectus ut quam. Cras sollicitudin turpis magna, et tempor elit dignissim eu. Etiam sed auctor leo. Sed semper consectetur purus, nec vehicula tellus tristique ac. Cras a quam et magna posuere varius vitae posuere sapien. Morbi tincidunt tellus eu metus laoreet, quis pulvinar sapien consectetur. Fusce nec viverra lectus, sit amet ullamcorper elit. Vestibulum vestibulum augue sem, vitae egestas ipsum fringilla sit amet. Nulla eget ante sit amet velit placerat gravida.",
 		"Duis odio tortor, consequat egestas neque dictum, porttitor laoreet felis. Sed sed odio non orci dignissim vulputate. Praesent a scelerisque lectus. Phasellus sit amet vestibulum felis. Integer blandit, nulla eget tempor vestibulum, nisl dolor interdum eros, sed feugiat est augue sit amet eros. Suspendisse maximus tortor sodales dolor sagittis, vitae mattis est cursus. Etiam lobortis nunc non mi posuere, vel elementum massa congue. Aenean ut lectus vitae nisl scelerisque semper.",
@@ -102,7 +92,7 @@ func _createNotes(session *session.Session, input map[string]string) (so SyncOut
 
 		so, err = Sync(si)
 		if err != nil {
-			err = fmt.Errorf("PutItems Failed: %v", err)
+			err = fmt.Errorf("PutItems Failed: %w", err)
 		}
 	}
 
@@ -132,7 +122,7 @@ func _createTags(session *session.Session, input []string) (output SyncOutput, e
 		output, err = Sync(si)
 
 		if err != nil {
-			err = fmt.Errorf("PutItems Failed: %v", err)
+			err = fmt.Errorf("PutItems Failed: %w", err)
 
 			return
 		}
@@ -181,8 +171,8 @@ func _deleteAllTagsNotesComponents(s *session.Session) (err error) {
 			del = true
 		case common.SNItemTypeComponent:
 			del = true
-		case common.SNItemTypeUserPreferences:
-			del = true
+		// case common.SNItemTypeUserPreferences:
+		// 	del = true
 
 		default:
 			continue
@@ -203,7 +193,7 @@ func _deleteAllTagsNotesComponents(s *session.Session) (err error) {
 			Items:   toDel,
 		})
 		if err != nil {
-			return fmt.Errorf("PutItems Failed: %v", err)
+			return fmt.Errorf("PutItems Failed: %w", err)
 		}
 	}
 
@@ -219,7 +209,7 @@ func _getItems(session *session.Session, itemFilters ItemFilters) (items Items, 
 
 	so, err = Sync(si)
 	if err != nil {
-		err = fmt.Errorf("sync failed: %v", err)
+		err = fmt.Errorf("sync failed: %w", err)
 
 		return
 	}
@@ -267,15 +257,6 @@ func cleanup() {
 	}
 }
 
-func tempFilePath() string {
-	dir, err := ioutil.TempDir("", "test")
-	if err != nil {
-		log.Fatal("failed to created temporary directory")
-	}
-
-	return filepath.Join(dir, "tmpfile")
-}
-
 func TestReEncrypt(t *testing.T) {
 	if !strings.Contains(testSession.Server, "ramea") {
 		return
@@ -314,298 +295,6 @@ func TestReEncrypt(t *testing.T) {
 	require.Equal(t, rt.Content.Title, tag.Content.Title)
 }
 
-// func TestRegisterExportImport(t *testing.T) {
-//	if !strings.Contains(testSession.Server, "ramea") {
-//		return
-//	}
-//
-//	localTestMain()
-//	defer cleanup()
-//
-//	tmpfn := tempFilePath()
-//
-//	require.NoError(t, testSession.Export(tmpfn))
-//
-//	so, err := Sync(SyncInput{
-//		Session: testSession,
-//	})
-//	require.NoError(t, err)
-//
-//	items, key, err := testSession.Import(tmpfn, so.SyncToken)
-//	require.NoError(t, err)
-//	require.Len(t, items, 1)
-//	require.Equal(t, common.SNItemTypeItemsKey, items[0].ContentType)
-//	require.Equal(t, items[0].UUID, testSession.DefaultItemsKey.UUID)
-//	require.Equal(t, testSession.DefaultItemsKey.ItemsKey, key.ItemsKey)
-// }
-
-// TODO: Re-enable export import test
-// func TestRegisterCreateTagExportImportTwice(t *testing.T) {
-// 	if !strings.Contains(testSession.Server, "ramea") {
-// 		return
-// 	}
-//
-// 	defer cleanup()
-//
-// 	tag, _ := createTag("test-title", "", nil)
-//
-// 	var initItems Items
-// 	initItems = append(initItems, tag)
-//
-// 	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
-// 	require.NoError(t, err)
-// 	so, err := Sync(SyncInput{
-// 		Session: testSession,
-// 		Items:   encInitItems,
-// 	})
-// 	require.NoError(t, err)
-// 	initKey := testSession.DefaultItemsKey
-// 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
-//
-// 	tmpfn := tempFilePath()
-// 	require.NoError(t, testSession.Export(tmpfn))
-//
-// 	items, key, err := testSession.Import(tmpfn, "", "")
-// 	require.NoError(t, err)
-// 	require.Len(t, items, 2)
-//
-// 	var keyIndex int
-//
-// 	for x := range items {
-// 		if items[x].ContentType == common.SNItemTypeItemsKey {
-// 			keyIndex = x
-// 		}
-// 	}
-//
-// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
-// 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
-//
-// 	items, key, err = testSession.Import(tmpfn, "", "")
-// 	require.NoError(t, err)
-// 	require.Len(t, items, 2)
-//
-// 	for x := range items {
-// 		if items[x].ContentType == common.SNItemTypeItemsKey {
-// 			keyIndex = x
-// 		}
-// 	}
-// }
-
-// TODO: Re-enable export import test
-// func TestRegisterCreateTagExportImport(t *testing.T) {
-// 	if !strings.Contains(testSession.Server, "ramea") {
-// 		return
-// 	}
-//
-// 	defer cleanup()
-//
-// 	tag, _ := createTag("test-title", "", nil)
-//
-// 	var initItems Items
-// 	initItems = append(initItems, tag)
-//
-// 	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
-// 	require.NoError(t, err)
-// 	so, err := Sync(SyncInput{
-// 		Session: testSession,
-// 		Items:   encInitItems,
-// 	})
-// 	require.NoError(t, err)
-// 	initKey := testSession.DefaultItemsKey
-// 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
-//
-// 	tmpfn := tempFilePath()
-// 	require.NoError(t, testSession.Export(tmpfn))
-//
-// 	items, key, err := testSession.Import(tmpfn, "", "")
-// 	require.NoError(t, err)
-//
-// 	var keyIndex int
-// 	for x := range items {
-// 		if items[x].ContentType == common.SNItemTypeItemsKey {
-// 			keyIndex = x
-// 		}
-// 	}
-//
-// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
-// 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
-// }
-//
-// func TestRegisterCreateTagExportImportIntoNewAccount(t *testing.T) {
-// 	if !strings.Contains(testSession.Server, "ramea") {
-// 		return
-// 	}
-//
-// 	defer cleanup()
-//
-// 	// create a tag and sync it to SN using the test session
-// 	tag, _ := createTag("test-title", "", nil)
-//
-// 	var initItems Items
-// 	initItems = append(initItems, tag)
-//
-// 	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
-// 	require.NoError(t, err)
-// 	so, err := Sync(SyncInput{
-// 		Session: testSession,
-// 		Items:   encInitItems,
-// 	})
-// 	require.NoError(t, err)
-//
-// 	initKey := testSession.DefaultItemsKey
-//
-// 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
-//
-// 	tmpfn := tempFilePath()
-// 	require.NoError(t, testSession.Export(tmpfn))
-//
-// 	// now register and sign in as a new user
-// 	secondUserEmail := fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
-// 	secondUserPassword := "secretsanta2"
-//
-// 	ri := RegisterInput{
-// 		Password:  secondUserPassword,
-// 		Email:     secondUserEmail,
-// 		APIServer: "http://ramea:3000",
-// 		Debug:     true,
-// 	}
-//
-// 	_, err = ri.Register()
-// 	require.NoError(t, err)
-// 	o, err := SignIn(SignInInput{
-// 		Email:     secondUserEmail,
-// 		Password:  "secretsanta2",
-// 		APIServer: "http://ramea:3000",
-// 		Debug:     true,
-// 	})
-// 	require.NoError(t, err)
-//
-// 	newSession := o.Session
-//
-// 	// importing with wrong password should fail
-// 	_, _, err = newSession.Import(tmpfn, "", "secretsanta1")
-// 	require.Error(t, err)
-//
-// 	// importing with correct password should succeed
-// 	items, key, err := newSession.Import(tmpfn, "", "secretsanta")
-// 	require.NoError(t, err)
-//
-// 	var keyIndex int
-//
-// 	for x := range items {
-// 		if items[x].ContentType == common.SNItemTypeItemsKey {
-// 			keyIndex = x
-// 		}
-// 	}
-//
-// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
-// 	require.NotEqual(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
-//
-// 	// now sync and decrypt
-// 	so, err = Sync(SyncInput{
-// 		Session: &newSession,
-// 	})
-//
-// 	require.NoError(t, err)
-//
-// 	dis, err := so.Items.DecryptAndParse(&newSession)
-// 	require.NoError(t, err)
-//
-// 	var found bool
-// 	for x := range dis {
-// 		if dis[x].GetContentType() == common.SNItemTypeTag {
-// 			nt := dis[x].(*Tag)
-// 			require.Equal(t, nt.Content.Title, tag.Content.Title)
-// 			// these won't be equal as we're importing an item with the same UUID as
-// 			// the original tag, resulting in a uuid_conflict, so we generate a new one
-// 			require.NotEqual(t, nt.UUID, tag.UUID)
-//
-// 			found = true
-//
-// 			break
-// 		}
-// 	}
-//
-// 	require.True(t, found)
-// }
-
-// 1. add a tag to SN (encrypted with initial items key) - KEY1
-// 2. take export (generate new items key, encrypt tag and new items key, and write to file only)
-// 3. add another tag to SN (encrypted with initial items key) - KEY1
-// 4. import - KEY 2
-// the resulting state should be:
-// 2 tags in SN, both encrypted with items key in export
-// 1 items key in session and SN
-
-// func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
-// 	if !strings.Contains(testSession.Server, "ramea") {
-// 		return
-// 	}
-//
-// 	defer cleanup()
-//
-// 	tag, _ := createTag("test-title", "", nil)
-// 	var initItems Items
-// 	initItems = append(initItems, tag)
-//
-// 	encInitItems, _ := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
-// 	so, _ := Sync(SyncInput{
-// 		Session: testSession,
-// 		Items:   encInitItems,
-// 	})
-// 	initKey := testSession.DefaultItemsKey
-// 	require.Equal(t, 1, len(so.SavedItems))
-// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
-//
-// 	tmpfn := tempFilePath()
-// 	require.NoError(t, testSession.Export(tmpfn))
-// 	tag2, _ := createTag("another-test-title", "", nil)
-// 	var items2 Items
-// 	items2 = append(items2, tag2)
-// 	encItems2, _ := items2.Encrypt(testSession, testSession.DefaultItemsKey)
-//
-// 	so2, _ := Sync(SyncInput{
-// 		Session:   testSession,
-// 		Items:     encItems2,
-// 		SyncToken: so.SyncToken,
-// 	})
-//
-// 	require.Equal(t, 1, len(so2.SavedItems))
-// 	require.Equal(t, 0, len(so2.Items))
-//
-// 	items, key, err := testSession.Import(tmpfn, so.SyncToken, "")
-// 	require.NoError(t, err)
-//
-// 	require.Len(t, testSession.ItemsKeys, 1)
-// 	require.Equal(t, testSession.ItemsKeys[0].UUID, testSession.DefaultItemsKey.UUID)
-//
-// 	require.NoError(t, err)
-// 	require.Len(t, items, 3)
-//
-// 	// check the new items key differs from initial (session should now have items key generated by export)
-// 	require.NotEqual(t, testSession.DefaultItemsKey.ItemsKey, initKey.ItemsKey)
-// 	// check we now have two tags encrypted by that new key that's loaded in the session
-// 	var finalEncTags EncryptedItems
-//
-// 	for x := range items {
-// 		if items[x].ContentType == common.SNItemTypeTag {
-// 			finalEncTags = append(finalEncTags, items[x])
-// 		}
-// 	}
-//
-// 	finalTags, err := finalEncTags.DecryptAndParse(testSession)
-// 	require.NoError(t, err)
-// 	require.Len(t, finalTags, 2)
-//
-// 	// the key has been re-generated but meta-data such as UUID and times should be the same
-// 	require.NotEqual(t, initKey.ItemsKey, key.ItemsKey)
-// 	require.Equal(t, initKey.UUID, key.UUID)
-// 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
-// }
-
 func TestNewNoteContent(t *testing.T) {
 	defer cleanup()
 
@@ -617,12 +306,12 @@ func TestNewNoteContent(t *testing.T) {
 	var v interface{}
 	err = json.Unmarshal(nc, &v)
 	require.NoError(t, err, "Unmarshal Failed")
+
 	if testSession.Schemas[noteContentSchemaName] == nil {
 		err = fmt.Errorf("Schema %s not found", noteContentSchemaName)
 		require.NoError(t, err, "Schema Not Found")
 	}
-	err = validateContentSchema(testSession.Schemas[noteContentSchemaName], v)
-	require.NoError(t, err, "validateContentSchema Failed")
+	require.NoError(t, validateContentSchema(testSession.Schemas[noteContentSchemaName], v), "validateContentSchema Failed")
 
 	require.Equal(t, "test-text", note.Content.GetText())
 }
@@ -656,15 +345,7 @@ func TestAddDeleteNote(t *testing.T) {
 
 	var so SyncOutput
 	so, err = Sync(si)
-	// fmt.Println("ITEMS")
-	// for _, f := range so.Items {
-	// 	fmt.Printf("%#+v\n", f)
-	// }
-	// fmt.Println("SAVED")
-	// for _, f := range so.SavedItems {
-	// 	fmt.Printf("%#+v\n", f)
-	// }
-	// fmt.Println("DONE")
+
 	require.NoError(t, err, "Sync Failed")
 	require.Len(t, so.SavedItems, 1, "expected one")
 	require.Len(t, so.Conflicts, 0, "expected none")
@@ -675,23 +356,6 @@ func TestAddDeleteNote(t *testing.T) {
 	for i := range so.SavedItems {
 		if so.SavedItems[i].UUID == uuidOfNewItem {
 			foundItem = true
-			// foundItem = so.Items[i]
-			//
-			// ni := items[i].(*Note)
-			//
-			// if ni.ContentType != common.SNItemTypeNote {
-			// 	t.Errorf("content type of new item is incorrect - expected: Note got: %s",
-			// 		items[i].GetContentType())
-			// }
-			//
-			// if ni.Deleted {
-			// 	t.Errorf("deleted status of new item is incorrect - expected: False got: True")
-			// }
-			//
-			// if ni.Content.GetText() != randPara {
-			// 	t.Errorf("text of new item is incorrect - expected: %s got: %s",
-			// 		randPara, ni.Content.GetText())
-			// }
 		}
 	}
 
@@ -846,309 +510,6 @@ func TestProcessContentModel(t *testing.T) {
 	require.True(t, noteContent.Spellcheck)
 }
 
-//
-// func TestImportFromFile(t *testing.T) {
-// 	cleanup()
-// 	defer cleanup()
-//
-// 	numItemsKeys := len(testSession.ItemsKeys)
-// 	itemsKeyPre := testSession.DefaultItemsKey.ItemsKey
-// 	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
-//
-// 	_, itemsKey, err := testSession.Import("testuser-encrypted-backup.txt", "", "testuser")
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, itemsKey)
-//
-// 	require.Len(t, testSession.ItemsKeys, numItemsKeys)
-// 	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
-// 	require.NotEqual(t, itemsKeyPre, testSession.DefaultItemsKey.ItemsKey)
-// 	require.Equal(t, itemsKey.ItemsKey, testSession.ItemsKeys[0].ItemsKey)
-//
-// 	// fresh sync and check items exist
-// 	so, err := Sync(SyncInput{
-// 		Session: testSession,
-// 	})
-// 	require.NoError(t, err)
-// 	dis, err := so.Items.DecryptAndParse(testSession)
-// 	require.NoError(t, err)
-// 	var noteFound bool
-// 	for _, d := range dis {
-// 		if d.GetContentType() == common.SNItemTypeNote {
-// 			noteFound = true
-// 		}
-// 	}
-//
-// 	require.True(t, noteFound)
-// }
-//
-// func TestExportImportOfNote(t *testing.T) {
-// 	cleanup()
-// 	defer cleanup()
-//
-// 	n, _ := NewNote("test title", "test content", nil)
-// 	path := "./test.json"
-//
-// 	// sync new note to SN before export
-// 	ei, err := EncryptItem(&n, testSession.DefaultItemsKey, testSession)
-// 	require.NoError(t, err)
-//
-// 	so, err := Sync(SyncInput{
-// 		Session: testSession,
-// 		Items:   EncryptedItems{ei},
-// 	})
-//
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, so.SavedItems)
-// 	require.Equal(t, common.SNItemTypeNote, so.SavedItems[0].ContentType)
-// 	eitd := append(so.SavedItems, so.Items...)
-// 	itemsToExport, err := eitd.DecryptAndParse(testSession)
-// 	require.NoError(t, err)
-// 	require.GreaterOrEqual(t, len(itemsToExport), 1)
-// 	require.NoError(t, testSession.Export(path))
-//
-// 	importedItems, _, err := testSession.Import(path, so.SyncToken, "")
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, importedItems)
-//
-// 	var foundNote bool
-//
-// 	for x := range importedItems {
-// 		if importedItems[x].ContentType == common.SNItemTypeNote {
-// 			var i Item
-// 			i, err = DecryptAndParseItem(importedItems[x], testSession)
-//
-// 			require.NoError(t, err)
-//
-// 			in := i.(*Note)
-//
-// 			require.Equal(t, n.Content.Title, in.Content.Title)
-// 			require.Equal(t, n.Content.Text, in.Content.Text)
-//
-// 			foundNote = true
-//
-// 			break
-// 		}
-// 	}
-//
-// 	require.True(t, foundNote)
-// }
-
-// func TestExportImportOfNoteWithSync(t *testing.T) {
-//	cleanup()
-//	defer cleanup()
-//	syncOutput, err := Sync(SyncInput{
-//		Session: testSession,
-//	})
-//	require.NoError(t, err)
-//
-//	n := NewNote()
-//	nc := NewNoteContent()
-//	nc.Title = "test title"
-//	nc.Text = "test content"
-//	n.Content = *nc
-//
-//	path := "./test.json"
-//
-//	require.NoError(t, Items{&n}.Export(testSession, path))
-//
-//	importedItems, itemsKey, err := testSession.Import(path, true, syncOutput.SyncToken)
-//	require.NoError(t, err)
-//	require.NotEmpty(t, importedItems)
-//	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
-//	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
-//
-//	var foundNote bool
-//
-//	var importedNote *Note
-//
-//	for x := range importedItems {
-//		if importedItems[x].GetContentType() == common.SNItemTypeNote {
-//			in := importedItems[x].(*Note)
-//			require.Equal(t, n.Content.Title, in.Content.Title)
-//			require.Equal(t, n.Content.Text, in.Content.Text)
-//			// n = *parseNote(importedItems[x]).(*Note)
-//			foundNote = true
-//			importedNote = in
-//
-//			break
-//		}
-//	}
-//
-//	require.True(t, foundNote)
-//
-//	// check items key is in session
-//	var foundItemsKeyInSession bool
-//
-//	for _, ik := range testSession.ItemsKeys {
-//		if importedNote.ItemsKeyID == ik.UUID {
-//			foundItemsKeyInSession = true
-//			break
-//		}
-//	}
-//
-//	require.True(t, foundItemsKeyInSession)
-//
-//	syncOutput, err = Sync(SyncInput{
-//		Session:   testSession,
-//		SyncToken: "",
-//	})
-//	require.NoError(t, err)
-//
-//	var foundItemsKeyInSN bool
-//
-//	for x := range syncOutput.Items {
-//		if syncOutput.Items[x].UUID == importedNote.ItemsKeyID {
-//			foundItemsKeyInSN = true
-//		}
-//	}
-//
-//	require.True(t, foundItemsKeyInSN)
-// }
-
-// This test is to prove we always replace any existing keys with matching ones from the export we import.
-// func TestDecryptionOfImportedItemsKey(t *testing.T) {
-// 	so, err := Sync(SyncInput{
-// 		Session: testSession,
-// 	})
-//
-// 	n, _ := NewNote("test title", "test content", nil)
-// 	path := "./test.json"
-//
-// 	var preExportItemsKeys []ItemsKey
-// 	preExportItemsKeys = append(preExportItemsKeys, testSession.ItemsKeys...)
-// 	preExportDefaultItemsKey := testSession.DefaultItemsKey
-//
-// 	items := Items{&n}
-//
-// 	eis, err := items.Encrypt(testSession, testSession.DefaultItemsKey)
-// 	require.NoError(t, err)
-//
-// 	_, err = Sync(SyncInput{
-// 		Session:   testSession,
-// 		SyncToken: so.SyncToken,
-// 		Items:     eis,
-// 	})
-// 	require.NoError(t, err)
-//
-// 	require.NoError(t, testSession.Export(path))
-//
-// 	// reset the session
-// 	testSession.DefaultItemsKey = preExportDefaultItemsKey
-// 	testSession.ItemsKeys = preExportItemsKeys
-//
-// 	importedItems, _, err := testSession.Import(path, "", "")
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, importedItems)
-//
-// 	var foundNote bool
-//
-// 	for x := range importedItems {
-// 		if importedItems[x].ContentType == common.SNItemTypeNote {
-// 			var i Item
-// 			i, err = DecryptAndParseItem(importedItems[x], testSession)
-//
-// 			require.NoError(t, err)
-//
-// 			in := i.(*Note)
-//
-// 			require.Equal(t, n.Content.Title, in.Content.Title)
-// 			require.Equal(t, n.Content.Text, in.Content.Text)
-//
-// 			foundNote = true
-//
-// 			break
-// 		}
-// 	}
-//
-// 	require.True(t, foundNote)
-// }
-
-//
-// func TestExportImportOfEncryptedNote(t *testing.T) {
-//	n := NewNote()
-//	nc := NewNoteContent()
-//	nc.Title = "test title"
-//	nc.Text = "test content"
-//	n.Content = *nc
-//
-//	path := "./test.json"
-//
-//	require.NoError(t, Items{&n}.Export(testSession, path, false))
-//
-//	importedItems, itemsKey, err := testSession.Import(path)
-//	require.NoError(t, err)
-//	require.NotEmpty(t, importedItems)
-//	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
-//	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
-//
-//	var foundNote bool
-//
-//	for x := range importedItems {
-//		if importedItems[x].GetContentType() == common.SNItemTypeNote {
-//			in := importedItems[x].(*Note)
-//			require.Equal(t, n.Content.Title, in.Content.Title)
-//			require.Equal(t, n.Content.Text, in.Content.Text)
-//			//n = *parseNote(importedItems[x]).(*Note)
-//			foundNote = true
-//
-//			break
-//		}
-//		//
-//	}
-//
-//	require.True(t, foundNote)
-// }
-//
-// func TestEncryptDecryptItemWithItemsKeyWithExportedMethods(t *testing.T) {
-// 	testSession.Debug = true
-// 	ik, err := testSession.CreateItemsKey()
-// 	require.NoError(t, err)
-// 	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
-// 	require.False(t, ik.Deleted)
-// 	require.NotEmpty(t, ik.UUID)
-// 	require.NotEmpty(t, ik.Content)
-// 	require.NotEmpty(t, ik.CreatedAt)
-// 	require.NotEmpty(t, ik.CreatedAtTimestamp)
-// 	require.Empty(t, ik.UpdatedAtTimestamp)
-// 	require.Empty(t, ik.UpdatedAt)
-//
-// 	n, _ := NewNote("test title", "test content", nil)
-// 	eis := Items{&n}
-// 	encItems, err := eis.Encrypt(testSession, ik)
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, encItems[0].UUID)
-// 	require.NotEmpty(t, encItems[0].CreatedAtTimestamp)
-// 	require.NotEmpty(t, encItems[0].CreatedAt)
-// 	require.False(t, encItems[0].Deleted)
-// 	require.Equal(t, common.SNItemTypeNote, encItems[0].ContentType)
-// 	require.NotEmpty(t, encItems[0].Content)
-// 	require.Empty(t, encItems[0].DuplicateOf)
-//
-// 	testSession.ItemsKeys = append(testSession.ItemsKeys, ik)
-//
-// 	di, err := DecryptItems(testSession, encItems, ItemsKeys{})
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, di)
-//
-// 	var dn Note
-//
-// 	for _, dItem := range di {
-// 		if dItem.ContentType == common.SNItemTypeNote {
-// 			dn = *parseNote(dItem).(*Note)
-// 			break
-// 		}
-// 	}
-//
-// 	require.NotEmpty(t, dn.Content)
-// 	require.Equal(t, common.SNItemTypeNote, dn.ContentType)
-// 	require.Equal(t, "test title", dn.Content.GetTitle())
-// 	require.Equal(t, "test content", dn.Content.GetText())
-// 	require.NotEmpty(t, dn.UUID)
-// 	require.NotEmpty(t, dn.CreatedAtTimestamp)
-// 	require.NotEmpty(t, dn.CreatedAt)
-// 	require.False(t, dn.Deleted)
-// }
-
 func TestCreateAddUseItemsKey(t *testing.T) {
 	ik, err := CreateItemsKey()
 	require.NoError(t, err)
@@ -1219,18 +580,6 @@ func TestCreateAddUseItemsKey(t *testing.T) {
 func TestDecryptItemsKeys(t *testing.T) {
 	s := testSession
 
-	cleanup()
-
-	defer func() {
-		cleanup()
-	}()
-
-	syncInput := SyncInput{
-		Session: s,
-	}
-
-	_, err := Sync(syncInput)
-	require.NoError(t, err, "Sync Failed", err)
 	require.NotEmpty(t, s.ItemsKeys)
 	require.NotEmpty(t, s.DefaultItemsKey)
 }
@@ -1264,7 +613,6 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, eItems)
 
-	// fmt.Printf("BEFORE SYNC: %#+v\n", eItems[0])
 	si := SyncInput{
 		Items:   eItems,
 		Session: testSession,
@@ -1733,7 +1081,6 @@ func TestSearchNotesByUUID(t *testing.T) {
 }
 
 func TestSearchNotesByText(t *testing.T) {
-	time.Sleep(2 * time.Second)
 	cleanup()
 
 	defer cleanup()
@@ -1982,7 +1329,6 @@ func genRandomText(paragraphs int) string {
 
 func genNotes(num int, textParas int) (notes Items) {
 	for i := 1; i <= num; i++ {
-		time.Sleep(2 * time.Millisecond)
 		newNote, _ := NewNote(fmt.Sprintf("-%d-,%s", i, "Title"), fmt.Sprintf("%d,%s", i, genRandomText(textParas)), nil)
 
 		notes = append(notes, &newNote)
@@ -2063,3 +1409,598 @@ func TestDecryptItemKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73", ik.ItemsKey)
 }
+
+// func TestRegisterExportImport(t *testing.T) {
+//	if !strings.Contains(testSession.Server, "ramea") {
+//		return
+//	}
+//
+//	localTestMain()
+//	defer cleanup()
+//
+//	tmpfn := tempFilePath()
+//
+//	require.NoError(t, testSession.Export(tmpfn))
+//
+//	so, err := Sync(SyncInput{
+//		Session: testSession,
+//	})
+//	require.NoError(t, err)
+//
+//	items, key, err := testSession.Import(tmpfn, so.SyncToken)
+//	require.NoError(t, err)
+//	require.Len(t, items, 1)
+//	require.Equal(t, common.SNItemTypeItemsKey, items[0].ContentType)
+//	require.Equal(t, items[0].UUID, testSession.DefaultItemsKey.UUID)
+//	require.Equal(t, testSession.DefaultItemsKey.ItemsKey, key.ItemsKey)
+// }
+
+// TODO: Re-enable export import test
+// func TestRegisterCreateTagExportImportTwice(t *testing.T) {
+// 	if !strings.Contains(testSession.Server, "ramea") {
+// 		return
+// 	}
+//
+// 	defer cleanup()
+//
+// 	tag, _ := createTag("test-title", "", nil)
+//
+// 	var initItems Items
+// 	initItems = append(initItems, tag)
+//
+// 	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
+// 	require.NoError(t, err)
+// 	so, err := Sync(SyncInput{
+// 		Session: testSession,
+// 		Items:   encInitItems,
+// 	})
+// 	require.NoError(t, err)
+// 	initKey := testSession.DefaultItemsKey
+// 	require.Equal(t, 1, len(so.SavedItems))
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
+//
+// 	tmpfn := tempFilePath()
+// 	require.NoError(t, testSession.Export(tmpfn))
+//
+// 	items, key, err := testSession.Import(tmpfn, "", "")
+// 	require.NoError(t, err)
+// 	require.Len(t, items, 2)
+//
+// 	var keyIndex int
+//
+// 	for x := range items {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
+// 			keyIndex = x
+// 		}
+// 	}
+//
+// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
+// 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
+//
+// 	items, key, err = testSession.Import(tmpfn, "", "")
+// 	require.NoError(t, err)
+// 	require.Len(t, items, 2)
+//
+// 	for x := range items {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
+// 			keyIndex = x
+// 		}
+// 	}
+// }
+
+// TODO: Re-enable export import test
+// func TestRegisterCreateTagExportImport(t *testing.T) {
+// 	if !strings.Contains(testSession.Server, "ramea") {
+// 		return
+// 	}
+//
+// 	defer cleanup()
+//
+// 	tag, _ := createTag("test-title", "", nil)
+//
+// 	var initItems Items
+// 	initItems = append(initItems, tag)
+//
+// 	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
+// 	require.NoError(t, err)
+// 	so, err := Sync(SyncInput{
+// 		Session: testSession,
+// 		Items:   encInitItems,
+// 	})
+// 	require.NoError(t, err)
+// 	initKey := testSession.DefaultItemsKey
+// 	require.Equal(t, 1, len(so.SavedItems))
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
+//
+// 	tmpfn := tempFilePath()
+// 	require.NoError(t, testSession.Export(tmpfn))
+//
+// 	items, key, err := testSession.Import(tmpfn, "", "")
+// 	require.NoError(t, err)
+//
+// 	var keyIndex int
+// 	for x := range items {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
+// 			keyIndex = x
+// 		}
+// 	}
+//
+// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
+// 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
+// }
+//
+// func TestRegisterCreateTagExportImportIntoNewAccount(t *testing.T) {
+// 	if !strings.Contains(testSession.Server, "ramea") {
+// 		return
+// 	}
+//
+// 	defer cleanup()
+//
+// 	// create a tag and sync it to SN using the test session
+// 	tag, _ := createTag("test-title", "", nil)
+//
+// 	var initItems Items
+// 	initItems = append(initItems, tag)
+//
+// 	encInitItems, err := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
+// 	require.NoError(t, err)
+// 	so, err := Sync(SyncInput{
+// 		Session: testSession,
+// 		Items:   encInitItems,
+// 	})
+// 	require.NoError(t, err)
+//
+// 	initKey := testSession.DefaultItemsKey
+//
+// 	require.Equal(t, 1, len(so.SavedItems))
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
+//
+// 	tmpfn := tempFilePath()
+// 	require.NoError(t, testSession.Export(tmpfn))
+//
+// 	// now register and sign in as a new user
+// 	secondUserEmail := fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
+// 	secondUserPassword := "secretsanta2"
+//
+// 	ri := RegisterInput{
+// 		Password:  secondUserPassword,
+// 		Email:     secondUserEmail,
+// 		APIServer: "http://ramea:3000",
+// 		Debug:     true,
+// 	}
+//
+// 	_, err = ri.Register()
+// 	require.NoError(t, err)
+// 	o, err := SignIn(SignInInput{
+// 		Email:     secondUserEmail,
+// 		Password:  "secretsanta2",
+// 		APIServer: "http://ramea:3000",
+// 		Debug:     true,
+// 	})
+// 	require.NoError(t, err)
+//
+// 	newSession := o.Session
+//
+// 	// importing with wrong password should fail
+// 	_, _, err = newSession.Import(tmpfn, "", "secretsanta1")
+// 	require.Error(t, err)
+//
+// 	// importing with correct password should succeed
+// 	items, key, err := newSession.Import(tmpfn, "", "secretsanta")
+// 	require.NoError(t, err)
+//
+// 	var keyIndex int
+//
+// 	for x := range items {
+// 		if items[x].ContentType == common.SNItemTypeItemsKey {
+// 			keyIndex = x
+// 		}
+// 	}
+//
+// 	require.Equal(t, common.SNItemTypeItemsKey, items[keyIndex].ContentType)
+// 	require.NotEqual(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
+//
+// 	// now sync and decrypt
+// 	so, err = Sync(SyncInput{
+// 		Session: &newSession,
+// 	})
+//
+// 	require.NoError(t, err)
+//
+// 	dis, err := so.Items.DecryptAndParse(&newSession)
+// 	require.NoError(t, err)
+//
+// 	var found bool
+// 	for x := range dis {
+// 		if dis[x].GetContentType() == common.SNItemTypeTag {
+// 			nt := dis[x].(*Tag)
+// 			require.Equal(t, nt.Content.Title, tag.Content.Title)
+// 			// these won't be equal as we're importing an item with the same UUID as
+// 			// the original tag, resulting in a uuid_conflict, so we generate a new one
+// 			require.NotEqual(t, nt.UUID, tag.UUID)
+//
+// 			found = true
+//
+// 			break
+// 		}
+// 	}
+//
+// 	require.True(t, found)
+// }
+
+// 1. add a tag to SN (encrypted with initial items key) - KEY1
+// 2. take export (generate new items key, encrypt tag and new items key, and write to file only)
+// 3. add another tag to SN (encrypted with initial items key) - KEY1
+// 4. import - KEY 2
+// the resulting state should be:
+// 2 tags in SN, both encrypted with items key in export
+// 1 items key in session and SN
+
+// func TestRegisterCreateTagExportCreateTagImport(t *testing.T) {
+// 	if !strings.Contains(testSession.Server, "ramea") {
+// 		return
+// 	}
+//
+// 	defer cleanup()
+//
+// 	tag, _ := createTag("test-title", "", nil)
+// 	var initItems Items
+// 	initItems = append(initItems, tag)
+//
+// 	encInitItems, _ := initItems.Encrypt(testSession, testSession.DefaultItemsKey)
+// 	so, _ := Sync(SyncInput{
+// 		Session: testSession,
+// 		Items:   encInitItems,
+// 	})
+// 	initKey := testSession.DefaultItemsKey
+// 	require.Equal(t, 1, len(so.SavedItems))
+// 	require.Equal(t, common.SNItemTypeTag, so.SavedItems[0].ContentType)
+//
+// 	tmpfn := tempFilePath()
+// 	require.NoError(t, testSession.Export(tmpfn))
+// 	tag2, _ := createTag("another-test-title", "", nil)
+// 	var items2 Items
+// 	items2 = append(items2, tag2)
+// 	encItems2, _ := items2.Encrypt(testSession, testSession.DefaultItemsKey)
+//
+// 	so2, _ := Sync(SyncInput{
+// 		Session:   testSession,
+// 		Items:     encItems2,
+// 		SyncToken: so.SyncToken,
+// 	})
+//
+// 	require.Equal(t, 1, len(so2.SavedItems))
+// 	require.Equal(t, 0, len(so2.Items))
+//
+// 	items, key, err := testSession.Import(tmpfn, so.SyncToken, "")
+// 	require.NoError(t, err)
+//
+// 	require.Len(t, testSession.ItemsKeys, 1)
+// 	require.Equal(t, testSession.ItemsKeys[0].UUID, testSession.DefaultItemsKey.UUID)
+//
+// 	require.NoError(t, err)
+// 	require.Len(t, items, 3)
+//
+// 	// check the new items key differs from initial (session should now have items key generated by export)
+// 	require.NotEqual(t, testSession.DefaultItemsKey.ItemsKey, initKey.ItemsKey)
+// 	// check we now have two tags encrypted by that new key that's loaded in the session
+// 	var finalEncTags EncryptedItems
+//
+// 	for x := range items {
+// 		if items[x].ContentType == common.SNItemTypeTag {
+// 			finalEncTags = append(finalEncTags, items[x])
+// 		}
+// 	}
+//
+// 	finalTags, err := finalEncTags.DecryptAndParse(testSession)
+// 	require.NoError(t, err)
+// 	require.Len(t, finalTags, 2)
+//
+// 	// the key has been re-generated but meta-data such as UUID and times should be the same
+// 	require.NotEqual(t, initKey.ItemsKey, key.ItemsKey)
+// 	require.Equal(t, initKey.UUID, key.UUID)
+// 	require.Equal(t, initKey.UpdatedAtTimestamp, key.UpdatedAtTimestamp)
+// }
+
+//
+// func TestImportFromFile(t *testing.T) {
+// 	cleanup()
+// 	defer cleanup()
+//
+// 	numItemsKeys := len(testSession.ItemsKeys)
+// 	itemsKeyPre := testSession.DefaultItemsKey.ItemsKey
+// 	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
+//
+// 	_, itemsKey, err := testSession.Import("testuser-encrypted-backup.txt", "", "testuser")
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, itemsKey)
+//
+// 	require.Len(t, testSession.ItemsKeys, numItemsKeys)
+// 	require.NotEmpty(t, testSession.DefaultItemsKey.ItemsKey)
+// 	require.NotEqual(t, itemsKeyPre, testSession.DefaultItemsKey.ItemsKey)
+// 	require.Equal(t, itemsKey.ItemsKey, testSession.ItemsKeys[0].ItemsKey)
+//
+// 	// fresh sync and check items exist
+// 	so, err := Sync(SyncInput{
+// 		Session: testSession,
+// 	})
+// 	require.NoError(t, err)
+// 	dis, err := so.Items.DecryptAndParse(testSession)
+// 	require.NoError(t, err)
+// 	var noteFound bool
+// 	for _, d := range dis {
+// 		if d.GetContentType() == common.SNItemTypeNote {
+// 			noteFound = true
+// 		}
+// 	}
+//
+// 	require.True(t, noteFound)
+// }
+//
+// func TestExportImportOfNote(t *testing.T) {
+// 	cleanup()
+// 	defer cleanup()
+//
+// 	n, _ := NewNote("test title", "test content", nil)
+// 	path := "./test.json"
+//
+// 	// sync new note to SN before export
+// 	ei, err := EncryptItem(&n, testSession.DefaultItemsKey, testSession)
+// 	require.NoError(t, err)
+//
+// 	so, err := Sync(SyncInput{
+// 		Session: testSession,
+// 		Items:   EncryptedItems{ei},
+// 	})
+//
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, so.SavedItems)
+// 	require.Equal(t, common.SNItemTypeNote, so.SavedItems[0].ContentType)
+// 	eitd := append(so.SavedItems, so.Items...)
+// 	itemsToExport, err := eitd.DecryptAndParse(testSession)
+// 	require.NoError(t, err)
+// 	require.GreaterOrEqual(t, len(itemsToExport), 1)
+// 	require.NoError(t, testSession.Export(path))
+//
+// 	importedItems, _, err := testSession.Import(path, so.SyncToken, "")
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, importedItems)
+//
+// 	var foundNote bool
+//
+// 	for x := range importedItems {
+// 		if importedItems[x].ContentType == common.SNItemTypeNote {
+// 			var i Item
+// 			i, err = DecryptAndParseItem(importedItems[x], testSession)
+//
+// 			require.NoError(t, err)
+//
+// 			in := i.(*Note)
+//
+// 			require.Equal(t, n.Content.Title, in.Content.Title)
+// 			require.Equal(t, n.Content.Text, in.Content.Text)
+//
+// 			foundNote = true
+//
+// 			break
+// 		}
+// 	}
+//
+// 	require.True(t, foundNote)
+// }
+
+// func TestExportImportOfNoteWithSync(t *testing.T) {
+//	cleanup()
+//	defer cleanup()
+//	syncOutput, err := Sync(SyncInput{
+//		Session: testSession,
+//	})
+//	require.NoError(t, err)
+//
+//	n := NewNote()
+//	nc := NewNoteContent()
+//	nc.Title = "test title"
+//	nc.Text = "test content"
+//	n.Content = *nc
+//
+//	path := "./test.json"
+//
+//	require.NoError(t, Items{&n}.Export(testSession, path))
+//
+//	importedItems, itemsKey, err := testSession.Import(path, true, syncOutput.SyncToken)
+//	require.NoError(t, err)
+//	require.NotEmpty(t, importedItems)
+//	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
+//	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+//
+//	var foundNote bool
+//
+//	var importedNote *Note
+//
+//	for x := range importedItems {
+//		if importedItems[x].GetContentType() == common.SNItemTypeNote {
+//			in := importedItems[x].(*Note)
+//			require.Equal(t, n.Content.Title, in.Content.Title)
+//			require.Equal(t, n.Content.Text, in.Content.Text)
+//			// n = *parseNote(importedItems[x]).(*Note)
+//			foundNote = true
+//			importedNote = in
+//
+//			break
+//		}
+//	}
+//
+//	require.True(t, foundNote)
+//
+//	// check items key is in session
+//	var foundItemsKeyInSession bool
+//
+//	for _, ik := range testSession.ItemsKeys {
+//		if importedNote.ItemsKeyID == ik.UUID {
+//			foundItemsKeyInSession = true
+//			break
+//		}
+//	}
+//
+//	require.True(t, foundItemsKeyInSession)
+//
+//	syncOutput, err = Sync(SyncInput{
+//		Session:   testSession,
+//		SyncToken: "",
+//	})
+//	require.NoError(t, err)
+//
+//	var foundItemsKeyInSN bool
+//
+//	for x := range syncOutput.Items {
+//		if syncOutput.Items[x].UUID == importedNote.ItemsKeyID {
+//			foundItemsKeyInSN = true
+//		}
+//	}
+//
+//	require.True(t, foundItemsKeyInSN)
+// }
+
+// This test is to prove we always replace any existing keys with matching ones from the export we import.
+// func TestDecryptionOfImportedItemsKey(t *testing.T) {
+// 	so, err := Sync(SyncInput{
+// 		Session: testSession,
+// 	})
+//
+// 	n, _ := NewNote("test title", "test content", nil)
+// 	path := "./test.json"
+//
+// 	var preExportItemsKeys []ItemsKey
+// 	preExportItemsKeys = append(preExportItemsKeys, testSession.ItemsKeys...)
+// 	preExportDefaultItemsKey := testSession.DefaultItemsKey
+//
+// 	items := Items{&n}
+//
+// 	eis, err := items.Encrypt(testSession, testSession.DefaultItemsKey)
+// 	require.NoError(t, err)
+//
+// 	_, err = Sync(SyncInput{
+// 		Session:   testSession,
+// 		SyncToken: so.SyncToken,
+// 		Items:     eis,
+// 	})
+// 	require.NoError(t, err)
+//
+// 	require.NoError(t, testSession.Export(path))
+//
+// 	// reset the session
+// 	testSession.DefaultItemsKey = preExportDefaultItemsKey
+// 	testSession.ItemsKeys = preExportItemsKeys
+//
+// 	importedItems, _, err := testSession.Import(path, "", "")
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, importedItems)
+//
+// 	var foundNote bool
+//
+// 	for x := range importedItems {
+// 		if importedItems[x].ContentType == common.SNItemTypeNote {
+// 			var i Item
+// 			i, err = DecryptAndParseItem(importedItems[x], testSession)
+//
+// 			require.NoError(t, err)
+//
+// 			in := i.(*Note)
+//
+// 			require.Equal(t, n.Content.Title, in.Content.Title)
+// 			require.Equal(t, n.Content.Text, in.Content.Text)
+//
+// 			foundNote = true
+//
+// 			break
+// 		}
+// 	}
+//
+// 	require.True(t, foundNote)
+// }
+
+//
+// func TestExportImportOfEncryptedNote(t *testing.T) {
+//	n := NewNote()
+//	nc := NewNoteContent()
+//	nc.Title = "test title"
+//	nc.Text = "test content"
+//	n.Content = *nc
+//
+//	path := "./test.json"
+//
+//	require.NoError(t, Items{&n}.Export(testSession, path, false))
+//
+//	importedItems, itemsKey, err := testSession.Import(path)
+//	require.NoError(t, err)
+//	require.NotEmpty(t, importedItems)
+//	require.Equal(t, itemsKey.UUID, testSession.DefaultItemsKey.UUID)
+//	require.Equal(t, itemsKey.ItemsKey, testSession.DefaultItemsKey.ItemsKey)
+//
+//	var foundNote bool
+//
+//	for x := range importedItems {
+//		if importedItems[x].GetContentType() == common.SNItemTypeNote {
+//			in := importedItems[x].(*Note)
+//			require.Equal(t, n.Content.Title, in.Content.Title)
+//			require.Equal(t, n.Content.Text, in.Content.Text)
+//			//n = *parseNote(importedItems[x]).(*Note)
+//			foundNote = true
+//
+//			break
+//		}
+//		//
+//	}
+//
+//	require.True(t, foundNote)
+// }
+//
+// func TestEncryptDecryptItemWithItemsKeyWithExportedMethods(t *testing.T) {
+// 	testSession.Debug = true
+// 	ik, err := testSession.CreateItemsKey()
+// 	require.NoError(t, err)
+// 	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
+// 	require.False(t, ik.Deleted)
+// 	require.NotEmpty(t, ik.UUID)
+// 	require.NotEmpty(t, ik.Content)
+// 	require.NotEmpty(t, ik.CreatedAt)
+// 	require.NotEmpty(t, ik.CreatedAtTimestamp)
+// 	require.Empty(t, ik.UpdatedAtTimestamp)
+// 	require.Empty(t, ik.UpdatedAt)
+//
+// 	n, _ := NewNote("test title", "test content", nil)
+// 	eis := Items{&n}
+// 	encItems, err := eis.Encrypt(testSession, ik)
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, encItems[0].UUID)
+// 	require.NotEmpty(t, encItems[0].CreatedAtTimestamp)
+// 	require.NotEmpty(t, encItems[0].CreatedAt)
+// 	require.False(t, encItems[0].Deleted)
+// 	require.Equal(t, common.SNItemTypeNote, encItems[0].ContentType)
+// 	require.NotEmpty(t, encItems[0].Content)
+// 	require.Empty(t, encItems[0].DuplicateOf)
+//
+// 	testSession.ItemsKeys = append(testSession.ItemsKeys, ik)
+//
+// 	di, err := DecryptItems(testSession, encItems, ItemsKeys{})
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, di)
+//
+// 	var dn Note
+//
+// 	for _, dItem := range di {
+// 		if dItem.ContentType == common.SNItemTypeNote {
+// 			dn = *parseNote(dItem).(*Note)
+// 			break
+// 		}
+// 	}
+//
+// 	require.NotEmpty(t, dn.Content)
+// 	require.Equal(t, common.SNItemTypeNote, dn.ContentType)
+// 	require.Equal(t, "test title", dn.Content.GetTitle())
+// 	require.Equal(t, "test content", dn.Content.GetText())
+// 	require.NotEmpty(t, dn.UUID)
+// 	require.NotEmpty(t, dn.CreatedAtTimestamp)
+// 	require.NotEmpty(t, dn.CreatedAt)
+// 	require.False(t, dn.Deleted)
+// }

@@ -112,6 +112,8 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time due to EOF so reducing to page size %d", sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
+			case strings.Contains(strings.ToLower(rErr.Error()), "giving up"):
+				return false, fmt.Errorf("sync failed: %+v", rErr)
 			default:
 				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
 			}
@@ -192,7 +194,7 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// perform initial sync
 	output, err = syncItems(input)
 	if err != nil {
-		return
+		return output, err
 	}
 
 	processSessionItemsKeysInSavedItems(input.Session, output, err)

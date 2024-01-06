@@ -1,7 +1,12 @@
 package common
 
 import (
+	"log"
+	"math"
 	"net/http"
+	"net/url"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -59,17 +64,54 @@ func NewHTTPClient() *retryablehttp.Client {
 	c := retryablehttp.NewClient()
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
+
+	envProxyUrl := os.Getenv("HTTP_PROXY")
+
+	if envProxyUrl != "" {
+		proxyUrl, err := url.Parse(envProxyUrl)
+		if err != nil {
+			log.Fatalf("HTTP_PROXY url %s invalid\n", proxyUrl)
+		}
+
+		t.Proxy = http.ProxyURL(proxyUrl)
+	}
+
 	t.MaxIdleConns = 100
 	t.MaxConnsPerHost = 100
 	t.MaxIdleConnsPerHost = 100
 	c.HTTPClient.Transport = t
 
 	c.RetryMax = MaxRequestRetries
-	c.Backoff = retryablehttp.DefaultBackoff
+	c.RetryWaitMin = 60 * time.Second
+	c.RetryWaitMax = 180 * time.Second
+	// c.Backoff = retryablehttp.LinearJitterBackoff(backoff)
+	c.Backoff = backoff
+	// c.Backoff = retryablehttp.DefaultBackoff
 	c.HTTPClient.Timeout = RequestTimeout * time.Second
 	c.Logger = nil
 
 	return c
+}
+
+func backoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
+	if resp != nil {
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
+			// SN API doesn't currently return Retry-After header but retain in case it does in future
+			if s, ok := resp.Header["Retry-After"]; ok {
+				if sleep, err := strconv.ParseInt(s[0], 10, 64); err == nil {
+					return time.Second * time.Duration(sleep)
+				}
+			}
+		}
+	}
+
+	mult := math.Pow(2, float64(attemptNum)) * float64(min)
+	sleep := time.Duration(mult)
+	if float64(sleep) != mult || sleep > max {
+		sleep = max
+	}
+
+	return sleep
 }
 
 const HeaderContentType = "Content-Type"
