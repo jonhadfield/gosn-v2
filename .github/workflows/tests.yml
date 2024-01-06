@@ -36,6 +36,7 @@ jobs:
           go install github.com/AlekSi/gocov-xml
           go test -cover -v -failfast -p 1 $(go list ./...) -coverprofile cover.out
           gocov convert cover.out | gocov-xml > coverage.xml
+        if: runner.os != 'Windows'
         env:
           SN_SERVER: ${{ secrets.SN_SERVER }}
           SN_SKIP_SESSION_TESTS: true
@@ -46,6 +47,20 @@ jobs:
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           coverage-reports: coverage.xml
-
+        if: runner.os != 'Windows'
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+      -
+        name: Windows Tests
+        run: |
+          go mod tidy
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
+          go install github.com/axw/gocov/gocov
+          go install github.com/AlekSi/gocov-xml
+        if: runner.os == 'Windows'
+        env:
+          SN_SERVER: ${{ secrets.SN_SERVER }}
+          SN_SKIP_SESSION_TESTS: true
+          SN_EMAIL: ${{ secrets.ACTIONS_SN_EMAIL }}
+          SN_PASSWORD: ${{ secrets.ACTIONS_SN_PASSWORD }}
