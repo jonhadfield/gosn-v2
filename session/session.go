@@ -221,7 +221,7 @@ func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
 	return
 }
 
-func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res string, err error) {
+func AddSession(httpClient *retryablehttp.Client, snServer, inKey string, k keyring.Keyring, debug bool) (res string, err error) {
 	// check if Session exists in keyring
 	var s string
 	s, err = GetSessionFromKeyring(k)
@@ -259,7 +259,7 @@ func AddSession(snServer, inKey string, k keyring.Keyring, debug bool) (res stri
 
 	var session Session
 
-	session, _, err = GetSessionFromUser(snServer, debug)
+	session, _, err = GetSessionFromUser(httpClient, snServer, debug)
 	if err != nil {
 		return fmt.Sprint("failed to get Session: ", err), err
 	}
@@ -384,8 +384,10 @@ func RemoveSession(k keyring.Keyring) string {
 	return MsgSessionRemovalSuccess
 }
 
-func GetSessionFromUser(server string, debug bool) (Session, string, error) {
+func GetSessionFromUser(httpClient *retryablehttp.Client, server string, debug bool) (Session, string, error) {
 	var sess Session
+
+	sess.HTTPClient = common.NewHTTPClient()
 
 	if server == "" {
 		server = common.APIServer
@@ -408,7 +410,7 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 
 	log.DebugPrint(debug, fmt.Sprintf("attempting cli sign-in with email: '%s' %d char password and server '%s'", email, len(password), apiServer), common.MaxDebugChars)
 
-	signInSession, err := auth.CliSignIn(email, password, apiServer, debug)
+	signInSession, err := auth.CliSignIn(email, password, server, debug)
 	sess = Session{
 		Debug: debug,
 		// HTTPClient:        nil,
@@ -440,7 +442,7 @@ func GetSessionFromUser(server string, debug bool) (Session, string, error) {
 // 	return rc
 // }
 
-func GetSession(loadSession bool, sessionKey, server string, debug bool) (session Session, email string, err error) {
+func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, server string, debug bool) (session Session, email string, err error) {
 	if loadSession {
 		var rawSess string
 
@@ -502,6 +504,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 
 		email = loadedSession.KeyParams.Identifier
 		session = loadedSession
+		session.HTTPClient = httpClient
 
 		// if session is expired or close to expiry then refresh it
 		if time.Unix(session.AccessExpiration/1000, 0).Add(-RefreshSessionThreshold).Before(time.Now().UTC()) {
@@ -514,7 +517,7 @@ func GetSession(loadSession bool, sessionKey, server string, debug bool) (sessio
 			}
 		}
 	} else {
-		session, email, err = GetSessionFromUser(server, debug)
+		session, email, err = GetSessionFromUser(httpClient, server, debug)
 		if err != nil {
 			return
 		}

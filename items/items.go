@@ -436,6 +436,14 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 
 	start := time.Now()
 	response, err = session.HTTPClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if response == nil {
+		return nil, errors.New("response is nil")
+	}
+
 	elapsed := time.Since(start)
 
 	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v", elapsed), common.MaxDebugChars)

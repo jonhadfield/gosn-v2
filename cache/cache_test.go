@@ -877,7 +877,12 @@ func _deleteAllTagsNotesComponents(session *session.Session) (err error) {
 
 	if len(toDel) > 0 {
 		var eToDel items.EncryptedItems
+
 		eToDel, err = toDel.Encrypt(testSession.Session, session.DefaultItemsKey)
+		if err != nil {
+			return err
+		}
+
 		si = items.SyncInput{
 			Session: session,
 			Items:   eToDel,

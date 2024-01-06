@@ -75,7 +75,7 @@ func TestWriteSession(t *testing.T) {
 	var kDefined MockKeyRingDefined
 	require.NoError(t, writeSession("example", kDefined))
 
-	_, _, _ = GetSession(true, "SNServer", os.Getenv("SN_SERVER"), true)
+	_, _, _ = GetSession(nil, true, "SNServer", os.Getenv("SN_SERVER"), true)
 
 	require.NoError(t, SessionExists(kDefined))
 }
@@ -97,9 +97,9 @@ func TestAddSession(t *testing.T) {
 
 	k := MockKeyRingDefined{}
 	RemoveSession(k)
-	_, err := AddSession(serverURL, "", k, true)
+	_, err := AddSession(nil, serverURL, "", k, true)
 	require.NoError(t, err)
-	_, _, err = GetSession(true, "", "http://ramea:3000", true)
+	_, _, err = GetSession(nil, true, "", "http://ramea:3000", true)
 	//	return "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"03f7f410be71838897d35cacec799503355d486a0ef4a1e3e5f64abf262a640f\",\"keyParams\":{\"created\":\"1693053961818\",\"identifier\":\"ramea@lessknown.co.uk\",\"origination\":\"registration\",\"pw_nonce\":\"93ed73375de052cb233fc9914fe8a2a264492b74ebc2968e17eb44d451ced614\",\"version\":\"004\"},\"access_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:ODAyZWRlMTg2ZjM5\",\"refresh_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:YTU4NWY3MmIxMmIz\",\"access_expiration\":1698262966000,\"refresh_expiration\":1724635892000}", nil
 	require.NoError(t, err)
 }
@@ -182,6 +182,6 @@ func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
 		serverURL = SNServerURL
 	}
 
-	_, err := AddSession(serverURL, "", MockKeyRingUnDefined{}, true)
+	_, err := AddSession(nil, serverURL, "", MockKeyRingUnDefined{}, true)
 	require.NoError(t, err)
 }

@@ -589,6 +589,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	output.KeyParams = tokenResp.Data.KeyParams
 	output.User = tokenResp.Data.User
 	ds := SignInResponseDataSession{
+		HTTPClient:        input.HTTPClient,
 		MasterKey:         mk,
 		KeyParams:         tokenResp.Data.KeyParams,
 		AccessToken:       tokenResp.Data.Session.AccessToken,
@@ -612,7 +613,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		time.Sleep(time.Duration(psid) * time.Millisecond)
 	}
 
-	return output, err
+	return output, nil
 }
 
 type RefreshSessionInput struct {
@@ -839,12 +840,14 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 
 // CliSignIn takes the server URL and credentials and sends them to the API to get a response including
 // an authentication token plus the keys required to encrypt and decrypt SN items.
-func CliSignIn(email, password, apiServer string, debug bool) (session SignInResponseDataSession, err error) {
+func CliSignIn(email, password, server string, debug bool) (session SignInResponseDataSession, err error) {
+	httpClient := common.NewHTTPClient()
 	sInput := SignInInput{
-		Email:     email,
-		Password:  password,
-		APIServer: apiServer,
-		Debug:     debug,
+		HTTPClient: httpClient,
+		Email:      email,
+		Password:   password,
+		APIServer:  server,
+		Debug:      debug,
 	}
 
 	// attempt sign-in without MFA
@@ -883,7 +886,7 @@ func CliSignIn(email, password, apiServer string, debug bool) (session SignInRes
 		session = sOutTwo.Session
 	}
 
-	return session, err
+	return session, nil
 }
 
 type generateLoginChallengeCodeVerifier struct {

@@ -31,7 +31,11 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session,
 	// if !gs.Valid() {
 	// 	return s, fmt.Errorf("invalid session")
 	// }
-	s.Session.HTTPClient = retryablehttp.NewClient()
+	s.Session.HTTPClient = gs.HTTPClient
+	if s.Session.HTTPClient == nil {
+		s.Session.HTTPClient = retryablehttp.NewClient()
+	}
+
 	s.Session.Debug = gs.Debug
 	s.Session.Server = gs.Server
 	s.Session.Token = gs.Token
@@ -66,16 +70,22 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session,
 
 // GetSession returns a cache session that encapsulates a gosn-v2 session with additional
 // configuration for managing a local cache database.
-func GetSession(loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
+func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
 	var gs session.Session
 
-	gs, _, err = session.GetSession(loadSession, sessionKey, server, debug)
+	if httpClient == nil || httpClient.HTTPClient == nil {
+		httpClient = common.NewHTTPClient()
+	}
+
+	gs, _, err = session.GetSession(httpClient, loadSession, sessionKey, server, debug)
+
 	if err != nil {
 		return
 	}
 
 	cs := Session{
 		Session: &session.Session{
+			HTTPClient:        httpClient,
 			Debug:             gs.Debug,
 			Server:            gs.Server,
 			Token:             gs.Token,

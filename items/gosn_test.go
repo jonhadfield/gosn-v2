@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/schemas"
@@ -56,7 +55,7 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 
-	httpClient := retryablehttp.NewClient()
+	httpClient := common.NewHTTPClient()
 
 	sOutput, err := auth.SignIn(auth.SignInInput{
 		HTTPClient: httpClient,
@@ -65,6 +64,9 @@ func TestMain(m *testing.M) {
 		APIServer:  os.Getenv("SN_SERVER"),
 		Debug:      true,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	testSession = &session.Session{
 		Debug:             true,
@@ -85,12 +87,6 @@ func TestMain(m *testing.M) {
 		PasswordNonce:     sOutput.Session.PasswordNonce,
 		Schemas:           nil,
 	}
-
-	// sOutput.Session
-
-	// if strings.ToLower(os.Getenv("SN_DEBUG")) == "true" {
-	// 	testSession.Debug = true
-	// }
 
 	if _, err = Sync(SyncInput{Session: testSession}); err != nil {
 		log.Fatal(err)
