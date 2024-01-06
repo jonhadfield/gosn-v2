@@ -728,7 +728,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	var finalItem int
 
 	if len(input.Items) > 0 {
-		finalItem = lesserOf(len(input.Items)-1, input.NextItem+limit-1)
+		finalItem = min(len(input.Items)-1, input.NextItem+limit-1)
 		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem+1, finalItem+1), common.MaxDebugChars)
 		// fmt.Printf("syncItemsViaAPI | going to put items: %d to %d\n", input.NextItem, finalItem)
 
@@ -869,22 +869,6 @@ func stripLineBreak(input string) string {
 	}
 
 	return input
-}
-
-func lesserOf(first, second int) int {
-	if first < second {
-		if first < 0 {
-			return 0
-		}
-
-		return first
-	}
-
-	if second < 0 {
-		return 0
-	}
-
-	return second
 }
 
 // DeleteContent will remove all Notes, Tags, and Components from SN.
