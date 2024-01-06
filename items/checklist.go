@@ -6,8 +6,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"go.elara.ws/pcre"
 )
 
 const (
@@ -24,6 +22,24 @@ var (
 )
 
 type Tasks []Task
+
+func splitTaskText(text string) []string {
+	// placeholder for escaped newlines
+	placeholder := "ESC_NEWLINE_PLACEHOLDER"
+
+	// replace "\\n" with the placeholder
+	escapedNewlineReplaced := strings.ReplaceAll(text, `\\n`, placeholder)
+
+	// split by "\n"
+	parts := strings.Split(escapedNewlineReplaced, `\n`)
+
+	// Replace the placeholder back to "\\n" in each part
+	for i, part := range parts {
+		parts[i] = strings.ReplaceAll(part, placeholder, `\\n`)
+	}
+
+	return parts
+}
 
 type Task struct {
 	Title     string `json:"title"`
@@ -50,8 +66,7 @@ func NoteTextToTasks(text string) (tasks Tasks, err error) {
 	if strings.Contains(text, "\n") {
 		matches = strings.Split(text, "\n")
 	} else {
-		r := pcre.MustCompile(`(?<!\\)\\n`)
-		matches = r.Split(text, -1)
+		matches = splitTaskText(text)
 	}
 
 	for _, match := range matches {
@@ -93,8 +108,6 @@ func TasksToNoteText(tasks Tasks) string {
 			completed = "x"
 		}
 
-		// TODO: previously required \\n?
-		// sep := "\\n"
 		sep := "\n"
 		if x == len(tasks)-1 {
 			sep = ""
