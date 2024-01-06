@@ -107,6 +107,7 @@ func backoff(min, max time.Duration, attemptNum int, resp *http.Response) time.D
 
 	mult := math.Pow(2, float64(attemptNum)) * float64(min)
 	sleep := time.Duration(mult)
+
 	if float64(sleep) != mult || sleep > max {
 		sleep = max
 	}

@@ -524,8 +524,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	getAuthParamsOutput, err = getAuthParams(getAuthParamsInput)
 	if err != nil {
 		log.DebugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err), common.MaxDebugChars)
-		err = processConnectionFailure(err, getAuthParamsInput.authParamsURL)
-		return
+		return output, processConnectionFailure(err, getAuthParamsInput.authParamsURL)
 	}
 	// fmt.Printf("getAuthParamsOutput: %#+v\n", getAuthParamsOutput)
 
@@ -545,9 +544,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 
 	genEncPasswordInput.UserPassword = input.Password
 	genEncPasswordInput.Identifier = getAuthParamsOutput.Identifier
-	// genEncPasswordInput.TokenName = input.TokenName
 	genEncPasswordInput.PasswordNonce = getAuthParamsOutput.PasswordNonce
-	// genEncPasswordInput.Version = getAuthParamsOutput.Version
 	genEncPasswordInput.Debug = input.Debug
 
 	var _, sp string
