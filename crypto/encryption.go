@@ -42,6 +42,8 @@ const (
 	NonceSizeX = 24
 
 	SaltSize = 16
+
+	MaxPlaintextSize = 10000000
 )
 
 func SplitContent(in string) (version, nonce, cipherText, authenticatedData string) {
@@ -222,6 +224,11 @@ func Encrypt(key []byte, text string) string {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err)
+	}
+
+	// fail if plaintext is over 10MB
+	if len(plaintext) > MaxPlaintextSize {
+		panic("plaintext too long. please report this issue at https://github.com/jonhadfield/gosn-v2/issues")
 	}
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
