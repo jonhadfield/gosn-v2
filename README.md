@@ -64,3 +64,13 @@ so, _ := gosn.Sync(gosn.SyncInput{
 items, _ := so.Items.DecryptAndParse(&sio.Session)
 ```
 
+## running tests
+
+Execute the full test suite using the standard Go tooling:
+
+```bash
+go test ./...
+```
+
+This runs all unit tests across the repository.
+

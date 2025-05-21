@@ -537,21 +537,23 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 	return session, email, nil
 }
 
-func ParseSessionString(ss string) (sess Session, err error) {
+func ParseSessionString(ss string) (Session, error) {
 	var ms MinimalSession
-	err = json.Unmarshal([]byte(ss), &ms)
 
-	sess.Server = ms.Server
-	sess.AccessToken = ms.AccessToken
-	sess.AccessExpiration = ms.AccessExpiration
-	sess.RefreshToken = ms.RefreshToken
-	sess.RefreshExpiration = ms.RefreshExpiration
-	sess.MasterKey = ms.MasterKey
-	sess.Server = ms.Server
-	sess.KeyParams = ms.KeyParams
-	sess.PasswordNonce = ms.KeyParams.PwNonce
+	if err := json.Unmarshal([]byte(ss), &ms); err != nil {
+		return Session{}, err
+	}
 
-	return
+	return Session{
+		Server:            ms.Server,
+		AccessToken:       ms.AccessToken,
+		AccessExpiration:  ms.AccessExpiration,
+		RefreshToken:      ms.RefreshToken,
+		RefreshExpiration: ms.RefreshExpiration,
+		MasterKey:         ms.MasterKey,
+		KeyParams:         ms.KeyParams,
+		PasswordNonce:     ms.KeyParams.PwNonce,
+	}, nil
 }
 
 func isUnencryptedSession(in string) bool {
