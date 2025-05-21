@@ -1,4 +1,4 @@
-# al.essio.dev/pkg/shellescape v1.5.1
+# al.essio.dev/pkg/shellescape v1.6.0
 ## explicit; go 1.18
 al.essio.dev/pkg/shellescape
 # github.com/asdine/storm/v3 v3.2.1
@@ -17,7 +17,7 @@ github.com/danieljoos/wincred
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/fsnotify/fsnotify v1.8.0
+# github.com/fsnotify/fsnotify v1.9.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
 github.com/fsnotify/fsnotify/internal
@@ -43,7 +43,7 @@ github.com/matryer/try
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
-# github.com/pelletier/go-toml/v2 v2.2.3
+# github.com/pelletier/go-toml/v2 v2.2.4
 ## explicit; go 1.21.0
 github.com/pelletier/go-toml/v2
 github.com/pelletier/go-toml/v2/internal/characters
@@ -53,8 +53,8 @@ github.com/pelletier/go-toml/v2/unstable
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sagikazarmark/locafero v0.7.0
-## explicit; go 1.21
+# github.com/sagikazarmark/locafero v0.9.0
+## explicit; go 1.23.0
 github.com/sagikazarmark/locafero
 # github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 ## explicit; go 1.19
@@ -65,12 +65,12 @@ github.com/sourcegraph/conc
 github.com/sourcegraph/conc/internal/multierror
 github.com/sourcegraph/conc/iter
 github.com/sourcegraph/conc/panics
-# github.com/spf13/afero v1.12.0
-## explicit; go 1.21
+# github.com/spf13/afero v1.14.0
+## explicit; go 1.23.0
 github.com/spf13/afero
 github.com/spf13/afero/internal/common
 github.com/spf13/afero/mem
-# github.com/spf13/cast v1.7.1
+# github.com/spf13/cast v1.8.0
 ## explicit; go 1.19
 github.com/spf13/cast
 # github.com/spf13/pflag v1.0.6
@@ -96,13 +96,13 @@ github.com/subosito/gotenv
 ## explicit; go 1.18
 github.com/zalando/go-keyring
 github.com/zalando/go-keyring/secret_service
-# go.etcd.io/bbolt v1.3.4
-## explicit; go 1.12
+# go.etcd.io/bbolt v1.4.0
+## explicit; go 1.23
 go.etcd.io/bbolt
-# go.uber.org/atomic v1.9.0
-## explicit; go 1.13
-go.uber.org/atomic
-# go.uber.org/multierr v1.9.0
+go.etcd.io/bbolt/errors
+go.etcd.io/bbolt/internal/common
+go.etcd.io/bbolt/internal/freelist
+# go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
 # golang.org/x/crypto v0.38.0
