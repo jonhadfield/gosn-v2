@@ -529,14 +529,8 @@ type TagContent struct {
 	AppData        AppDataContent `json:"appData"`
 }
 
-func removeStringFromSlice(inSt string, inSl []string) (outSl []string) {
-	for _, si := range inSl {
-		if inSt != si {
-			outSl = append(outSl, si)
-		}
-	}
-
-	return
+func removeStringFromSlice(inSt string, inSl []string) []string {
+	return slices.DeleteFunc(inSl, func(s string) bool { return s == inSt })
 }
 
 type ItemReferences []ItemReference
@@ -877,16 +871,14 @@ func (ei *EncryptedItems) RemoveDeleted() {
 }
 
 func (i *Items) DeDupe() {
-	var encountered []string
-
-	var deDuped Items
+	encountered := make(map[string]struct{})
+	deDuped := make(Items, 0, len(*i))
 
 	for _, j := range *i {
-		if !slices.Contains(encountered, j.GetUUID()) {
+		if _, ok := encountered[j.GetUUID()]; !ok {
+			encountered[j.GetUUID()] = struct{}{}
 			deDuped = append(deDuped, j)
 		}
-
-		encountered = append(encountered, j.GetUUID())
 	}
 
 	*i = deDuped
