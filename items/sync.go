@@ -557,82 +557,53 @@ func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflict
 	return
 }
 
-func updateEncryptedItemRefs(s *session.Session, eis EncryptedItems, refReMap map[string]string) (result EncryptedItems, err error) {
-	for _, ei := range eis {
-		if ei.Deleted {
-			continue
-		}
+func updateEncryptedItemRefs(s *session.Session, items EncryptedItems, refMap map[string]string) (EncryptedItems, error) {
+	var result EncryptedItems
 
-		if IsEncryptedWithMasterKey(ei.ContentType) {
+	for _, ei := range items {
+		if ei.Deleted || IsEncryptedWithMasterKey(ei.ContentType) {
 			result = append(result, ei)
-
 			continue
 		}
 
-		// decrypt
 		if ei.ItemsKeyID != s.DefaultItemsKey.UUID {
-			panic("not default key")
+			return nil, fmt.Errorf("item %s not encrypted with default key", ei.UUID)
 		}
 
-		var di Item
-
-		di, err = DecryptAndParseItem(ei, s)
+		di, err := DecryptAndParseItem(ei, s)
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		// update refs
-		var updatedRefs ItemReferences
+		content := di.GetContent()
+		refs := content.References()
 
-		var itemUpdated bool
-
-		diContent := di.GetContent()
-		itemsReferences := diContent.References()
-
-		for _, ref := range itemsReferences {
-			var found bool
-
-			for k, v := range refReMap {
-				if ref.UUID == k {
-					updatedRefs = append(updatedRefs, ItemReference{
-						UUID:        v,
-						ContentType: ref.ContentType,
-					})
-					itemUpdated = true
-					found = true
-
-					break
-				}
-			}
-
-			if !found {
-				updatedRefs = append(updatedRefs, ref)
+		updated := false
+		for i := range refs {
+			if newID, ok := refMap[refs[i].UUID]; ok {
+				refs[i].UUID = newID
+				updated = true
 			}
 		}
 
-		if !itemUpdated {
-			// if we haven't amended the item, just add encrypted item to list to return
+		if !updated {
 			result = append(result, ei)
-
 			continue
 		}
-		// reencrypt
-		itemsReferences = updatedRefs
-		diContent.SetReferences(itemsReferences)
-		di.SetContent(diContent)
+
+		content.SetReferences(refs)
+		di.SetContent(content)
+
 		disNew := Items{di}
-
-		var eisNew EncryptedItems
-
-		eisNew, err = disNew.Encrypt(s, s.DefaultItemsKey)
+		encrypted, err := disNew.Encrypt(s, s.DefaultItemsKey)
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		result = append(result, eisNew[0])
+		result = append(result, encrypted[0])
 	}
 
-	return
+	return result, nil
 }
 
 type ItemsKeys []ItemsKey
