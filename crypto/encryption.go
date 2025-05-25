@@ -245,11 +245,15 @@ func Encrypt(key []byte, text string) string {
 	return base64.URLEncoding.EncodeToString(ciphertext)
 }
 
+// decodeCryptoText decodes URL-safe base64 encoded cipher text.
+func decodeCryptoText(s string) ([]byte, error) {
+	return base64.URLEncoding.DecodeString(s)
+}
+
 // Decrypt from base64 to decrypted string.
 func Decrypt(key []byte, cryptoText string) (pt string, err error) {
-	var ciphertext []byte
-
-	if ciphertext, err = base64.URLEncoding.DecodeString(cryptoText); err != nil {
+	ciphertext, err := decodeCryptoText(cryptoText)
+	if err != nil {
 		return
 	}
 
