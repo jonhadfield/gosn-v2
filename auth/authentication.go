@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -582,13 +581,11 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	output.Session = ds
 
 	// check if we need to add a post sign in delay
-	pside := os.Getenv("SN_POST_SIGN_IN_DELAY")
-	if pside != "" {
-		psid, psidErr := strconv.ParseInt(pside, 10, 64)
-		if psidErr != nil {
-			panic(fmt.Sprintf("failed to parse SN_POST_SIGN_IN_DELAY value as int64: %v", pside))
-		}
-
+	psid, ok, envErr := common.ParseEnvInt64(common.EnvPostSignInDelay)
+	if envErr != nil {
+		panic(envErr)
+	}
+	if ok {
 		log.DebugPrint(input.Debug, fmt.Sprintf("SignIn | sleeping %d milliseconds post sign in", psid), common.MaxDebugChars)
 		time.Sleep(time.Duration(psid) * time.Millisecond)
 	}
