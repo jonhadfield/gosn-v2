@@ -224,21 +224,13 @@ func unmarshalAuthRequestResponse(statusCode int, body []byte, debug bool) (outp
 	switch statusCode {
 	case http.StatusOK, http.StatusNotModified:
 		err = json.Unmarshal(body, &output)
-	case http.StatusNotFound:
+	case http.StatusNotFound, http.StatusBadRequest, http.StatusUnauthorized:
 		err = json.Unmarshal(body, &errResp)
 		if err == nil {
-			log.DebugPrint(debug, fmt.Sprintf("status 404 %+v", errResp), common.MaxDebugChars)
-		}
-	case http.StatusBadRequest:
-		err = json.Unmarshal(body, &errResp)
-		if err == nil {
-			log.DebugPrint(debug, fmt.Sprintf("status 400 %+v", errResp), common.MaxDebugChars)
-		}
-	case http.StatusUnauthorized:
-		err = json.Unmarshal(body, &errResp)
-		if err == nil {
-			log.DebugPrint(debug, fmt.Sprintf("status 401 %+v", errResp), common.MaxDebugChars)
-			log.DebugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp), common.MaxDebugChars)
+			log.DebugPrint(debug, fmt.Sprintf("status %d %+v", statusCode, errResp), common.MaxDebugChars)
+			if statusCode == http.StatusUnauthorized {
+				log.DebugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp), common.MaxDebugChars)
+			}
 		}
 	case http.StatusForbidden:
 		err = fmt.Errorf("server returned 403 Forbidden response")

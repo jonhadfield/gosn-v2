@@ -128,76 +128,16 @@ func DecryptItems(s *session.Session, ei EncryptedItems, iks []session.SessionIt
 			continue
 		}
 
-		var key string
-
-		ik := GetMatchingItem(e.GetItemsKeyID(), iks)
-
-		switch {
-		case ik.ItemsKey != "":
-			key = ik.ItemsKey
-		case IsEncryptedWithMasterKey(e.ContentType):
-			key = s.MasterKey
-		default:
-			if e.ItemsKeyID == "" {
-				log.DebugPrint(s.Debug, fmt.Sprintf("decryptItems | missing ItemsKeyID for content type: %s", e.ContentType), common.MaxDebugChars)
-				err = fmt.Errorf("encountered deleted: %t item %s of type %s without ItemsKeyID",
-					e.Deleted,
-					e.UUID,
-					e.ContentType)
-
-				return
-			}
-
-			key = GetMatchingItem(e.ItemsKeyID, s.ItemsKeys).ItemsKey
-			if key == "" {
-				err = fmt.Errorf("deleted: %t item %s of type %s cannot be decrypted as we're missing ItemsKey %s",
-					e.Deleted,
-					e.UUID,
-					e.ContentType,
-					e.ItemsKeyID)
-
-				return
-			}
-		}
-
-		var content []byte
-
-		content, err = e.DecryptItemOnly(key)
+		var di DecryptedItem
+		di, err = DecryptItem(e, s, iks)
 		if err != nil {
 			return
 		}
 
-		var di DecryptedItem
-		di.UUID = e.UUID
-		di.ContentType = e.ContentType
-		di.Deleted = e.Deleted
-
-		if e.ItemsKeyID != "" {
-			di.ItemsKeyID = e.ItemsKeyID
-		}
-
-		di.UpdatedAt = e.UpdatedAt
-		di.CreatedAt = e.CreatedAt
-		di.CreatedAtTimestamp = e.CreatedAtTimestamp
-		di.UpdatedAtTimestamp = e.UpdatedAtTimestamp
-
-		if e.DuplicateOf != nil {
-			di.DuplicateOf = *e.DuplicateOf
-		}
-
-		di.AuthHash = e.AuthHash
-		di.UpdatedWithSession = e.UpdatedWithSession
-		di.KeySystemIdentifier = e.KeySystemIdentifier
-		di.SharedVaultUUID = e.SharedVaultUUID
-		di.UserUUID = e.UserUUID
-		di.LastEditedByUUID = e.LastEditedByUUID
-
-		di.Content = string(content)
-
 		o = append(o, di)
 	}
 
-	return
+	return o, nil
 }
 
 const (
