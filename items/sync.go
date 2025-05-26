@@ -6,7 +6,6 @@ import (
 	"math"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -61,14 +60,12 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 	var sResp syncResponse
 
 	// check if we need to add a post sync request delay
-	psrd := os.Getenv("SN_POST_SYNC_REQUEST_DELAY")
-	if psrd != "" {
-		i.PostSyncRequestDelay, err = strconv.ParseInt(psrd, 10, 64)
-		if err != nil {
-			err = fmt.Errorf("invalid SN_POST_SYNC_REQUEST_DELAY value: %w", err)
-			return
-		}
-
+	var ok bool
+	i.PostSyncRequestDelay, ok, err = common.ParseEnvInt64(common.EnvPostSyncRequestDelay)
+	if err != nil {
+		return
+	}
+	if ok {
 		log.DebugPrint(i.Session.Debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
 			i.PostSyncRequestDelay), common.MaxDebugChars)
 	}

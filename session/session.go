@@ -525,7 +525,7 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 
 	session.Debug = debug
 
-	if slices.Contains([]string{"yes", "true", "1"}, os.Getenv("SN_SCHEMA_VALIDATION")) {
+	if slices.Contains([]string{"yes", "true", "1"}, os.Getenv(common.EnvSchemaValidation)) {
 		session.SchemaValidation = true
 
 		session.Schemas, err = schemas.LoadSchemas()
