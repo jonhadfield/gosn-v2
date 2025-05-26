@@ -213,62 +213,45 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 func processDoAuthRequestResponse(response *http.Response, debug bool) (output doAuthRequestOutput, errResp ErrorResponse, err error) {
 	var body []byte
 	body, err = io.ReadAll(response.Body)
-
-	// fmt.Println("body:", string(body))
-	// fmt.Println("response:", response.StatusCode)
-
-	switch response.StatusCode {
-	case http.StatusOK:
-		err = json.Unmarshal(body, &output)
-		if err != nil {
-			return
-		}
-	case http.StatusNotModified:
-		err = json.Unmarshal(body, &output)
-		if err != nil {
-			return
-		}
-	case http.StatusNotFound:
-		// email address not recognized
-		err = json.Unmarshal(body, &errResp)
-		if err != nil {
-			return
-		}
-
-		log.DebugPrint(debug, fmt.Sprintf("status 404 %+v", errResp), common.MaxDebugChars)
-
-		return
-	case http.StatusBadRequest:
-		// most likely authentication missing or SN API has changed
-		err = json.Unmarshal(body, &errResp)
-		if err != nil {
-			return
-		}
-
-		log.DebugPrint(debug, fmt.Sprintf("status 400 %+v", errResp), common.MaxDebugChars)
-	case http.StatusUnauthorized:
-		// need mfa token
-		// unmarshal error response
-
-		// fmt.Printf("unauthorized\n%s", string(body))
-		err = json.Unmarshal(body, &errResp)
-		if err != nil {
-			return
-		}
-
-		log.DebugPrint(debug, fmt.Sprintf("status 401 %+v", errResp), common.MaxDebugChars)
-		log.DebugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp), common.MaxDebugChars)
-	case http.StatusForbidden:
-		// server has denied request
-		// unmarshal error response
-		err = fmt.Errorf("server returned 403 Forbidden response")
-		return
-	default:
-		err = fmt.Errorf("unhandled: %+v", response)
+	if err != nil {
 		return
 	}
 
+	return unmarshalAuthRequestResponse(response.StatusCode, body, debug)
+}
+
+func unmarshalAuthRequestResponse(statusCode int, body []byte, debug bool) (output doAuthRequestOutput, errResp ErrorResponse, err error) {
+	switch statusCode {
+	case http.StatusOK, http.StatusNotModified:
+		err = json.Unmarshal(body, &output)
+	case http.StatusNotFound:
+		err = json.Unmarshal(body, &errResp)
+		if err == nil {
+			log.DebugPrint(debug, fmt.Sprintf("status 404 %+v", errResp), common.MaxDebugChars)
+		}
+	case http.StatusBadRequest:
+		err = json.Unmarshal(body, &errResp)
+		if err == nil {
+			log.DebugPrint(debug, fmt.Sprintf("status 400 %+v", errResp), common.MaxDebugChars)
+		}
+	case http.StatusUnauthorized:
+		err = json.Unmarshal(body, &errResp)
+		if err == nil {
+			log.DebugPrint(debug, fmt.Sprintf("status 401 %+v", errResp), common.MaxDebugChars)
+			log.DebugPrint(debug, fmt.Sprintf("parsed %+v\n", errResp), common.MaxDebugChars)
+		}
+	case http.StatusForbidden:
+		err = fmt.Errorf("server returned 403 Forbidden response")
+	default:
+		err = fmt.Errorf("unhandled: %+v", statusCode)
+	}
+
 	return
+}
+
+// UnmarshalAuthRequestResponseForTest exposes unmarshalAuthRequestResponse for testing.
+func UnmarshalAuthRequestResponseForTest(statusCode int, body []byte, debug bool) (doAuthRequestOutput, ErrorResponse, error) {
+	return unmarshalAuthRequestResponse(statusCode, body, debug)
 }
 
 type ErrorResponseData struct {
