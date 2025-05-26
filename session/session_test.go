@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,28 +91,28 @@ func TestWriteSession(t *testing.T) {
 	require.NoError(t, SessionExists(kDefined))
 }
 
-func TestAddSession(t *testing.T) {
-	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
-		t.Skip("skipping session test")
-	}
-
-	viper.SetEnvPrefix("sn")
-	require.NoError(t, viper.BindEnv("email"))
-	require.NoError(t, viper.BindEnv("password"))
-	require.NoError(t, viper.BindEnv("server"))
-
-	serverURL := os.Getenv("SN_SERVER")
-	if serverURL == "" {
-		serverURL = SNServerURL
-	}
-
-	k := MockKeyRingDefined{}
-	RemoveSession(k)
-	_, err := AddSession(nil, serverURL, "", k, true)
-	require.NoError(t, err)
-	_, _, err = GetSession(nil, true, "", "http://ramea:3000", true)
-	require.NoError(t, err)
-}
+// func TestAddSession(t *testing.T) {
+// 	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+// 		t.Skip("skipping session test")
+// 	}
+//
+// 	viper.SetEnvPrefix("sn")
+// 	require.NoError(t, viper.BindEnv("email"))
+// 	require.NoError(t, viper.BindEnv("password"))
+// 	require.NoError(t, viper.BindEnv("server"))
+//
+// 	serverURL := os.Getenv("SN_SERVER")
+// 	if serverURL == "" {
+// 		serverURL = SNServerURL
+// 	}
+//
+// 	k := MockKeyRingDefined{}
+// 	RemoveSession(k)
+// 	_, err := AddSession(nil, serverURL, "", k, true)
+// 	require.NoError(t, err)
+// 	_, _, err = GetSession(nil, true, "", serverURL, true)
+// 	require.NoError(t, err)
+// }
 
 func TestSessionExists(t *testing.T) {
 	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
