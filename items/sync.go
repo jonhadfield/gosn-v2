@@ -674,93 +674,92 @@ func (cis ConflictedItems) Validate(debug bool) error {
 	return nil
 }
 
-func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
-	debug := input.Session.Debug
-	// log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
-
-	// determine how many items to retrieve with each call
-	var limit int
-
-	switch {
-	case input.PageSize > 0:
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", input.PageSize), common.MaxDebugChars)
-		limit = input.PageSize
-	default:
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", common.PageSize), common.MaxDebugChars)
-		limit = common.PageSize
+// determineLimit returns the page size to use for the sync request.
+func determineLimit(pageSize int, debug bool) int {
+	if pageSize > 0 {
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", pageSize), common.MaxDebugChars)
+		return pageSize
 	}
 
-	out.PutLimitUsed = limit
+	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | using default limit: %d", common.PageSize), common.MaxDebugChars)
 
-	encItemJSON := []byte("[]")
+	return common.PageSize
+}
 
-	itemsToPut := input.Items
-
-	var finalItem int
-
-	if len(input.Items) > 0 {
-		finalItem = min(len(input.Items)-1, input.NextItem+limit-1)
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", input.NextItem+1, finalItem+1), common.MaxDebugChars)
-		// fmt.Printf("syncItemsViaAPI | going to put items: %d to %d\n", input.NextItem, finalItem)
-
-		encItemJSON, err = json.Marshal(itemsToPut[input.NextItem : finalItem+1])
-		// fmt.Printf("syncItemsViaAPI | encItemJSON: %s\n", encItemJSON)
-		if err != nil {
-			panic(err)
-		}
-
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | request size: %d bytes",
-			len(encItemJSON)), common.MaxDebugChars)
+// encodeItems prepares a subset of items to be sent and returns the JSON
+// representation and the final item index.
+func encodeItems(items EncryptedItems, start, limit int, debug bool) ([]byte, int, error) {
+	if len(items) == 0 {
+		return []byte("[]"), 0, nil
 	}
 
-	var requestBody []byte
-	// generate request body
-	newST := stripLineBreak(input.SyncToken) + `\n`
+	finalItem := min(len(items)-1, start+limit-1)
+	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", start+1, finalItem+1), common.MaxDebugChars)
+
+	encItemJSON, err := json.Marshal(items[start : finalItem+1])
+	if err != nil {
+		return nil, 0, err
+	}
+
+	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | request size: %d bytes", len(encItemJSON)), common.MaxDebugChars)
+
+	return encItemJSON, finalItem, nil
+}
+
+// buildRequestBody constructs the sync request body.
+func buildRequestBody(input SyncInput, limit int, encItemJSON []byte) []byte {
+	newST := stripLineBreak(input.SyncToken) + "\n"
 
 	switch {
 	case input.CursorToken == "":
 		if len(input.Items) == 0 {
 			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) + `}`)
-			} else {
-				requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) + `,"sync_token":"` + newST + `"}`)
+				return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d}`, limit))
 			}
-		} else {
-			if input.SyncToken == "" {
-				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) + `}`)
-			} else {
-				requestBody = []byte(`{"api":"20200115","limit":` + strconv.Itoa(limit) + `,"items":` + string(encItemJSON) +
-					`,"sync_token":"` + newST + `"}`)
-			}
+
+			return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d,"sync_token":"%s"}`, limit, newST))
 		}
 
+		if input.SyncToken == "" {
+			return []byte(fmt.Sprintf(`{"api":"20200115","limit":%d,"items":%s}`, limit, encItemJSON))
+		}
+
+		return []byte(fmt.Sprintf(`{"api":"20200115","limit":%d,"items":%s,"sync_token":"%s"}`, limit, encItemJSON, newST))
 	case input.CursorToken == "null":
 		if input.SyncToken == "" {
-			requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) +
-				`,"items":` + string(encItemJSON) +
-				`,"cursor_token":null}`)
-		} else {
-			requestBody = []byte(`{"api":"20200115","items":[],"limit":` + strconv.Itoa(limit) +
-				`,"items":` + string(encItemJSON) +
-				`,"sync_token":"` + newST + `","cursor_token":null}`)
+			return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d,"items":%s,"cursor_token":null}`, limit, encItemJSON))
 		}
 
-	case input.CursorToken != "":
+		return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d,"items":%s,"sync_token":"%s","cursor_token":null}`, limit, encItemJSON, newST))
+	default:
 		rawST := input.SyncToken
-
 		input.SyncToken = stripLineBreak(rawST)
 
-		requestBody = []byte(`{"api":"20200115", "limit":` + strconv.Itoa(limit) +
-			`,"items":` + string(encItemJSON) +
-			`,"compute_integrity":false,"sync_token":"` + newST + `","cursor_token":"` + stripLineBreak(input.CursorToken) + `\n"}`)
+		return []byte(fmt.Sprintf(`{"api":"20200115", "limit":%d,"items":%s,"compute_integrity":false,"sync_token":"%s","cursor_token":"%s\n"}`,
+			limit, encItemJSON, newST, stripLineBreak(input.CursorToken)))
+	}
+}
+
+func parseSyncResponse(data []byte) (syncResponse, error) {
+	return unmarshallSyncResponse(data)
+}
+
+func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
+	debug := input.Session.Debug
+	// log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
+
+	limit := determineLimit(input.PageSize, debug)
+
+	out.PutLimitUsed = limit
+
+	encItemJSON, finalItem, err := encodeItems(input.Items, input.NextItem, limit, debug)
+	if err != nil {
+		return
 	}
 
-	// eee, _ := json.MarshalIndent(string(requestBody), "", "  ")
-	// fmt.Println("requestBody", string(eee))
+	requestBody := buildRequestBody(input, limit, encItemJSON)
 
-	var responseBody []byte
-	responseBody, err = makeSyncRequest(input.Session, requestBody)
-	// fmt.Println("responseBody", string(responseBody))
+	responseBody, err := makeSyncRequest(input.Session, requestBody)
 	if input.PostSyncRequestDelay > 0 {
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
@@ -772,7 +771,7 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	// get encrypted items from API response
 	var bodyContent syncResponse
 
-	bodyContent, err = unmarshallSyncResponse(responseBody)
+	bodyContent, err = parseSyncResponse(responseBody)
 	if err != nil {
 		return
 	}
