@@ -22,9 +22,9 @@ var (
 	testUserEmail    string
 	testUserPassword string
 	sInput           = SignInInput{
-		Email:     os.Getenv("SN_EMAIL"),
-		Password:  os.Getenv("SN_PASSWORD"),
-		APIServer: os.Getenv("SN_SERVER"),
+		Email:     os.Getenv(common.EnvEmail),
+		Password:  os.Getenv(common.EnvPassword),
+		APIServer: os.Getenv(common.EnvServer),
 		Debug:     true,
 	}
 )
@@ -59,19 +59,19 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
-	if os.Getenv("SN_SERVER") == "" || strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+	if os.Getenv(common.EnvServer) == "" || strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 	} else {
 		httpClient := common.NewHTTPClient()
 		out, err := SignIn(SignInInput{
 			HTTPClient: httpClient,
-			Email:      os.Getenv("SN_EMAIL"),
-			Password:   os.Getenv("SN_PASSWORD"),
-			APIServer:  os.Getenv("SN_SERVER"),
+			Email:      os.Getenv(common.EnvEmail),
+			Password:   os.Getenv(common.EnvPassword),
+			APIServer:  os.Getenv(common.EnvServer),
 			Debug:      true,
 		})
 		if err != nil {
-			panic(fmt.Sprintf("failed to sign-in with: %s", os.Getenv("SN_SERVER")))
+			panic(fmt.Sprintf("failed to sign-in with: %s", os.Getenv(common.EnvServer)))
 		}
 
 		testSession = &SignInResponseDataSession{
@@ -91,7 +91,7 @@ func TestMain(m *testing.M) {
 			PasswordNonce:     "",
 		}
 
-		if strings.ToLower(os.Getenv("SN_DEBUG")) == "true" {
+		if strings.ToLower(os.Getenv(common.EnvDebug)) == "true" {
 			testSession.Debug = true
 		}
 
@@ -125,7 +125,7 @@ func TestSignIn(t *testing.T) {
 	testSession = &sOut.Session
 
 	if testSession.AccessToken == "" || testSession.RefreshToken == "" || testSession.RefreshExpiration == 0 || testSession.AccessExpiration == 0 {
-		t.Errorf("SignIn Failed with %s", os.Getenv("SN_SERVER"))
+		t.Errorf("SignIn Failed with %s", os.Getenv(common.EnvServer))
 	}
 }
 
@@ -141,7 +141,7 @@ func TestRefreshSession(t *testing.T) {
 	// wait for 2 seconds to ensure that the expiration times are different
 	time.Sleep(1 * time.Second)
 
-	rt, err := RequestRefreshToken(so.Session.HTTPClient, os.Getenv("SN_SERVER")+common.AuthRefreshPath, so.Session.AccessToken, so.Session.RefreshToken, true)
+	rt, err := RequestRefreshToken(so.Session.HTTPClient, os.Getenv(common.EnvServer)+common.AuthRefreshPath, so.Session.AccessToken, so.Session.RefreshToken, true)
 	require.NoError(t, err)
 	require.NotEmpty(t, rt.Data.Session.AccessToken)
 	require.NotEmpty(t, rt.Data.Session.RefreshToken)
@@ -160,7 +160,7 @@ func TestRegistrationWithInvalidShortPassword(t *testing.T) {
 	rInput := RegisterInput{
 		Email:     testEmailAddr,
 		Password:  password,
-		APIServer: os.Getenv("SN_SERVER"),
+		APIServer: os.Getenv(common.EnvServer),
 	}
 	_, err := rInput.Register()
 	require.Error(t, err)
@@ -168,7 +168,7 @@ func TestRegistrationWithInvalidShortPassword(t *testing.T) {
 }
 
 func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
-	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		emailAddr := testEmailAddr
 		password := "secretsanta"
 
@@ -176,7 +176,7 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 			Password:  password,
 			Email:     emailAddr,
 			Version:   common.DefaultSNVersion,
-			APIServer: os.Getenv("SN_SERVER"),
+			APIServer: os.Getenv(common.EnvServer),
 			Debug:     true,
 		}
 
@@ -184,7 +184,7 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 		require.NoError(t, err, "registration failed")
 
 		postRegSignInInput := SignInInput{
-			APIServer: os.Getenv("SN_SERVER"),
+			APIServer: os.Getenv(common.EnvServer),
 			Email:     emailAddr,
 			Password:  password,
 		}
@@ -201,12 +201,12 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 }
 
 func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
-	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		password := "secret"
 		rInput := RegisterInput{
 			Email:     testEmailAddr,
 			Password:  password,
-			APIServer: os.Getenv("SN_SERVER"),
+			APIServer: os.Getenv(common.EnvServer),
 		}
 		_, err := rInput.Register()
 		require.Error(t, err, "email is already registered")
@@ -214,11 +214,11 @@ func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
 }
 
 func TestRegistrationAndSignInWithEmailWithPlusSign(t *testing.T) {
-	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		_, err := SignIn(SignInInput{
 			Email:     testEmailAddrWithPlus,
 			Password:  "secret",
-			APIServer: os.Getenv("SN_SERVER"),
+			APIServer: os.Getenv(common.EnvServer),
 			Debug:     true,
 		})
 		require.Error(t, err)
@@ -320,7 +320,7 @@ func TestSignInWithInvalidURL(t *testing.T) {
 func TestSignInWithUnavailableServer(t *testing.T) {
 	t.Parallel()
 
-	if os.Getenv("SN_SERVER") == "http://ramea:3000" {
+	if os.Getenv(common.EnvServer) == "http://ramea:3000" {
 		return
 	}
 

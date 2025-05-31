@@ -130,12 +130,12 @@ func TestAdvancedChecklistToNoteText(t *testing.T) {
 	checklist.SchemaVersion = "1.0.0"
 	checklist.DefaultSections = []DefaultSection{
 		{
-			Id:   "open-tasks",
-			Name: "Open",
+			Id:   openTasksSectionID,
+			Name: openTasksSectionName,
 		},
 		{
-			Id:   "completed-tasks",
-			Name: "Completed",
+			Id:   completedTasksSectionID,
+			Name: completedTasksSectionName,
 		},
 	}
 	checklist.Groups = []AdvancedChecklistGroup{
@@ -144,13 +144,13 @@ func TestAdvancedChecklistToNoteText(t *testing.T) {
 			LastActive: time.Now(),
 			Sections: []AdvancedChecklistSection{
 				{
-					Id:        "open-tasks",
-					Name:      "Open",
+					Id:        openTasksSectionID,
+					Name:      openTasksSectionName,
 					Collapsed: false,
 				},
 				{
-					Id:        "completed-tasks",
-					Name:      "Completed",
+					Id:        completedTasksSectionID,
+					Name:      completedTasksSectionName,
 					Collapsed: false,
 				},
 			},
@@ -173,13 +173,13 @@ func TestAdvancedChecklistToNoteText(t *testing.T) {
 			LastActive: time.Now(),
 			Sections: []AdvancedChecklistSection{
 				{
-					Id:        "open-tasks",
-					Name:      "Open",
+					Id:        openTasksSectionID,
+					Name:      openTasksSectionName,
 					Collapsed: false,
 				},
 				{
-					Id:        "completed-tasks",
-					Name:      "Completed",
+					Id:        completedTasksSectionID,
+					Name:      completedTasksSectionName,
 					Collapsed: false,
 				},
 			},

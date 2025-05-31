@@ -75,7 +75,7 @@ func TestMakeSessionString(t *testing.T) {
 }
 
 func TestWriteSession(t *testing.T) {
-	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
 
@@ -86,7 +86,7 @@ func TestWriteSession(t *testing.T) {
 	var kDefined MockKeyRingDefined
 	require.NoError(t, writeSession("example", kDefined))
 
-	_, _, _ = GetSession(nil, true, "SNServer", os.Getenv("SN_SERVER"), true)
+	_, _, _ = GetSession(nil, true, "SNServer", os.Getenv(common.EnvServer), true)
 
 	require.NoError(t, SessionExists(kDefined))
 }
@@ -115,7 +115,7 @@ func TestWriteSession(t *testing.T) {
 // }
 
 func TestSessionExists(t *testing.T) {
-	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
 
@@ -127,7 +127,7 @@ func TestSessionExists(t *testing.T) {
 }
 
 func TestRemoveSession(t *testing.T) {
-	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
 
@@ -141,7 +141,7 @@ func TestRemoveSession(t *testing.T) {
 }
 
 func TestSessionStatus(t *testing.T) {
-	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
 
@@ -179,15 +179,15 @@ func TestSessionStatus(t *testing.T) {
 }
 
 func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
-	if os.Getenv("SN_SKIP_SESSION_TESTS") != "" {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
 
-	_ = os.Unsetenv("SN_SERVER")
-	_ = os.Unsetenv("SN_EMAIL")
-	_ = os.Unsetenv("SN_PASSWORD")
+	_ = os.Unsetenv(common.EnvServer)
+	_ = os.Unsetenv(common.EnvEmail)
+	_ = os.Unsetenv(common.EnvPassword)
 
-	serverURL := os.Getenv("SN_SERVER")
+	serverURL := os.Getenv(common.EnvServer)
 	if serverURL == "" {
 		serverURL = SNServerURL
 	}

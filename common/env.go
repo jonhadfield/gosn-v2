@@ -10,6 +10,11 @@ const (
 	EnvPostSyncRequestDelay = "SN_POST_SYNC_REQUEST_DELAY"
 	EnvPostSignInDelay      = "SN_POST_SIGN_IN_DELAY"
 	EnvSchemaValidation     = "SN_SCHEMA_VALIDATION"
+	EnvServer               = "SN_SERVER"
+	EnvEmail                = "SN_EMAIL"
+	EnvPassword             = "SN_PASSWORD"
+	EnvSkipSessionTests     = "SN_SKIP_SESSION_TESTS"
+	EnvDebug                = "SN_DEBUG"
 )
 
 // ParseEnvInt64 looks up an environment variable and attempts to parse
