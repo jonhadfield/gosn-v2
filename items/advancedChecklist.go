@@ -10,6 +10,10 @@ import (
 
 const (
 	AdvancedChecklistNoteType = "com.sncommunity.advanced-checklist"
+	openTasksSectionID        = "open-tasks"
+	openTasksSectionName      = "Open"
+	completedTasksSectionID   = "completed-tasks"
+	completedTasksSectionName = "Completed"
 )
 
 type AdvancedChecklistTasks []AdvancedChecklistTask
@@ -115,13 +119,13 @@ func (c *AdvancedChecklist) AddTask(groupName, taskTitle string) error {
 			LastActive: time.Now(),
 			Sections: []AdvancedChecklistSection{
 				{
-					Id:        "open-tasks",
-					Name:      "Open",
+					Id:        openTasksSectionID,
+					Name:      openTasksSectionName,
 					Collapsed: false,
 				},
 				{
-					Id:        "completed-tasks",
-					Name:      "Completed",
+					Id:        completedTasksSectionID,
+					Name:      completedTasksSectionName,
 					Collapsed: false,
 				},
 			},
@@ -303,13 +307,13 @@ func (c *AdvancedChecklist) AddGroup(groupName string) error {
 		LastActive: time.Now(),
 		Sections: []AdvancedChecklistSection{
 			{
-				Id:        "open-tasks",
-				Name:      "Open",
+				Id:        openTasksSectionID,
+				Name:      openTasksSectionName,
 				Collapsed: false,
 			},
 			{
-				Id:        "completed-tasks",
-				Name:      "Completed",
+				Id:        completedTasksSectionID,
+				Name:      completedTasksSectionName,
 				Collapsed: false,
 			},
 		},

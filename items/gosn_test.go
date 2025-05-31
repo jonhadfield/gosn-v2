@@ -49,7 +49,7 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
-	if strings.Contains(os.Getenv("SN_SERVER"), "ramea") {
+	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 
 		os.Exit(m.Run())
@@ -59,9 +59,9 @@ func TestMain(m *testing.M) {
 
 	sOutput, err := auth.SignIn(auth.SignInInput{
 		HTTPClient: httpClient,
-		Email:      os.Getenv("SN_EMAIL"),
-		Password:   os.Getenv("SN_PASSWORD"),
-		APIServer:  os.Getenv("SN_SERVER"),
+		Email:      os.Getenv(common.EnvEmail),
+		Password:   os.Getenv(common.EnvPassword),
+		APIServer:  os.Getenv(common.EnvServer),
 		Debug:      true,
 	})
 	if err != nil {
@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 		Debug:             true,
 		HTTPClient:        httpClient,
 		SchemaValidation:  false,
-		Server:            os.Getenv("SN_SERVER"),
+		Server:            os.Getenv(common.EnvServer),
 		FilesServerUrl:    sOutput.Session.FilesServerUrl,
 		Token:             "",
 		MasterKey:         sOutput.Session.MasterKey,
