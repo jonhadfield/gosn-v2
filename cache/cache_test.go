@@ -21,7 +21,7 @@ import (
 var testSession *Session
 
 func testSetup() {
-	gs, err := auth.CliSignIn(os.Getenv("SN_EMAIL"), os.Getenv("SN_PASSWORD"), os.Getenv("SN_SERVER"), true)
+	gs, err := auth.CliSignIn(os.Getenv(common.EnvEmail), os.Getenv(common.EnvPassword), os.Getenv(common.EnvServer), true)
 	if err != nil {
 		panic(err)
 	}
@@ -918,9 +918,9 @@ func cleanup(session *session.Session) {
 
 var (
 	sInput = auth.SignInInput{
-		Email:     os.Getenv("SN_EMAIL"),
-		Password:  os.Getenv("SN_PASSWORD"),
-		APIServer: os.Getenv("SN_SERVER"),
+		Email:     os.Getenv(common.EnvEmail),
+		Password:  os.Getenv(common.EnvPassword),
+		APIServer: os.Getenv(common.EnvServer),
 		Debug:     true,
 	}
 	testParas = []string{
