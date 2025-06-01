@@ -43,7 +43,10 @@ type AppTagConfig struct {
 	Debug    bool
 }
 
-const retryScaleFactor = 0.25
+const (
+	retryScaleFactor   = 0.25
+	statusInvalidToken = 498
+)
 
 type EncryptedItems []EncryptedItem
 
@@ -458,17 +461,17 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		}
 	}()
 
-	if response.StatusCode == 413 {
+	if response.StatusCode == http.StatusRequestEntityTooLarge {
 		err = errors.New("payload too large")
 		return
 	}
 
-	if response.StatusCode == 498 {
+	if response.StatusCode == statusInvalidToken {
 		err = errors.New("session token is invalid or has expired")
 		return
 	}
 
-	if response.StatusCode == 401 {
+	if response.StatusCode == http.StatusUnauthorized {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 
 		err = errors.New("server returned 401 unauthorized during sync request so most likely throttling due to excessive number of requests")
@@ -476,12 +479,12 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		return
 	}
 
-	if response.StatusCode > 400 {
+	if response.StatusCode > http.StatusBadRequest {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 		return
 	}
 
-	if response.StatusCode >= 200 && response.StatusCode < 300 {
+	if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 	}
 
