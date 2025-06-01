@@ -3,6 +3,7 @@ package cache
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,8 @@ import (
 	"github.com/jonhadfield/gosn-v2/session"
 	"github.com/mitchellh/go-homedir"
 )
+
+const batchSize = 500
 
 type Item struct {
 	UUID               string `storm:"id,unique"`
@@ -82,7 +85,9 @@ func (s *Session) gosn() *session.Session {
 	return &gs
 }
 
-func (pi Items) ToItems(s *Session) (its items.Items, err error) {
+func (pi Items) ToItems(s *Session) (items.Items, error) {
+	var its items.Items
+	var err error
 	log.DebugPrint(s.Debug, fmt.Sprintf("ToItems | Converting %d cache items to gosn items", len(pi)), common.MaxDebugChars)
 
 	// start := time.Now()
@@ -137,13 +142,13 @@ func (pi Items) ToItems(s *Session) (its items.Items, err error) {
 
 		its, err = eItems.DecryptAndParse(s.Session)
 		if err != nil {
-			return
+			return items.Items{}, err
 		}
 	}
 
 	// log.DebugPrint(s.Debug, fmt.Sprintf("ToItems took: %s", time.Since(start).String()), 50)
 
-	return
+	return its, nil
 }
 
 // func (s *Session) Export(path string) error {
@@ -249,7 +254,7 @@ func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items) {
 		pitems = append(pitems, cItem)
 	}
 
-	return
+	return pitems
 }
 
 // SaveNotes encrypts, converts to cache items, and then persists to db.
@@ -286,11 +291,11 @@ func SaveEncryptedItems(db *storm.DB, items items.EncryptedItems, close bool) er
 // SaveItems saves Items to the provided database.
 func SaveItems(s *Session, db *storm.DB, its items.Items, close bool) error {
 	if len(its) == 0 {
-		return fmt.Errorf("no items provided to SaveItems")
+		return errors.New("no items provided to SaveItems")
 	}
 
 	if db == nil {
-		return fmt.Errorf("db not passed to SaveItems")
+		return errors.New("db not passed to SaveItems")
 	}
 
 	var eItems items.EncryptedItems
@@ -312,11 +317,11 @@ func SaveItems(s *Session, db *storm.DB, its items.Items, close bool) error {
 // SaveCacheItems saves Cache Items to the provided database.
 func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
-		return fmt.Errorf("no items provided to SaveCacheItems")
+		return errors.New("no items provided to SaveCacheItems")
 	}
 
 	if db == nil {
-		return fmt.Errorf("db not passed to SaveCacheItems")
+		return errors.New("db not passed to SaveCacheItems")
 	}
 
 	total := len(items)
@@ -364,11 +369,11 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 // DeleteCacheItems saves Cache Items to the provided database.
 func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
-		return fmt.Errorf("no items provided to DeleteCacheItems")
+		return errors.New("no items provided to DeleteCacheItems")
 	}
 
 	if db == nil {
-		return fmt.Errorf("db not passed to DeleteCacheItems")
+		return errors.New("db not passed to DeleteCacheItems")
 	}
 
 	total := len(items)
@@ -421,11 +426,11 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 // CleanCacheItems marks Cache Items as clean (Dirty = false) and resets dirtied date to the provided database.
 func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
-		return fmt.Errorf("no items provided to DeleteCacheItems")
+		return errors.New("no items provided to DeleteCacheItems")
 	}
 
 	if db == nil {
-		return fmt.Errorf("db not passed to DeleteCacheItems")
+		return errors.New("db not passed to DeleteCacheItems")
 	}
 
 	total := len(items)
@@ -541,7 +546,8 @@ func (i Items) ValidateSaved() error {
 	return nil
 }
 
-func retrieveItemsKeysFromCache(s *session.Session, i Items) (encryptedItemKeys items.EncryptedItems, err error) {
+func retrieveItemsKeysFromCache(s *session.Session, i Items) (items.EncryptedItems, error) {
+	var encryptedItemKeys items.EncryptedItems
 	log.DebugPrint(s.Debug, "retrieveItemsKeysFromCache | attempting to retrieve items key(s) from cache", common.MaxDebugChars)
 
 	for x := range i {
@@ -564,21 +570,21 @@ func retrieveItemsKeysFromCache(s *session.Session, i Items) (encryptedItemKeys 
 		}
 	}
 
-	return
+	return encryptedItemKeys, nil
 }
 
 // Sync will push any dirty items to SN and make database cache consistent with SN.
 func Sync(si SyncInput) (so SyncOutput, err error) {
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
-		err = fmt.Errorf("invalid session")
+		err = errors.New("invalid session")
 
 		return
 	}
 
 	// only path should be passed
 	if si.Session.CacheDBPath == "" {
-		err = fmt.Errorf("database path is required")
+		err = errors.New("database path is required")
 		return
 	}
 
@@ -1013,7 +1019,8 @@ func processCachedItemsKeys(s *Session, eiks items.EncryptedItems) error {
 	return err
 }
 
-func mergeItemsKeysSlices(sessionList, another []session.SessionItemsKey) (out []session.SessionItemsKey) {
+func mergeItemsKeysSlices(sessionList, another []session.SessionItemsKey) []session.SessionItemsKey {
+	var out []session.SessionItemsKey
 	var holdingList []session.SessionItemsKey
 
 	for _, s := range sessionList {
@@ -1060,7 +1067,7 @@ func mergeItemsKeysSlices(sessionList, another []session.SessionItemsKey) (out [
 		}
 	}
 
-	return
+	return out
 }
 
 // GenCacheDBPath generates a path to a database file to be used as a cache of encrypted items
@@ -1071,7 +1078,7 @@ func mergeItemsKeysSlices(sessionList, another []session.SessionItemsKey) (out [
 // - the requesting application name (so that caches are application specific).
 func GenCacheDBPath(session Session, dir, appName string) (string, error) {
 	if !session.Valid() || appName == "" {
-		return "", fmt.Errorf("invalid session or appName")
+		return "", errors.New("invalid session or appName")
 	}
 
 	if dir == "" {
