@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jonhadfield/gosn-v2/common"
+
 	"github.com/stretchr/testify/require"
 )
 

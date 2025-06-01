@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -763,17 +762,39 @@ func (input RegisterInput) Register() (token string, err error) {
 }
 
 func GenerateAuthData(ct, uuid string, kp KeyParams) string {
-	var ad string
-
 	if ct == common.SNItemTypeItemsKey {
-		ad = "{\"kp\":{\"identifier\":\"" + kp.Identifier + "\",\"pw_nonce\":\"" + kp.PwNonce + "\",\"version\":\"" + kp.Version + "\",\"origination\":\"" + kp.Origination + "\",\"created\":\"" + kp.Created + "\"},\"u\":\"" + uuid + "\",\"v\":\"" + kp.Version + "\"}"
+		ad := struct {
+			KP KeyParams `json:"kp"`
+			U  string    `json:"u"`
+			V  string    `json:"v"`
+		}{
+			KP: kp,
+			U:  uuid,
+			V:  kp.Version,
+		}
 
-		return ad
+		b, err := json.Marshal(ad)
+		if err != nil {
+			panic(err)
+		}
+
+		return string(b)
 	}
 
-	ad = "{\"u\":\"" + uuid + "\",\"v\":\"004\"}"
+	ad := struct {
+		U string `json:"u"`
+		V string `json:"v"`
+	}{
+		U: uuid,
+		V: common.DefaultSNVersion,
+	}
 
-	return ad
+	b, err := json.Marshal(ad)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(b)
 }
 
 func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonce, masterKey, serverPassword string, err error) {
