@@ -16,7 +16,9 @@ type Session struct {
 
 // ImportSession creates a new Session from an existing gosn.Session instance
 // with the option of specifying a path for the db other than the home folder.
-func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session, err error) {
+func ImportSession(gs *auth.SignInResponseDataSession, path string) (*Session, error) {
+	var err error
+	var s *Session
 	if gs == nil {
 		panic("gs is nil")
 	}
@@ -54,12 +56,12 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session,
 
 		dbPath, err = GenCacheDBPath(*s, dbPath, common.LibName)
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		s.CacheDBPath = dbPath
 
-		return
+		return s, nil
 	}
 
 	s.CacheDBPath = path
@@ -70,17 +72,19 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (s *Session,
 
 // GetSession returns a cache session that encapsulates a gosn-v2 session with additional
 // configuration for managing a local cache database.
-func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, server string, debug bool) (s Session, email string, err error) {
+func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, server string, debug bool) (Session, string, error) {
 	var gs session.Session
+	var email string
+	var err error
 
 	if httpClient == nil || httpClient.HTTPClient == nil {
 		httpClient = common.NewHTTPClient()
 	}
 
-	gs, _, err = session.GetSession(httpClient, loadSession, sessionKey, server, debug)
+	gs, email, err = session.GetSession(httpClient, loadSession, sessionKey, server, debug)
 
 	if err != nil {
-		return
+		return Session{}, "", err
 	}
 
 	cs := Session{
