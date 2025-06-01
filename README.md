@@ -72,5 +72,7 @@ Execute the full test suite using the standard Go tooling:
 go test ./...
 ```
 
-This runs all unit tests across the repository.
+This runs all unit tests across the repository. Some integration tests require
+access to a Standard Notes server. If you don't have credentials or network
+access, set `SN_SKIP_SESSION_TESTS=true` to skip those tests.
 
