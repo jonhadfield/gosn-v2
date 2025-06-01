@@ -38,6 +38,8 @@ type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
 }
 
+const batchSize = 500
+
 type SyncInput struct {
 	*Session
 	Close bool
@@ -317,8 +319,6 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 		return fmt.Errorf("db not passed to SaveCacheItems")
 	}
 
-	batchSize := 500
-
 	total := len(items)
 
 	for i := 0; i < total; i += batchSize {
@@ -370,8 +370,6 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 	if db == nil {
 		return fmt.Errorf("db not passed to DeleteCacheItems")
 	}
-
-	batchSize := 500
 
 	total := len(items)
 
@@ -429,8 +427,6 @@ func CleanCacheItems(db *storm.DB, items Items, close bool) error {
 	if db == nil {
 		return fmt.Errorf("db not passed to DeleteCacheItems")
 	}
-
-	batchSize := 500
 
 	total := len(items)
 

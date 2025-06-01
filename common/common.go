@@ -76,9 +76,9 @@ func NewHTTPClient() *retryablehttp.Client {
 		t.Proxy = http.ProxyURL(proxyUrl)
 	}
 
-	t.MaxIdleConns = 100
-	t.MaxConnsPerHost = 100
-	t.MaxIdleConnsPerHost = 100
+	t.MaxIdleConns = MaxIdleConnections
+	t.MaxConnsPerHost = MaxIdleConnections
+	t.MaxIdleConnsPerHost = MaxIdleConnections
 	c.HTTPClient.Transport = t
 
 	c.RetryMax = MaxRequestRetries
