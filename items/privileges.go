@@ -51,7 +51,7 @@ func (c Privileges) IsDefault() bool {
 
 func (i Items) Privileges() (c PrivilegesN) {
 	for _, x := range i {
-		if x.GetContentType() == "Privileges" {
+		if x.GetContentType() == common.SNItemTypePrivileges {
 			component := x.(*Privileges)
 			c = append(c, *component)
 		}
@@ -84,6 +84,7 @@ func NewPrivileges() Privileges {
 
 	c.ContentType = common.SNItemTypePrivileges
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c

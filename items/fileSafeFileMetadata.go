@@ -51,9 +51,9 @@ func (c FileSafeFileMetaData) IsDefault() bool {
 	return false
 }
 
-func (i Items) FileSafeFileMetaData() (c FileSafeFileMetaDatas) {
+func (i Items) FileSafeFileMetaData() (c FileSafeFileMetaDataList) {
 	for _, x := range i {
-		if x.GetContentType() == "FileSafeFileMetaData" {
+		if x.GetContentType() == common.SNItemTypeFileSafeFileMetaData {
 			component := x.(*FileSafeFileMetaData)
 			c = append(c, *component)
 		}
@@ -62,10 +62,10 @@ func (i Items) FileSafeFileMetaData() (c FileSafeFileMetaDatas) {
 	return c
 }
 
-func (c *FileSafeFileMetaDatas) DeDupe() {
+func (c *FileSafeFileMetaDataList) DeDupe() {
 	var encountered []string
 
-	var deDuped FileSafeFileMetaDatas
+	var deDuped FileSafeFileMetaDataList
 
 	for _, i := range *c {
 		if !slices.Contains(encountered, i.UUID) {
@@ -84,8 +84,9 @@ func NewFileSafeFileMetaData() FileSafeFileMetaData {
 
 	var c FileSafeFileMetaData
 
-	c.ContentType = "FileSafeFileMetaData"
+	c.ContentType = common.SNItemTypeFileSafeFileMetaData
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
@@ -99,9 +100,9 @@ func NewFileSafeFileMetaDataContent() *FileSafeFileMetaDataContent {
 	return c
 }
 
-type FileSafeFileMetaDatas []FileSafeFileMetaData
+type FileSafeFileMetaDataList []FileSafeFileMetaData
 
-func (c FileSafeFileMetaDatas) Validate() error {
+func (c FileSafeFileMetaDataList) Validate() error {
 	var updatedTime time.Time
 
 	var err error
@@ -312,7 +313,7 @@ func (cc FileSafeFileMetaDataContent) References() ItemReferences {
 }
 
 func (cc *FileSafeFileMetaDataContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
+	cc.SetReferences(UpsertReferences(cc.ItemReferences, input))
 }
 
 func (cc *FileSafeFileMetaDataContent) SetReferences(input ItemReferences) {

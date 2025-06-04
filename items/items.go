@@ -2,6 +2,7 @@ package items
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,7 +23,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
-type syncResponse struct {
+type syncResponseData struct {
 	Items        EncryptedItems  `json:"retrieved_items"`
 	SavedItems   EncryptedItems  `json:"saved_items"`
 	Unsaved      EncryptedItems  `json:"unsaved"`
@@ -31,6 +32,9 @@ type syncResponse struct {
 	CursorToken  string          `json:"cursor_token"`
 	LastItemPut  int             // the last item successfully put
 	PutLimitUsed int             // the put limit used
+}
+type syncResponse struct {
+	Data syncResponseData `json:"data"`
 }
 
 // AppTagConfig defines expected configuration structure for making Tag related operations.
@@ -233,22 +237,22 @@ func DecryptAndParseItem(ei EncryptedItem, s *session.Session) (o Item, err erro
 	return
 }
 
-func DecryptAndParseItems(ei EncryptedItems, s *session.Session) (o Items, err error) {
-	log.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
-
-	for x := range ei {
-		var di Item
-
-		di, err = DecryptAndParseItem(ei[x], s)
-		if err != nil {
-			return
-		}
-
-		o = append(o, di)
-	}
-
-	return
-}
+// func DecryptAndParseItems(ei EncryptedItems, s *session.Session) (o Items, err error) {
+// 	log.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
+//
+// 	for x := range ei {
+// 		var di Item
+//
+// 		di, err = DecryptAndParseItem(ei[x], s)
+// 		if err != nil {
+// 			return
+// 		}
+//
+// 		o = append(o, di)
+// 	}
+//
+// 	return
+// }
 
 func (ei EncryptedItems) DecryptAndParse(s *session.Session) (o Items, err error) {
 	log.DebugPrint(s.Debug, fmt.Sprintf("DecryptAndParse | items: %d", len(ei)), common.MaxDebugChars)
@@ -274,6 +278,7 @@ func (ei EncryptedItems) DecryptAndParse(s *session.Session) (o Items, err error
 
 		return
 	}
+	fmt.Printf("%#+v\n", o)
 
 	return
 }
@@ -417,7 +422,8 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 	}
 }
 
-func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []byte, err error) {
+func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []byte, status int, err error) {
+	// time.Sleep(3 * time.Second) // REMOVED: This was causing unnecessary delays
 	// fmt.Println(string(reqBody))
 	if session.HTTPClient == nil {
 		log.DebugPrint(session.Debug, "makeSyncRequest | creating new http client", common.MaxDebugChars)
@@ -425,50 +431,77 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	}
 
 	var request *retryablehttp.Request
-
-	request, err = retryablehttp.NewRequest(http.MethodPost, session.Server+common.SyncPath, bytes.NewBuffer(reqBody))
+	u := session.Server + common.SyncPath
+	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | URL: %s", u), common.MaxDebugChars)
+	request, err = retryablehttp.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return
 	}
-
 	request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
 	request.Header.Set("User-Agent", "github.com/jonhadfield/gosn-v2")
 
+
+	// Create a context with timeout for the request
+	// Use same timeout as HTTP client to avoid conflicts
+	timeout := common.RequestTimeout
+	if envTimeout, ok, err := common.ParseEnvInt64(common.EnvRequestTimeout); err == nil && ok {
+		timeout = int(envTimeout)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+	request = request.WithContext(ctx)
+
 	var response *http.Response
 
 	start := time.Now()
-	response, err = session.HTTPClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
+	// fmt.Printf("MAKING REQ at %s with timeout %ds\n", time.Now().Format("15:04:05.000"), timeout)
 
+	response, err = session.HTTPClient.Do(request)
+	// fmt.Printf("GOT RESP at %s (took %v)\n", time.Now().Format("15:04:05.000"), time.Since(start))
+	if err != nil {
+		// Check if context was cancelled (timeout)
+		if errors.Is(err, context.DeadlineExceeded) {
+			fmt.Printf("Request timeout after %d seconds\n", timeout)
+			return nil, 0, fmt.Errorf("request timeout: %w", err)
+		}
+		return nil, 0, err
+	}
+	// fmt.Printf("RESP CODE %d at %s\n", response.StatusCode, time.Now().Format("15:04:05.000"))
 	if response == nil {
-		return nil, errors.New("response is nil")
+		return nil, 0, errors.New("response is nil")
 	}
 
 	elapsed := time.Since(start)
 
-	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v", elapsed), common.MaxDebugChars)
-
-	if err != nil {
-		return
-	}
+	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v, status: %d", elapsed, response.StatusCode), common.MaxDebugChars)
 
 	defer func() {
-		if err := response.Body.Close(); err != nil {
-			log.DebugPrint(session.Debug, "makeSyncRequest | failed to close body closed", common.MaxDebugChars)
+		// Always drain response body to prevent connection leak
+		if response != nil && response.Body != nil {
+			_, _ = io.Copy(io.Discard, response.Body)
+			if err = response.Body.Close(); err != nil {
+				log.DebugPrint(session.Debug, "makeSyncRequest | failed to close body closed", common.MaxDebugChars)
+			}
 		}
 	}()
 
+	// Always read the response body to prevent connection pool exhaustion
+	responseBody, err = io.ReadAll(response.Body)
+	if err != nil {
+		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | failed to read response body: %v", err), common.MaxDebugChars)
+		return nil, response.StatusCode, fmt.Errorf("failed to read response body: %w", err)
+	}
+	// fmt.Println("RESPONSE_BODY", string(responseBody))
+
 	if response.StatusCode == http.StatusRequestEntityTooLarge {
 		err = errors.New("payload too large")
-		return
+		return responseBody, response.StatusCode, err
 	}
 
 	if response.StatusCode == statusInvalidToken {
 		err = errors.New("session token is invalid or has expired")
-		return
+		return responseBody, response.StatusCode, err
 	}
 
 	if response.StatusCode == http.StatusUnauthorized {
@@ -476,26 +509,19 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 
 		err = errors.New("server returned 401 unauthorized during sync request so most likely throttling due to excessive number of requests")
 
-		return
+		return responseBody, response.StatusCode, err
 	}
 
 	if response.StatusCode > http.StatusBadRequest {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
-		return
+		return responseBody, response.StatusCode, fmt.Errorf("unexpected status code: %d", response.StatusCode)
 	}
 
 	if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes succeeded with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 	}
 
-	// readStart := time.Now()
-
-	responseBody, err = io.ReadAll(response.Body)
-
-	// fmt.Println(string(responseBody))
-	// logging.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | response read took %+v", time.Since(readStart)))
-
-	return responseBody, err
+	return responseBody, response.StatusCode, nil
 }
 
 // ItemReference defines a reference from one item to another.
@@ -530,6 +556,9 @@ type TagContent struct {
 	Title          string         `json:"title"`
 	ItemReferences ItemReferences `json:"references"`
 	AppData        AppDataContent `json:"appData"`
+	IconString     string         `json:"iconString,omitempty"`     // Icon for the tag (emoji or icon name)
+	Expanded       bool           `json:"expanded,omitempty"`       // Whether tag is expanded in UI
+	ParentId       string         `json:"parentId,omitempty"`       // Parent tag for nested tags
 }
 
 func removeStringFromSlice(inSt string, inSl []string) []string {

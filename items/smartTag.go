@@ -51,7 +51,7 @@ func (c SmartTag) IsDefault() bool {
 
 func (i Items) SmartTag() (c SmartTags) {
 	for _, x := range i {
-		if x.GetContentType() == "SmartTag" {
+		if x.GetContentType() == common.SNItemTypeSmartTag {
 			component := x.(*SmartTag)
 			c = append(c, *component)
 		}
@@ -82,8 +82,9 @@ func NewSmartTag() SmartTag {
 
 	var c SmartTag
 
-	c.ContentType = "SmartTag"
+	c.ContentType = common.SNItemTypeSmartTag
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c

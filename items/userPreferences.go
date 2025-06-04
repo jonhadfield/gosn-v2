@@ -63,9 +63,9 @@ func (c UserPreferences) IsDefault() bool {
 	return false
 }
 
-func (i Items) UserPreferences() (c UserPreferencess) {
+func (i Items) UserPreferences() (c UserPreferenceses) {
 	for _, x := range i {
-		if x.GetContentType() == "UserPreferences" {
+		if x.GetContentType() == common.SNItemTypeUserPreferences {
 			component := x.(*UserPreferences)
 			c = append(c, *component)
 		}
@@ -74,10 +74,10 @@ func (i Items) UserPreferences() (c UserPreferencess) {
 	return c
 }
 
-func (c *UserPreferencess) DeDupe() {
+func (c *UserPreferenceses) DeDupe() {
 	var encountered []string
 
-	var deDuped UserPreferencess
+	var deDuped UserPreferenceses
 
 	for _, i := range *c {
 		if !slices.Contains(encountered, i.UUID) {
@@ -96,7 +96,7 @@ func NewUserPreferences() UserPreferences {
 
 	var c UserPreferences
 
-	c.ContentType = "UserPreferences"
+	c.ContentType = common.SNItemTypeUserPreferences
 	c.CreatedAt = now
 	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
@@ -112,9 +112,9 @@ func NewUserPreferencesContent() *UserPreferencesContent {
 	return c
 }
 
-type UserPreferencess []UserPreferences
+type UserPreferenceses []UserPreferences
 
-func (c UserPreferencess) Validate() error {
+func (c UserPreferenceses) Validate() error {
 	var updatedTime time.Time
 
 	var err error
@@ -325,9 +325,9 @@ func (cc UserPreferencesContent) References() ItemReferences {
 }
 
 func (cc *UserPreferencesContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
+	cc.SetReferences(UpsertReferences(cc.ItemReferences, input))
 }
 
 func (cc *UserPreferencesContent) SetReferences(input ItemReferences) {
-	panic("implement me")
+	cc.ItemReferences = input
 }

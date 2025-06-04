@@ -56,7 +56,7 @@ func (c Theme) IsDefault() bool {
 
 func (i Items) Themes() (c Themes) {
 	for _, x := range i {
-		if x.GetContentType() == "Theme" {
+		if x.GetContentType() == common.SNItemTypeTheme {
 			component := x.(*Theme)
 			c = append(c, *component)
 		}
@@ -89,6 +89,7 @@ func NewTheme() Theme {
 
 	c.ContentType = common.SNItemTypeTheme
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
@@ -320,4 +321,21 @@ func (cc *ThemeContent) UpsertReferences(input ItemReferences) {
 
 func (cc *ThemeContent) SetReferences(input ItemReferences) {
 	cc.ItemReferences = input
+}
+
+// IsLayerable checks if this theme can be layered based on package info
+func (cc ThemeContent) IsLayerable() bool {
+	// Parse package_info to check for layerable property
+	var packageInfo map[string]interface{}
+	if err := json.Unmarshal(cc.PackageInfo, &packageInfo); err != nil {
+		return false
+	}
+
+	if layerable, exists := packageInfo["layerable"]; exists {
+		if layerableBool, ok := layerable.(bool); ok {
+			return layerableBool
+		}
+	}
+
+	return false
 }

@@ -262,6 +262,7 @@ type NoteContent struct {
 	NoteType         string             `json:"noteType"`
 	EditorIdentifier string             `json:"editorIdentifier"`
 	Trashed          *bool              `json:"trashed,omitempty"`
+	HidePreview      bool               `json:"hidePreview,omitempty"`      // Whether to hide note preview
 }
 
 func (noteContent NoteContent) ToAdvancedCheckList() (AdvancedChecklist, error) {
@@ -473,4 +474,14 @@ func (n *Notes) RemoveDeleted() {
 	}
 
 	*n = clean
+}
+
+// GetHidePreview returns whether the note preview should be hidden
+func (noteContent NoteContent) GetHidePreview() bool {
+	return noteContent.HidePreview
+}
+
+// SetHidePreview sets whether the note preview should be hidden
+func (noteContent *NoteContent) SetHidePreview(hidePreview bool) {
+	noteContent.HidePreview = hidePreview
 }

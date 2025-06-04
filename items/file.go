@@ -86,8 +86,9 @@ func NewFile() File {
 
 	var c File
 
-	c.ContentType = "File"
+	c.ContentType = common.SNItemTypeFile
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c

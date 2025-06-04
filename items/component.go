@@ -33,21 +33,21 @@ func parseComponent(i DecryptedItem) Item {
 
 type ComponentContent struct {
 	Identifier         string         `json:"identifier"`
-	LegacyURL          string         `json:"legacy_url"`
-	HostedURL          string         `json:"hosted_url"`
-	LocalURL           string         `json:"local_url"`
-	URL                string         `json:"url"`
-	ValidUntil         string         `json:"valid_until"`
-	OfflineOnly        bool           `json:"offlineOnly"`
+	LegacyURL          string         `json:"legacy_url,omitempty"`
+	HostedURL          string         `json:"hosted_url,omitempty"`
+	LocalURL           string         `json:"local_url,omitempty"`
+	URL                string         `json:"url,omitempty"`
+	ValidUntil         string         `json:"valid_until,omitempty"`
+	OfflineOnly        bool           `json:"offlineOnly,omitempty"`
 	Name               string         `json:"name"`
 	Area               string         `json:"area"`
-	PackageInfo        interface{}    `json:"package_info"`
-	Permissions        interface{}    `json:"permissions"`
-	Active             interface{}    `json:"active"`
-	AutoUpdateDisabled string         `json:"autoupdateDisabled"`
-	ComponentData      interface{}    `json:"componentData"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
+	PackageInfo        interface{}    `json:"package_info,omitempty"`
+	Permissions        []interface{}  `json:"permissions,omitempty"`         // Should be array
+	Active             interface{}    `json:"active,omitempty"`
+	AutoUpdateDisabled bool           `json:"autoupdateDisabled,omitempty"`  // Should be bool, not string
+	ComponentData      interface{}    `json:"componentData,omitempty"`       // Legacy component data
+	DissociatedItemIds []string       `json:"disassociatedItemIds,omitempty"`
+	AssociatedItemIds  []string       `json:"associatedItemIds,omitempty"`
 	ItemReferences     ItemReferences `json:"references"`
 	AppData            AppDataContent `json:"appData"`
 }
