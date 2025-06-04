@@ -1,6 +1,8 @@
 package items
 
 import (
+	"time"
+
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/session"
 )
@@ -92,4 +94,43 @@ func (i Items) Validate(session *session.Session) error {
 
 func IsEncryptedWithMasterKey(t string) bool {
 	return t == common.SNItemTypeItemsKey
+}
+
+// populateItemCommon fills the common fields of an item from a DecryptedItem.
+// It also normalises the CreatedAt and UpdatedAt fields using the SN time layout.
+func populateItemCommon(c *ItemCommon, di DecryptedItem) error {
+	c.UUID = di.UUID
+	c.ItemsKeyID = di.ItemsKeyID
+	c.ContentType = di.ContentType
+	c.Deleted = di.Deleted
+	c.DuplicateOf = di.DuplicateOf
+	c.ContentSize = len(di.Content)
+	c.CreatedAtTimestamp = di.CreatedAtTimestamp
+	c.UpdatedAtTimestamp = di.UpdatedAtTimestamp
+	c.AuthHash = di.AuthHash
+	c.UpdatedWithSession = di.UpdatedWithSession
+	c.KeySystemIdentifier = di.KeySystemIdentifier
+	c.SharedVaultUUID = di.SharedVaultUUID
+	c.UserUUID = di.UserUUID
+	c.LastEditedByUUID = di.LastEditedByUUID
+
+	var err error
+
+	var cAt, uAt time.Time
+
+	cAt, err = parseSNTime(di.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	c.CreatedAt = cAt.Format(common.TimeLayout)
+
+	uAt, err = parseSNTime(di.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	c.UpdatedAt = uAt.Format(common.TimeLayout)
+
+	return nil
 }
