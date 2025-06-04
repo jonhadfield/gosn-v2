@@ -54,9 +54,9 @@ func (c FileSafeIntegration) IsDefault() bool {
 	return false
 }
 
-func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
+func (i Items) FileSafeIntegration() (c FileSafeIntegrationList) {
 	for _, x := range i {
-		if slices.Contains([]string{"FileSafeIntegration", common.SNItemTypeFileSafeIntegration}, x.GetContentType()) {
+		if x.GetContentType() == common.SNItemTypeFileSafeIntegration {
 			component := x.(*FileSafeIntegration)
 			c = append(c, *component)
 		}
@@ -65,10 +65,10 @@ func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
 	return c
 }
 
-func (c *FileSafeIntegrations) DeDupe() {
+func (c *FileSafeIntegrationList) DeDupe() {
 	var encountered []string
 
-	var deDuped FileSafeIntegrations
+	var deDuped FileSafeIntegrationList
 
 	for _, i := range *c {
 		if !slices.Contains(encountered, i.UUID) {
@@ -87,8 +87,9 @@ func NewFileSafeIntegration() FileSafeIntegration {
 
 	var c FileSafeIntegration
 
-	c.ContentType = "FileSafeIntegration"
+	c.ContentType = common.SNItemTypeFileSafeIntegration
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
@@ -102,9 +103,9 @@ func NewFileSafeIntegrationContent() *FileSafeIntegrationContent {
 	return c
 }
 
-type FileSafeIntegrations []FileSafeIntegration
+type FileSafeIntegrationList []FileSafeIntegration
 
-func (c FileSafeIntegrations) Validate() error {
+func (c FileSafeIntegrationList) Validate() error {
 	var updatedTime time.Time
 
 	var err error
@@ -315,7 +316,7 @@ func (cc FileSafeIntegrationContent) References() ItemReferences {
 }
 
 func (cc *FileSafeIntegrationContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
+	cc.SetReferences(UpsertReferences(cc.ItemReferences, input))
 }
 
 func (cc *FileSafeIntegrationContent) SetReferences(input ItemReferences) {

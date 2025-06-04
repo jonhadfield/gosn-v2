@@ -53,7 +53,7 @@ func (c SFMFA) IsDefault() bool {
 
 func (i Items) SFMFA() (c SFMFAs) {
 	for _, x := range i {
-		if x.GetContentType() == "SFMFA" {
+		if x.GetContentType() == common.SNItemTypeSFMFA {
 			component := x.(*SFMFA)
 			c = append(c, *component)
 		}
@@ -84,8 +84,9 @@ func NewSFMFA() SFMFA {
 
 	var c SFMFA
 
-	c.ContentType = "SFMFA"
+	c.ContentType = common.SNItemTypeSFMFA
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c

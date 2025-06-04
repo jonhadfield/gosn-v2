@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
@@ -86,9 +88,9 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 
 	var reqBodyBytes []byte
 
-	apiVer := "20200115"
+	apiVer := common.APIVersion
 
-	reqBodyBytes = []byte(`{"api":"` + apiVer + `","access_token":"` + accessToken + `","refresh_token":"` + refreshToken + `"}`)
+	reqBodyBytes = []byte(fmt.Sprintf(`{"api":"%s","access_token":"%s","refresh_token":"%s"}`, apiVer, accessToken, refreshToken))
 
 	var refreshSessionReq *retryablehttp.Request
 
@@ -146,13 +148,14 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 
 	var reqBody string
 
-	apiVer := "20200115"
+	apiVer := common.APIVersion
 
 	if input.tokenName != "" {
-		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","` + input.tokenName + `":"` + input.tokenValue + `","code_verifier":"` + input.codeVerifier + `"}`
+		reqBody = fmt.Sprintf(`{"api":"%s","password":"%s","email":"%s","%s":"%s","code_verifier":"%s"}`, apiVer, input.encPassword, e, input.tokenName, input.tokenValue, input.codeVerifier)
 	} else {
-		reqBody = `{"api":"` + apiVer + `","password":"` + input.encPassword + `","email":"` + e + `","code_verifier":"` + input.codeVerifier + `"}`
+		reqBody = fmt.Sprintf(`{"api":"%s","password":"%s","email":"%s","code_verifier":"%s","ephemeral":false,"hvm_token":""}`, apiVer, input.encPassword, e, input.codeVerifier)
 	}
+	fmt.Println(reqBody)
 
 	reqBodyBytes = []byte(reqBody)
 
@@ -266,14 +269,14 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	var reqBodyBytes []byte
 	var reqBody string
 
-	apiVer := "20200115"
+	apiVer := common.APIVersion
 
 	if input.tokenName != "" {
-		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","` + input.tokenName + `":"` + input.tokenValue + `","code_challenge":"` + verifier.codeChallenge + `"}`
+		reqBody = fmt.Sprintf(`{"api":"%s","email":"%s","%s":"%s","code_challenge":"%s"}`, apiVer, input.email, input.tokenName, input.tokenValue, verifier.codeChallenge)
 	} else {
-		reqBody = `{"api":"` + apiVer + `","email":"` + input.email + `","code_challenge":"` + verifier.codeChallenge + `"}`
+		reqBody = fmt.Sprintf(`{"api":"%s","email":"%s","code_challenge":"%s"}`, apiVer, input.email, verifier.codeChallenge)
 	}
-
+	fmt.Println(reqBody)
 	reqBodyBytes = []byte(reqBody)
 
 	var req *retryablehttp.Request
@@ -495,6 +498,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	var getAuthParamsOutput AuthParamsOutput
 
 	getAuthParamsOutput, err = getAuthParams(getAuthParamsInput)
+	spew.Dump(getAuthParamsOutput)
 	if err != nil {
 		log.DebugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err), common.MaxDebugChars)
 		return output, processConnectionFailure(err, getAuthParamsInput.authParamsURL)
@@ -551,7 +555,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	}
 
 	if requestTokenFailure.Data.Error.Message != "" {
-		err = fmt.Errorf(strings.ToLower(requestTokenFailure.Data.Error.Message))
+		err = errors.New(strings.ToLower(requestTokenFailure.Data.Error.Message))
 		return
 	}
 
@@ -690,7 +694,7 @@ func (input RegisterInput) Register() (token string, err error) {
 
 	var req *retryablehttp.Request
 
-	reqBody := `{"email":"` + input.Email + `","identifier":"` + input.Email + `","password":"` + serverPassword + `","pw_nonce":"` + pwNonce + `","version":"` + common.DefaultSNVersion + `","origination":"registration","created":"1608473387799","api":"20200115"}`
+	reqBody := fmt.Sprintf(`{"email":"%s","identifier":"%s","password":"%s","pw_nonce":"%s","version":"%s","origination":"registration","created":"1608473387799","api":"%s"}`, input.Email, input.Email, serverPassword, pwNonce, common.DefaultSNVersion, common.APIVersion)
 
 	reqBodyBytes := []byte(reqBody)
 

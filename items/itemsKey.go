@@ -58,13 +58,15 @@ type ItemsKeyContent struct {
 }
 
 func (i ItemsKeyContent) References() ItemReferences {
-	// TODO implement me
-	panic("implement me")
+	return i.ItemReferences
 }
 
 func (i ItemsKeyContent) AuthData() AppDataContent {
-	// TODO implement me
-	panic("implement me")
+	return i.AppData
+}
+
+func (i *ItemsKeyContent) SetReferences(refs ItemReferences) {
+	i.ItemReferences = refs
 }
 
 type EIT struct {
@@ -171,3 +173,88 @@ type EncItemKey struct {
 }
 
 // content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
+
+// Item interface methods for ItemsKey
+func (ik ItemsKey) GetItemsKeyID() string {
+	return "" // ItemsKey doesn't have an ItemsKeyID since it IS the items key
+}
+
+func (ik ItemsKey) GetUUID() string {
+	return ik.UUID
+}
+
+func (ik *ItemsKey) SetUUID(uuid string) {
+	ik.UUID = uuid
+}
+
+func (ik ItemsKey) GetContentSize() int {
+	return ik.ContentSize
+}
+
+func (ik *ItemsKey) SetContentSize(size int) {
+	ik.ContentSize = size
+}
+
+func (ik ItemsKey) GetContentType() string {
+	return ik.ContentType
+}
+
+func (ik *ItemsKey) SetContentType(contentType string) {
+	ik.ContentType = contentType
+}
+
+func (ik ItemsKey) IsDeleted() bool {
+	return ik.Deleted
+}
+
+func (ik *ItemsKey) SetDeleted(deleted bool) {
+	ik.Deleted = deleted
+}
+
+func (ik ItemsKey) GetCreatedAt() string {
+	return ik.CreatedAt
+}
+
+func (ik *ItemsKey) SetCreatedAt(createdAt string) {
+	ik.CreatedAt = createdAt
+}
+
+func (ik ItemsKey) GetUpdatedAt() string {
+	return ik.UpdatedAt
+}
+
+func (ik *ItemsKey) SetUpdatedAt(updatedAt string) {
+	ik.UpdatedAt = updatedAt
+}
+
+func (ik ItemsKey) GetCreatedAtTimestamp() int64 {
+	return ik.CreatedAtTimestamp
+}
+
+func (ik *ItemsKey) SetCreatedAtTimestamp(timestamp int64) {
+	ik.CreatedAtTimestamp = timestamp
+}
+
+func (ik ItemsKey) GetUpdatedAtTimestamp() int64 {
+	return ik.UpdatedAtTimestamp
+}
+
+func (ik *ItemsKey) SetUpdatedAtTimestamp(timestamp int64) {
+	ik.UpdatedAtTimestamp = timestamp
+}
+
+func (ik ItemsKey) GetContent() Content {
+	return &ik.Content
+}
+
+func (ik *ItemsKey) SetContent(content Content) {
+	ik.Content = *content.(*ItemsKeyContent)
+}
+
+func (ik ItemsKey) IsDefault() bool {
+	return ik.Default
+}
+
+func (ik ItemsKey) GetDuplicateOf() string {
+	return "" // ItemsKey doesn't support duplication
+}

@@ -41,8 +41,6 @@ type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
 }
 
-const batchSize = 500
-
 type SyncInput struct {
 	*Session
 	Close bool
@@ -258,8 +256,8 @@ func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items) {
 }
 
 // SaveNotes encrypts, converts to cache items, and then persists to db.
-func SaveNotes(s *Session, db *storm.DB, items items.Notes, close bool) error {
-	eItems, err := items.Encrypt(*s.gosn())
+func SaveNotes(s *Session, db *storm.DB, notes items.Notes, close bool) error {
+	eItems, err := notes.Encrypt(*s.gosn())
 	if err != nil {
 		return err
 	}
@@ -270,8 +268,8 @@ func SaveNotes(s *Session, db *storm.DB, items items.Notes, close bool) error {
 }
 
 // SaveTags encrypts, converts to cache items, and then persists to db.
-func SaveTags(db *storm.DB, s *Session, items items.Tags, close bool) error {
-	eItems, err := items.Encrypt(*s.gosn())
+func SaveTags(db *storm.DB, s *Session, tags items.Tags, close bool) error {
+	eItems, err := tags.Encrypt(*s.gosn())
 	if err != nil {
 		return err
 	}
@@ -575,12 +573,23 @@ func retrieveItemsKeysFromCache(s *session.Session, i Items) (items.EncryptedIte
 
 // Sync will push any dirty items to SN and make database cache consistent with SN.
 func Sync(si SyncInput) (so SyncOutput, err error) {
+	// Track sync timing for health monitoring
+	syncStart := time.Now()
+	defer func() {
+		duration := time.Since(syncStart)
+		if duration > 5*time.Second {
+			log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Sync took %v, exceeding healthy duration of 5s", duration), common.MaxDebugChars)
+		}
+	}()
+
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
 		err = errors.New("invalid session")
 
 		return
 	}
+
+	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | session is valid"), common.MaxDebugChars)
 
 	// only path should be passed
 	if si.Session.CacheDBPath == "" {
@@ -589,11 +598,9 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	var db *storm.DB
-
 	// open DB if path provided
 	if si.Session.CacheDBPath != "" {
 		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath), common.MaxDebugChars)
-
 		db, err = storm.Open(si.Session.CacheDBPath)
 		if err != nil {
 			return
@@ -612,13 +619,17 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var all Items
 	err = db.All(&all)
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | error retrieving all items from db: %s", err.Error()), common.MaxDebugChars)
+
+		return
+	}
 	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | retrieved %d existing Items from db", len(all)), common.MaxDebugChars)
 
 	// validate
 	if err = all.Validate(); err != nil {
 		return so, err
 	}
-
 	if len(all) > 0 {
 		var cachedKeys items.EncryptedItems
 
@@ -626,10 +637,12 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		if err != nil {
 			return
 		}
+		fmt.Printf("Sync | retrieved %d items keys from cache\n", len(cachedKeys))
 
 		if err = processCachedItemsKeys(si.Session, cachedKeys); err != nil {
 			return
 		}
+		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | processed %d items keys from cache", len(cachedKeys)), common.MaxDebugChars)
 	}
 
 	// look for dirty items to push to SN with the gosn sync
@@ -647,13 +660,11 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// get sync token from previous operation to prevent syncing all data each time
 	var syncTokens []SyncToken
 	err = db.All(&syncTokens)
-
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		// on first ever sync, we won't have a sync token
 
 		return
 	}
-
 	var syncToken string
 
 	if len(syncTokens) > 1 {
@@ -669,6 +680,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// if session doesn't contain items keys then remove sync token so we bring all items in
 	if si.Session.DefaultItemsKey.ItemsKey == "" {
+		fmt.Printf("Sync | no default items key in session so resetting sync token\n")
 		log.DebugPrint(si.Session.Debug, "Sync | no default items key in session so resetting sync token", common.MaxDebugChars)
 
 		syncToken = ""
@@ -728,7 +740,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	var gSO items.SyncOutput
 
 	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | calling items.Sync with syncToken %s", syncToken), common.MaxDebugChars)
-
 	gSO, err = items.Sync(gSI)
 	if err != nil {
 		return
@@ -1004,16 +1015,36 @@ func processCachedItemsKeys(s *Session, eiks items.EncryptedItems) error {
 	}
 
 	s.Session.ItemsKeys = mergeItemsKeysSlices(s.Session.ItemsKeys, syncedItemsKeys)
-	// set default items key to most recent
+
+	// Set default items key using Standard Notes priority logic:
+	// 1. Prioritize keys marked as default
+	// 2. Fall back to most recent by timestamp
+	var defaultItemsKey session.SessionItemsKey
 	var latestItemsKey session.SessionItemsKey
+
 	for x := range s.Session.ItemsKeys {
-		if s.Session.ItemsKeys[x].CreatedAtTimestamp > latestItemsKey.CreatedAtTimestamp {
-			latestItemsKey = s.Session.ItemsKeys[x]
+		key := s.Session.ItemsKeys[x]
+
+		// Track the most recent key regardless
+		if key.CreatedAtTimestamp > latestItemsKey.CreatedAtTimestamp {
+			latestItemsKey = key
+		}
+
+		// Prefer keys marked as default
+		if key.Default {
+			defaultItemsKey = key
+			break
 		}
 	}
 
-	log.DebugPrint(s.Debug, fmt.Sprintf("Sync | setting Default Items Key to %s", latestItemsKey.UUID), common.MaxDebugChars)
-	s.Session.DefaultItemsKey = latestItemsKey
+	// Use default key if found, otherwise use most recent
+	if defaultItemsKey.UUID != "" {
+		s.Session.DefaultItemsKey = defaultItemsKey
+		log.DebugPrint(s.Debug, fmt.Sprintf("Sync | setting Default Items Key to %s (marked as default)", defaultItemsKey.UUID), common.MaxDebugChars)
+	} else if latestItemsKey.UUID != "" {
+		s.Session.DefaultItemsKey = latestItemsKey
+		log.DebugPrint(s.Debug, fmt.Sprintf("Sync | setting Default Items Key to %s (most recent)", latestItemsKey.UUID), common.MaxDebugChars)
+	}
 
 	log.DebugPrint(s.Debug, fmt.Sprintf("Sync | post-merge total of %d ItemsKeys in session", len(s.Session.ItemsKeys)), common.MaxDebugChars)
 	return err

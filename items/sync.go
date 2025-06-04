@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
@@ -69,11 +70,16 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		log.DebugPrint(i.Session.Debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
 			i.PostSyncRequestDelay), common.MaxDebugChars)
 	}
-
 	// retry logic is to handle responses that are too large
 	// so we can reduce number we retrieve with each sync request
 	start := time.Now()
 	rErr := try.Do(func(attempt int) (bool, error) {
+		// Implement exponential backoff similar to Standard Notes
+		if attempt > 1 {
+			backoffDuration := time.Duration(1000*(1<<uint(attempt-2))) * time.Millisecond
+			log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | backing off for %v before attempt %d", backoffDuration, attempt), common.MaxDebugChars)
+			time.Sleep(backoffDuration)
+		}
 		ps := common.PageSize
 		if i.PageSize > 0 {
 			ps = i.PageSize
@@ -89,27 +95,30 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 				fmt.Printf("\nerr: %s\n\nplease log in again", rErr)
 				os.Exit(1)
 			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
-				i.NextItem = sResp.LastItemPut
+				i.NextItem = sResp.Data.LastItemPut
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time as the request was too large so reducing to page size %d",
-					sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
+					sResp.Data.PutLimitUsed, i.PageSize), common.MaxDebugChars)
 			case strings.Contains(strings.ToLower(rErr.Error()), "timeout"):
-				i.NextItem = sResp.LastItemPut
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | request timed out, retrying with smaller page size"), common.MaxDebugChars)
+				i.NextItem = sResp.Data.LastItemPut
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-					"at a time due to timeout so reducing to page size %d", sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
+					"at a time due to timeout so reducing to page size %d", sResp.Data.PutLimitUsed, i.PageSize), common.MaxDebugChars)
 			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
-				i.NextItem = sResp.LastItemPut
+				i.NextItem = sResp.Data.LastItemPut
 				// logging.DebugPrint(i.Session.Debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling or password change since session created")
 				return false, fmt.Errorf("sync failed due to either password change since session created, or server throttling. try re-adding session.")
 				// panic("sync failed due to either password change since session created, or server throttling. try re-adding session.")
 			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
-				i.NextItem = sResp.LastItemPut
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | got EOF error, retrying with smaller page size"), common.MaxDebugChars)
+				i.NextItem = sResp.Data.LastItemPut
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
-					"at a time due to EOF so reducing to page size %d", sResp.PutLimitUsed, i.PageSize), common.MaxDebugChars)
+					"at a time due to EOF so reducing to page size %d", sResp.Data.PutLimitUsed, i.PageSize), common.MaxDebugChars)
 			case strings.Contains(strings.ToLower(rErr.Error()), "giving up"):
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | retry client gave up after multiple attempts"), common.MaxDebugChars)
 				return false, fmt.Errorf("sync failed: %+v", rErr)
 			default:
 				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
@@ -118,7 +127,6 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 
 		return attempt < 4, rErr
 	})
-
 	if rErr != nil {
 		return so, fmt.Errorf("sync | %w", rErr)
 	}
@@ -127,19 +135,19 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 
 	log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | took %v to get all items", elapsed), common.MaxDebugChars)
 
-	so.Items = sResp.Items
+	so.Items = sResp.Data.Items
 	so.Items.DeDupe()
 	so.Items.RemoveUnsupported()
-	so.Unsaved = sResp.Unsaved
+	so.Unsaved = sResp.Data.Unsaved
 	so.Unsaved.DeDupe()
 	so.Unsaved.RemoveUnsupported()
-	so.SavedItems = sResp.SavedItems
+	so.SavedItems = sResp.Data.SavedItems
 	so.SavedItems.DeDupe()
 	so.SavedItems.RemoveUnsupported()
-	so.Conflicts = sResp.Conflicts
+	so.Conflicts = sResp.Data.Conflicts
 	so.Conflicts.DeDupe()
-	so.Cursor = sResp.CursorToken
-	so.SyncToken = sResp.SyncToken
+	so.Cursor = sResp.Data.CursorToken
+	so.SyncToken = sResp.Data.SyncToken
 
 	// update timestamps on saved items
 	so.SavedItems = updateTimestampsOnSavedItems(i.Items, so.SavedItems)
@@ -187,13 +195,11 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	// duplicate items to be pushed so we can update their updated_at_timestamp if saved
 	clonedItems := slices.Clone(input.Items)
-
 	// perform initial sync
 	output, err = syncItems(input)
 	if err != nil {
 		return output, err
 	}
-
 	processSessionItemsKeysInSavedItems(input.Session, output, err)
 
 	var resolvedConflictsToSync EncryptedItems
@@ -711,29 +717,29 @@ func buildRequestBody(input SyncInput, limit int, encItemJSON []byte) []byte {
 	case input.CursorToken == "":
 		if len(input.Items) == 0 {
 			if input.SyncToken == "" {
-				return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d}`, limit))
+				return []byte(fmt.Sprintf(`{"api":"%s","items":[],"limit":%d}`, common.APIVersion, limit))
 			}
 
-			return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d,"sync_token":"%s"}`, limit, newST))
+			return []byte(fmt.Sprintf(`{"api":"%s","items":[],"limit":%d,"sync_token":"%s"}`, common.APIVersion, limit, newST))
 		}
 
 		if input.SyncToken == "" {
-			return []byte(fmt.Sprintf(`{"api":"20200115","limit":%d,"items":%s}`, limit, encItemJSON))
+			return []byte(fmt.Sprintf(`{"api":"%s","limit":%d,"items":%s}`, common.APIVersion, limit, encItemJSON))
 		}
 
-		return []byte(fmt.Sprintf(`{"api":"20200115","limit":%d,"items":%s,"sync_token":"%s"}`, limit, encItemJSON, newST))
+		return []byte(fmt.Sprintf(`{"api":"%s","limit":%d,"items":%s,"sync_token":"%s"}`, common.APIVersion, limit, encItemJSON, newST))
 	case input.CursorToken == "null":
 		if input.SyncToken == "" {
-			return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d,"items":%s,"cursor_token":null}`, limit, encItemJSON))
+			return []byte(fmt.Sprintf(`{"api":"%s","items":[],"limit":%d,"items":%s,"cursor_token":null}`, common.APIVersion, limit, encItemJSON))
 		}
 
-		return []byte(fmt.Sprintf(`{"api":"20200115","items":[],"limit":%d,"items":%s,"sync_token":"%s","cursor_token":null}`, limit, encItemJSON, newST))
+		return []byte(fmt.Sprintf(`{"api":"%s","items":[],"limit":%d,"items":%s,"sync_token":"%s","cursor_token":null}`, common.APIVersion, limit, encItemJSON, newST))
 	default:
 		rawST := input.SyncToken
 		input.SyncToken = stripLineBreak(rawST)
 
-		return []byte(fmt.Sprintf(`{"api":"20200115", "limit":%d,"items":%s,"compute_integrity":false,"sync_token":"%s","cursor_token":"%s\n"}`,
-			limit, encItemJSON, newST, stripLineBreak(input.CursorToken)))
+		return []byte(fmt.Sprintf(`{"api":"%s", "limit":%d,"items":%s,"compute_integrity":false,"sync_token":"%s","cursor_token":"%s\n"}`,
+			common.APIVersion, limit, encItemJSON, newST, stripLineBreak(input.CursorToken)))
 	}
 }
 
@@ -747,27 +753,35 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	limit := determineLimit(input.PageSize, debug)
 
-	out.PutLimitUsed = limit
-
+	out.Data.PutLimitUsed = limit
+	// fmt.Printf("[syncItemsViaAPI] Starting sync at %s with %d items, limit %d\n", time.Now().Format("15:04:05.000"), len(input.Items), limit)
 	encItemJSON, finalItem, err := encodeItems(input.Items, input.NextItem, limit, debug)
 	if err != nil {
+		// fmt.Printf("[syncItemsViaAPI] encodeItems failed: %v\n", err)
 		return
 	}
-
+	// fmt.Printf("[syncItemsViaAPI] Encoded %d bytes at %s\n", len(encItemJSON), time.Now().Format("15:04:05.000"))
 	requestBody := buildRequestBody(input, limit, encItemJSON)
-
-	responseBody, err := makeSyncRequest(input.Session, requestBody)
+	// fmt.Printf("[syncItemsViaAPI] Built request body (%d bytes) at %s\n", len(requestBody), time.Now().Format("15:04:05.000"))
+	responseBody, status, err := makeSyncRequest(input.Session, requestBody)
 	if input.PostSyncRequestDelay > 0 {
+		// fmt.Printf("[syncItemsViaAPI] Sleeping for %dms post-sync\n", input.PostSyncRequestDelay)
 		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
 	}
-
 	if err != nil {
+		// fmt.Printf("[syncItemsViaAPI] makeSyncRequest failed with status %d: %v\n", status, err)
 		return
+	}
+	// fmt.Printf("[syncItemsViaAPI] Got response (%d bytes) at %s\n", len(responseBody), time.Now().Format("15:04:05.000"))
+	if status != http.StatusOK {
+		err = fmt.Errorf("syncItemsViaAPI | unexpected status code: %d, response: %s", status, string(responseBody))
+		log.DebugPrint(debug, err.Error(), common.MaxDebugChars)
+		return out, err
 	}
 
 	// get encrypted items from API response
 	var bodyContent syncResponse
-
+	// fmt.Println(string(responseBody))
 	bodyContent, err = parseSyncResponse(responseBody)
 	if err != nil {
 		return
@@ -776,21 +790,21 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	// fff, _ := json.MarshalIndent(bodyContent, "", "  ")
 	// fmt.Println("bodyContent", string(fff))
 
-	out.Items = bodyContent.Items
-	out.SavedItems = bodyContent.SavedItems
-	out.Unsaved = bodyContent.Unsaved
-	out.SyncToken = bodyContent.SyncToken
-	out.CursorToken = bodyContent.CursorToken
-	out.Conflicts = bodyContent.Conflicts
-	out.LastItemPut = finalItem
+	out.Data.Items = bodyContent.Data.Items
+	out.Data.SavedItems = bodyContent.Data.SavedItems
+	out.Data.Unsaved = bodyContent.Data.Unsaved
+	out.Data.SyncToken = bodyContent.Data.SyncToken
+	out.Data.CursorToken = bodyContent.Data.CursorToken
+	out.Data.Conflicts = bodyContent.Data.Conflicts
+	out.Data.LastItemPut = finalItem
 
-	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.CursorToken != "" && bodyContent.CursorToken != "null") {
+	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.Data.CursorToken != "" && bodyContent.Data.CursorToken != "null") {
 		var newOutput syncResponse
 
-		input.SyncToken = out.SyncToken
+		input.SyncToken = out.Data.SyncToken
 		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)), common.MaxDebugChars)
 
-		input.CursorToken = out.CursorToken
+		input.CursorToken = out.Data.CursorToken
 		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)), common.MaxDebugChars)
 
 		input.PageSize = limit
@@ -806,18 +820,18 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 			return
 		}
 
-		out.Items = append(out.Items, newOutput.Items...)
-		out.SavedItems = append(out.SavedItems, newOutput.SavedItems...)
-		out.Unsaved = append(out.Unsaved, newOutput.Unsaved...)
-		out.Conflicts = append(out.Conflicts, newOutput.Conflicts...)
-		out.SyncToken = newOutput.SyncToken
+		out.Data.Items = append(out.Data.Items, newOutput.Data.Items...)
+		out.Data.SavedItems = append(out.Data.SavedItems, newOutput.Data.SavedItems...)
+		out.Data.Unsaved = append(out.Data.Unsaved, newOutput.Data.Unsaved...)
+		out.Data.Conflicts = append(out.Data.Conflicts, newOutput.Data.Conflicts...)
+		out.Data.SyncToken = newOutput.Data.SyncToken
 
-		out.LastItemPut = finalItem
+		out.Data.LastItemPut = finalItem
 	} else {
 		return out, err
 	}
 
-	out.CursorToken = ""
+	out.Data.CursorToken = ""
 
 	return out, err
 }
@@ -899,7 +913,7 @@ func unmarshallSyncResponse(input []byte) (output syncResponse, err error) {
 	}
 
 	// check no items keys have an items key
-	for _, item := range output.Items {
+	for _, item := range output.Data.Items {
 		if item.ContentType == common.SNItemTypeItemsKey && item.ItemsKeyID != "" {
 			err = fmt.Errorf("SN|ItemsKey %s has an ItemsKeyID set", item.UUID)
 			return

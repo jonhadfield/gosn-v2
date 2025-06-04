@@ -53,9 +53,9 @@ func (c FileSafeCredentials) IsDefault() bool {
 	return false
 }
 
-func (i Items) FileSafeCredentials() (c FileSafeCredentialss) {
+func (i Items) FileSafeCredentials() (c FileSafeCredentialsList) {
 	for _, x := range i {
-		if x.GetContentType() == "FileSafeCredentials" {
+		if x.GetContentType() == common.SNItemTypeFileSafeCredentials {
 			component := x.(*FileSafeCredentials)
 			c = append(c, *component)
 		}
@@ -64,10 +64,10 @@ func (i Items) FileSafeCredentials() (c FileSafeCredentialss) {
 	return c
 }
 
-func (c *FileSafeCredentialss) DeDupe() {
+func (c *FileSafeCredentialsList) DeDupe() {
 	var encountered []string
 
-	var deDuped FileSafeCredentialss
+	var deDuped FileSafeCredentialsList
 
 	for _, i := range *c {
 		if !slices.Contains(encountered, i.UUID) {
@@ -86,8 +86,9 @@ func NewFileSafeCredentials() FileSafeCredentials {
 
 	var c FileSafeCredentials
 
-	c.ContentType = "FileSafeCredentials"
+	c.ContentType = common.SNItemTypeFileSafeCredentials
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
@@ -101,9 +102,9 @@ func NewFileSafeCredentialsContent() *FileSafeCredentialsContent {
 	return c
 }
 
-type FileSafeCredentialss []FileSafeCredentials
+type FileSafeCredentialsList []FileSafeCredentials
 
-func (c FileSafeCredentialss) Validate() error {
+func (c FileSafeCredentialsList) Validate() error {
 	var updatedTime time.Time
 
 	var err error
@@ -314,7 +315,7 @@ func (cc FileSafeCredentialsContent) References() ItemReferences {
 }
 
 func (cc *FileSafeCredentialsContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
+	cc.SetReferences(UpsertReferences(cc.ItemReferences, input))
 }
 
 func (cc *FileSafeCredentialsContent) SetReferences(input ItemReferences) {

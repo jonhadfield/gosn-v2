@@ -53,7 +53,7 @@ func (c SFExtension) IsDefault() bool {
 
 func (i Items) SFExtension() (c SFExtensions) {
 	for _, x := range i {
-		if x.GetContentType() == "SFExtension" {
+		if x.GetContentType() == common.SNItemTypeSFExtension {
 			component := x.(*SFExtension)
 			c = append(c, *component)
 		}
@@ -84,8 +84,9 @@ func NewSFExtension() SFExtension {
 
 	var c SFExtension
 
-	c.ContentType = "SFExtension"
+	c.ContentType = common.SNItemTypeSFExtension
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
@@ -312,7 +313,7 @@ func (cc SFExtensionContent) References() ItemReferences {
 }
 
 func (cc *SFExtensionContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
+	cc.SetReferences(UpsertReferences(cc.ItemReferences, input))
 }
 
 func (cc *SFExtensionContent) SetReferences(input ItemReferences) {

@@ -51,7 +51,7 @@ func (c ExtensionRepo) IsDefault() bool {
 
 func (i Items) ExtensionRepo() (c ExtensionRepos) {
 	for _, x := range i {
-		if x.GetContentType() == "ExtensionRepo" {
+		if x.GetContentType() == common.SNItemTypeExtensionRepo {
 			component := x.(*ExtensionRepo)
 			c = append(c, *component)
 		}
@@ -82,7 +82,7 @@ func NewExtensionRepo() ExtensionRepo {
 
 	var c ExtensionRepo
 
-	c.ContentType = "ExtensionRepo"
+	c.ContentType = common.SNItemTypeExtensionRepo
 	c.CreatedAt = now
 	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
