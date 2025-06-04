@@ -10,13 +10,10 @@ import (
 
 func parseSFExtension(i DecryptedItem) Item {
 	c := SFExtension{}
-	c.UUID = i.UUID
-	c.ItemsKeyID = i.ItemsKeyID
-	c.ContentType = i.ContentType
-	c.Deleted = i.Deleted
-	c.UpdatedAt = i.UpdatedAt
-	c.CreatedAt = i.CreatedAt
-	c.ContentSize = len(i.Content)
+
+	if err := populateItemCommon(&c.ItemCommon, i); err != nil {
+		panic(err)
+	}
 
 	var err error
 
@@ -32,22 +29,6 @@ func parseSFExtension(i DecryptedItem) Item {
 			c.Content = *content.(*SFExtensionContent)
 		}
 	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = parseSNTime(i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.CreatedAt = cAt.Format(common.TimeLayout)
-
-	uAt, err = parseSNTime(i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	c.UpdatedAt = uAt.Format(common.TimeLayout)
 
 	return &c
 }
