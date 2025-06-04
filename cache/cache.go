@@ -41,8 +41,6 @@ type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
 }
 
-const batchSize = 500
-
 type SyncInput struct {
 	*Session
 	Close bool
