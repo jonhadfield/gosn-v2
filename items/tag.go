@@ -23,15 +23,10 @@ func (t Tag) IsDefault() bool {
 
 func parseTag(i DecryptedItem) Item {
 	t := Tag{}
-	t.UUID = i.UUID
-	t.ItemsKeyID = i.ItemsKeyID
-	t.ContentType = i.ContentType
-	t.Deleted = i.Deleted
-	t.UpdatedAt = i.UpdatedAt
-	t.CreatedAt = i.CreatedAt
-	t.UpdatedAtTimestamp = i.UpdatedAtTimestamp
-	t.CreatedAtTimestamp = i.CreatedAtTimestamp
-	t.ContentSize = len(i.Content)
+
+	if err := populateItemCommon(&t.ItemCommon, i); err != nil {
+		panic(err)
+	}
 
 	var err error
 
@@ -45,22 +40,6 @@ func parseTag(i DecryptedItem) Item {
 
 		t.Content = *content.(*TagContent)
 	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = parseSNTime(i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	t.CreatedAt = cAt.Format(common.TimeLayout)
-
-	uAt, err = parseSNTime(i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	t.UpdatedAt = uAt.Format(common.TimeLayout)
 
 	return &t
 }
