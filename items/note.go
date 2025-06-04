@@ -25,16 +25,9 @@ var _ Item = &Note{}
 func parseNote(i DecryptedItem) Item {
 	n := Note{}
 
-	n.UUID = i.UUID
-	n.ItemsKeyID = i.ItemsKeyID
-	n.ContentType = i.ContentType
-	n.Deleted = i.Deleted
-	n.UpdatedAt = i.UpdatedAt
-	n.CreatedAt = i.CreatedAt
-	n.DuplicateOf = i.DuplicateOf
-	n.UpdatedAtTimestamp = i.UpdatedAtTimestamp
-	n.CreatedAtTimestamp = i.CreatedAtTimestamp
-	n.ContentSize = len(i.Content)
+	if err := populateItemCommon(&n.ItemCommon, i); err != nil {
+		panic(err)
+	}
 
 	var err error
 
@@ -48,22 +41,6 @@ func parseNote(i DecryptedItem) Item {
 
 		n.Content = *content.(*NoteContent)
 	}
-
-	var cAt, uAt time.Time
-
-	cAt, err = parseSNTime(i.CreatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	n.CreatedAt = cAt.Format(common.TimeLayout)
-
-	uAt, err = parseSNTime(i.UpdatedAt)
-	if err != nil {
-		panic(err)
-	}
-
-	n.UpdatedAt = uAt.Format(common.TimeLayout)
 
 	return &n
 }
