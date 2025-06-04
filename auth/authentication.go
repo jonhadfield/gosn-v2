@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -551,7 +552,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	}
 
 	if requestTokenFailure.Data.Error.Message != "" {
-		err = fmt.Errorf(strings.ToLower(requestTokenFailure.Data.Error.Message))
+		err = errors.New(strings.ToLower(requestTokenFailure.Data.Error.Message))
 		return
 	}
 
