@@ -8,6 +8,7 @@ import (
 )
 
 func TestHexDecodeStringsValid(t *testing.T) {
+	t.Parallel()
 	in := "00112233aabbccddeeff001122334455"
 	out, err := hexDecodeStrings(in, len(in)/2)
 	if err != nil {
@@ -19,12 +20,14 @@ func TestHexDecodeStringsValid(t *testing.T) {
 }
 
 func TestHexDecodeStringsInvalid(t *testing.T) {
+	t.Parallel()
 	if _, err := hexDecodeStrings("zz", 1); err == nil {
 		t.Fatalf("expected error")
 	}
 }
 
 func TestGenerateItemKeyLength(t *testing.T) {
+	t.Parallel()
 	key := GenerateItemKey(32)
 	if len(key) != 32 {
 		t.Fatalf("expected length 32 got %d", len(key))
@@ -36,6 +39,7 @@ func TestGenerateItemKeyLength(t *testing.T) {
 }
 
 func TestGenerateNonceLength(t *testing.T) {
+	t.Parallel()
 	n := GenerateNonce()
 	if len(n) != NonceSizeX {
 		t.Fatalf("expected nonce length %d got %d", NonceSizeX, len(n))
@@ -43,6 +47,7 @@ func TestGenerateNonceLength(t *testing.T) {
 }
 
 func TestPadToAESBlockSize(t *testing.T) {
+	t.Parallel()
 	b := []byte("1234567")
 	pb := padToAESBlockSize(b)
 	if len(pb)%16 != 0 {
@@ -55,6 +60,7 @@ func TestPadToAESBlockSize(t *testing.T) {
 }
 
 func TestEncryptDecryptRoundTrip(t *testing.T) {
+	t.Parallel()
 	key := []byte("0123456789abcdef")
 	msg := "hello world"
 	ct := Encrypt(key, msg)
@@ -68,6 +74,7 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 }
 
 func TestDecryptErrors(t *testing.T) {
+	t.Parallel()
 	key := []byte("0123456789abcdef")
 	// invalid base64
 	if _, err := Decrypt(key, "!"); err == nil {
@@ -80,6 +87,7 @@ func TestDecryptErrors(t *testing.T) {
 }
 
 func TestEncryptPlaintextTooLong(t *testing.T) {
+	t.Parallel()
 	defer func() { _ = recover() }()
 	key := []byte("0123456789abcdef0123456789abcdef")
 	long := make([]byte, MaxPlaintextSize+1)

@@ -9,6 +9,8 @@ import (
 )
 
 func TestGenerateAuthDataItemsKey(t *testing.T) {
+	t.Parallel()
+
 	kp := KeyParams{
 		Created:     "123",
 		Identifier:  "user@example.com",
@@ -32,6 +34,8 @@ func TestGenerateAuthDataItemsKey(t *testing.T) {
 }
 
 func TestGenerateAuthDataDefault(t *testing.T) {
+	t.Parallel()
+
 	kp := KeyParams{Version: "004"}
 
 	data := GenerateAuthData(common.SNItemTypeNote, "uuid2", kp)
