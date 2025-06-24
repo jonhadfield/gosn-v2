@@ -67,6 +67,10 @@ func testSetup() {
 }
 
 func TestMain(m *testing.M) {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
+		os.Exit(0)
+	}
+
 	testSetup()
 	os.Exit(m.Run())
 }

@@ -49,6 +49,10 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
+	if os.Getenv(common.EnvSkipSessionTests) != "" {
+		os.Exit(0)
+	}
+
 	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 
