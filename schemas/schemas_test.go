@@ -7,6 +7,8 @@ import (
 )
 
 func TestLoadSchemas(t *testing.T) {
+	t.Parallel()
+
 	ts, err := LoadSchemas()
 	require.NoError(t, err)
 	require.NotNil(t, ts)

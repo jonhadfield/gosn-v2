@@ -8,6 +8,7 @@ import (
 )
 
 func TestActivityAdvancedChecklistParsing(t *testing.T) {
+	t.Parallel()
 	exampleChecklist := `"{\n  \"schemaVersion\": \"1.0.0\",\n  \"groups\": [\n    {\n      \"name\": \"Group 1\",\n      \"tasks\": [\n        {\n          \"id\": \"0ff7fc6c-c196-4b02-b70e-ad7b3d01fe48\",\n          \"description\": \"AdvancedChecklistTask 2\",\n          \"completed\": true,\n          \"createdAt\": \"2023-12-18T17:30:24.290Z\",\n          \"updatedAt\": \"2023-12-18T17:30:57.207Z\",\n          \"completedAt\": \"2023-12-18T17:30:57.207Z\"\n        },\n        {\n          \"id\": \"05cfab69-5047-44da-aa6a-adbd3d45c5db\",\n          \"description\": \"AdvancedChecklistTask 1\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-18T17:30:21.886Z\"\n        }\n      ],\n      \"lastActive\": \"2023-12-18T17:30:57.207Z\",\n      \"sections\": [\n        {\n          \"id\": \"open-tasks\",\n          \"name\": \"Open\",\n          \"collapsed\": false\n        },\n        {\n          \"id\": \"completed-tasks\",\n          \"name\": \"Completed\",\n          \"collapsed\": false\n        }\n      ],\n      \"collapsed\": false\n    },\n    {\n      \"name\": \"Group 2\",\n      \"tasks\": [\n        {\n          \"id\": \"6e87a727-a761-48a4-90ca-f86bb962f294\",\n          \"description\": \"AdvancedChecklistTask 5\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-18T17:44:22.646Z\"\n        },\n        {\n          \"id\": \"d55e6eda-3683-4226-8e4a-89d0eb4efa3a\",\n          \"description\": \"AdvancedChecklistTask 3\",\n          \"completed\": true,\n          \"createdAt\": \"2023-12-18T17:30:36.184Z\",\n          \"updatedAt\": \"2023-12-18T17:30:52.523Z\",\n          \"completedAt\": \"2023-12-18T17:30:52.523Z\"\n        },\n        {\n          \"id\": \"02877033-e4d7-4cf6-9364-f2694acfa916\",\n          \"description\": \"AdvancedChecklistTask 4\",\n          \"completed\": false,\n          \"createdAt\": \"2023-12-18T17:30:38.479Z\"\n        }\n      ],\n      \"lastActive\": \"2023-12-18T17:44:22.647Z\",\n      \"sections\": [\n        {\n          \"id\": \"open-tasks\",\n          \"name\": \"Open\",\n          \"collapsed\": false\n        },\n        {\n          \"id\": \"completed-tasks\",\n          \"name\": \"Completed\",\n          \"collapsed\": false\n        }\n      ],\n      \"collapsed\": false\n    }\n  ],\n  \"defaultSections\": [\n    {\n      \"id\": \"open-tasks\",\n      \"name\": \"Open\"\n    },\n    {\n      \"id\": \"completed-tasks\",\n      \"name\": \"Completed\"\n    }\n  ]\n}"`
 
 	checklist, err := NoteTextToAdvancedChecklist(exampleChecklist, true)
@@ -26,6 +27,7 @@ func TestActivityAdvancedChecklistParsing(t *testing.T) {
 }
 
 func TestSortAdvancedChecklist(t *testing.T) {
+	t.Parallel()
 	var checklist AdvancedChecklist
 	checklist.SchemaVersion = "1.0.0"
 	oneDayAgo := time.Now().Add(-time.Hour * 24 * 1)
@@ -83,6 +85,7 @@ func TestSortAdvancedChecklist(t *testing.T) {
 }
 
 func TestSortAdvancedChecklistTasks(t *testing.T) {
+	t.Parallel()
 	var checklist AdvancedChecklist
 	checklist.SchemaVersion = "1.0.0"
 	oneDayAgo := time.Now().Add(-time.Hour * 24 * 1)
@@ -126,6 +129,7 @@ func TestSortAdvancedChecklistTasks(t *testing.T) {
 }
 
 func TestAdvancedChecklistToNoteText(t *testing.T) {
+	t.Parallel()
 	var checklist AdvancedChecklist
 	checklist.SchemaVersion = "1.0.0"
 	checklist.DefaultSections = []DefaultSection{
@@ -214,6 +218,7 @@ func TestAdvancedChecklistToNoteText(t *testing.T) {
 }
 
 func TestAddAdvancedChecklistTask(t *testing.T) {
+	t.Parallel()
 	cl := AdvancedChecklist{
 		Groups: []AdvancedChecklistGroup{
 			{
@@ -256,6 +261,7 @@ func TestAddAdvancedChecklistTask(t *testing.T) {
 }
 
 func TestCompleteAdvancedChecklistTask(t *testing.T) {
+	t.Parallel()
 	cl := testAdvancedChecklist()
 
 	require.NoError(t, cl.CompleteTask("Group 1", "Task 2"))
@@ -267,6 +273,7 @@ func TestCompleteAdvancedChecklistTask(t *testing.T) {
 }
 
 func TestDeleteAdvancedChecklistTask(t *testing.T) {
+	t.Parallel()
 	cl := testAdvancedChecklist()
 
 	require.NoError(t, cl.DeleteTask("Group 1", "Task 2"))
@@ -281,6 +288,7 @@ func TestDeleteAdvancedChecklistTask(t *testing.T) {
 }
 
 func TestReopenAdvancedChecklistTask(t *testing.T) {
+	t.Parallel()
 	cl := testAdvancedChecklist()
 
 	require.NoError(t, cl.ReopenTask("Group 2", "Task 6"))

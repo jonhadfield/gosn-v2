@@ -8,6 +8,7 @@ import (
 )
 
 func TestFilterNoteTitle(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -24,6 +25,7 @@ func TestFilterNoteTitle(t *testing.T) {
 }
 
 func TestFilterNoteUUID(t *testing.T) {
+	t.Parallel()
 	uuid := GenUUID()
 	gnuNote := createNote("GNU", "Is not Unix", uuid)
 	filter := Filter{
@@ -41,6 +43,7 @@ func TestFilterNoteUUID(t *testing.T) {
 }
 
 func TestFilterNoteByTagUUID(t *testing.T) {
+	t.Parallel()
 	gnuNoteUUID := GenUUID()
 	animalTagUUID := GenUUID()
 	cheeseNoteUUID := GenUUID()
@@ -155,6 +158,7 @@ func TestFilterNoteByTagUUID(t *testing.T) {
 }
 
 func TestFilterNoteByTagTitle(t *testing.T) {
+	t.Parallel()
 	gnuNoteUUID := GenUUID()
 	animalTagUUID := GenUUID()
 	cheeseNoteUUID := GenUUID()
@@ -303,6 +307,7 @@ func TestFilterNoteByTagTitle(t *testing.T) {
 }
 
 func TestFilterNoteTitleContains(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -319,6 +324,7 @@ func TestFilterNoteTitleContains(t *testing.T) {
 }
 
 func TestFilterNoteText(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -335,6 +341,7 @@ func TestFilterNoteText(t *testing.T) {
 }
 
 func TestFilterNoteTextContains(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -351,6 +358,7 @@ func TestFilterNoteTextContains(t *testing.T) {
 }
 
 func TestFilterNoteTitleNotEqualTo(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -367,6 +375,7 @@ func TestFilterNoteTitleNotEqualTo(t *testing.T) {
 }
 
 func TestFilterNoteTextNotEqualTo(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -383,6 +392,7 @@ func TestFilterNoteTextNotEqualTo(t *testing.T) {
 }
 
 func TestFilterNoteTextByRegex(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -399,6 +409,7 @@ func TestFilterNoteTextByRegex(t *testing.T) {
 }
 
 func TestFilterNoteTitleByRegex(t *testing.T) {
+	t.Parallel()
 	gnuNote := createNote("GNU", "Is not Unix", "")
 	filter := Filter{
 		Type:       common.SNItemTypeNote,
@@ -415,6 +426,7 @@ func TestFilterNoteTitleByRegex(t *testing.T) {
 }
 
 func TestFilterTagTitle(t *testing.T) {
+	t.Parallel()
 	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
 		Type:       common.SNItemTypeTag,
@@ -431,6 +443,7 @@ func TestFilterTagTitle(t *testing.T) {
 }
 
 func TestFilterTagUUID(t *testing.T) {
+	t.Parallel()
 	uuid := GenUUID()
 	gnuTag, _ := createTag("GNU", uuid, nil)
 	filter := Filter{
@@ -448,6 +461,7 @@ func TestFilterTagUUID(t *testing.T) {
 }
 
 func TestFilterTagTitleByRegex(t *testing.T) {
+	t.Parallel()
 	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
 		Type:       common.SNItemTypeTag,
@@ -464,6 +478,7 @@ func TestFilterTagTitleByRegex(t *testing.T) {
 }
 
 func TestFilterTagTitleByNotEqualTo(t *testing.T) {
+	t.Parallel()
 	gnuTag, _ := createTag("GNU", GenUUID(), nil)
 	filter := Filter{
 		Type:       common.SNItemTypeTag,
@@ -480,6 +495,7 @@ func TestFilterTagTitleByNotEqualTo(t *testing.T) {
 }
 
 func TestFilterNoteByTitleAndDeletion(t *testing.T) {
+	t.Parallel()
 	scotlandNote := createNote("Scotland", "example", "")
 	englandNote := createNote("England", "example", "")
 	englandNote.Deleted = true

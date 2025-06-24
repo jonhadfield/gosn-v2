@@ -9,6 +9,8 @@ import (
 )
 
 func TestUnmarshalAuthRequestResponseOK(t *testing.T) {
+	t.Parallel()
+
 	body := []byte(`{"data":{"identifier":"id","pw_salt":"salt","pw_cost":1,"pw_nonce":"nonce","version":"004"}}`)
 	out, errResp, err := auth.UnmarshalAuthRequestResponseForTest(http.StatusOK, body, false)
 	require.NoError(t, err)
@@ -17,6 +19,8 @@ func TestUnmarshalAuthRequestResponseOK(t *testing.T) {
 }
 
 func TestUnmarshalAuthRequestResponseNotFound(t *testing.T) {
+	t.Parallel()
+
 	body := []byte(`{"meta":{},"data":{"error":{"tag":"invalid","message":"not found","payload":{"mfa_key":"abc"}}}}`)
 	out, errResp, err := auth.UnmarshalAuthRequestResponseForTest(http.StatusNotFound, body, false)
 	require.NoError(t, err)
@@ -25,6 +29,8 @@ func TestUnmarshalAuthRequestResponseNotFound(t *testing.T) {
 }
 
 func TestUnmarshalAuthRequestResponseForbidden(t *testing.T) {
+	t.Parallel()
+
 	_, _, err := auth.UnmarshalAuthRequestResponseForTest(http.StatusForbidden, []byte(`{}`), false)
 	require.Error(t, err)
 }
