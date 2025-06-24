@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/crypto"
 
 	"github.com/stretchr/testify/require"
 )
@@ -66,6 +67,7 @@ func (k MockKeyRingUnDefined) DeleteAll(service string) error {
 }
 
 func TestMakeSessionString(t *testing.T) {
+	t.Parallel()
 	sessionString := "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"5319f9c148ee3dbe78fc149e8643775242d7e83216060ee5e228ab2ec3d88a76\",\"keyParams\":{\"created\":\"1608473387799\",\"identifier\":\"test-user\",\"origination\":\"registration\",\"pw_nonce\":\"yJTyMmLr3KqOc7ifRfe1H7Pu8591n7Sj\",\"version\":\"004\"},\"access_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:Io9MOsc.WDIq0JBt\",\"refresh_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:-ixQV.-RMCCSPG0M\",\"access_expiration\":1648647400000,\"refresh_expiration\":1675020326000,\"SchemaValidation\":false}"
 
 	var session Session
@@ -77,6 +79,7 @@ func TestMakeSessionString(t *testing.T) {
 }
 
 func TestWriteSession(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
@@ -117,6 +120,7 @@ func TestWriteSession(t *testing.T) {
 // }
 
 func TestSessionExists(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
@@ -129,6 +133,7 @@ func TestSessionExists(t *testing.T) {
 }
 
 func TestRemoveSession(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
@@ -143,6 +148,7 @@ func TestRemoveSession(t *testing.T) {
 }
 
 func TestSessionStatus(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
@@ -181,6 +187,7 @@ func TestSessionStatus(t *testing.T) {
 }
 
 func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
@@ -196,4 +203,31 @@ func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
 
 	_, err := AddSession(nil, serverURL, "", MockKeyRingUnDefined{}, true)
 	require.NoError(t, err)
+}
+
+func TestIsUnencryptedSession(t *testing.T) {
+	t.Parallel()
+
+	require.True(t, isUnencryptedSession("{}"))
+	require.False(t, isUnencryptedSession("not-json"))
+}
+
+func TestGetSessionContent(t *testing.T) {
+	t.Parallel()
+
+	raw := "{\"foo\":\"bar\"}"
+	out, err := getSessionContent("", raw)
+	require.NoError(t, err)
+	require.Equal(t, raw, out)
+
+	key := []byte("0123456789abcdef")
+	enc := crypto.Encrypt(key, raw)
+
+	out, err = getSessionContent(string(key), enc)
+	require.NoError(t, err)
+	require.Equal(t, raw, out)
+
+	wrongOut, err := getSessionContent("wrong", enc)
+	require.NoError(t, err)
+	require.NotEqual(t, raw, wrongOut)
 }

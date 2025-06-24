@@ -8,6 +8,8 @@ import (
 )
 
 func TestParseEnvInt64Unset(t *testing.T) {
+	t.Parallel()
+
 	os.Unsetenv("TEST_INT64")
 	val, ok, err := ParseEnvInt64("TEST_INT64")
 	require.NoError(t, err)
@@ -16,6 +18,8 @@ func TestParseEnvInt64Unset(t *testing.T) {
 }
 
 func TestParseEnvInt64Valid(t *testing.T) {
+	t.Parallel()
+
 	os.Setenv("TEST_INT64", "42")
 	defer os.Unsetenv("TEST_INT64")
 
@@ -26,6 +30,8 @@ func TestParseEnvInt64Valid(t *testing.T) {
 }
 
 func TestParseEnvInt64Invalid(t *testing.T) {
+	t.Parallel()
+
 	os.Setenv("TEST_INT64", "abc")
 	defer os.Unsetenv("TEST_INT64")
 

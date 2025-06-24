@@ -33,18 +33,21 @@ func (s *stubItem) IsDefault() bool              { return false }
 func (s *stubItem) GetDuplicateOf() string       { return "" }
 
 func TestRemoveStringFromSlice(t *testing.T) {
+	t.Parallel()
 	in := []string{"a", "b", "c", "b"}
 	out := removeStringFromSlice("b", in)
 	require.Equal(t, []string{"a", "c"}, out)
 }
 
 func TestRemoveStringFromSliceMissing(t *testing.T) {
+	t.Parallel()
 	in := []string{"a", "b"}
 	out := removeStringFromSlice("x", in)
 	require.Equal(t, in, out)
 }
 
 func TestItemsDeDupe(t *testing.T) {
+	t.Parallel()
 	items := Items{
 		&stubItem{uuid: "a"},
 		&stubItem{uuid: "b"},
