@@ -3,7 +3,6 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -65,19 +64,7 @@ func (i Items) FileSafeCredentials() (c FileSafeCredentialss) {
 }
 
 func (c *FileSafeCredentialss) DeDupe() {
-	var encountered []string
-
-	var deDuped FileSafeCredentialss
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewFileSafeCredentials returns an Item of type FileSafeCredentials without content.

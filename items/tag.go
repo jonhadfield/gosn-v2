@@ -3,7 +3,6 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -56,19 +55,7 @@ func (i Items) Tags() (t Tags) {
 }
 
 func (t *Tags) DeDupe() {
-	var encountered []string
-
-	var deDuped Tags
-
-	for _, i := range *t {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*t = deDuped
+	*t = DeDupeByUUID(*t)
 }
 
 func (t *Tags) Encrypt(s session.Session) (e EncryptedItems, err error) {

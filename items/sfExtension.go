@@ -2,7 +2,6 @@ package items
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -63,19 +62,7 @@ func (i Items) SFExtension() (c SFExtensions) {
 }
 
 func (c *SFExtensions) DeDupe() {
-	var encountered []string
-
-	var deDuped SFExtensions
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewSFExtension returns an Item of type SFExtension without content.

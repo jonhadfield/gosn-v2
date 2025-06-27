@@ -66,19 +66,7 @@ func (i Items) FileSafeIntegration() (c FileSafeIntegrations) {
 }
 
 func (c *FileSafeIntegrations) DeDupe() {
-	var encountered []string
-
-	var deDuped FileSafeIntegrations
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewFileSafeIntegration returns an Item of type FileSafeIntegration without content.

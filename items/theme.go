@@ -3,7 +3,6 @@ package items
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -66,19 +65,7 @@ func (i Items) Themes() (c Themes) {
 }
 
 func (c *Themes) DeDupe() {
-	var encountered []string
-
-	var deDuped Themes
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewTheme returns an Item of type Theme without content.
