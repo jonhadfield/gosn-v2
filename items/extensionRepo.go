@@ -2,7 +2,6 @@ package items
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -61,19 +60,7 @@ func (i Items) ExtensionRepo() (c ExtensionRepos) {
 }
 
 func (c *ExtensionRepos) DeDupe() {
-	var encountered []string
-
-	var deDuped ExtensionRepos
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewExtensionRepo returns an Item of type ExtensionRepo without content.

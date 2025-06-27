@@ -2,7 +2,6 @@ package items
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -63,19 +62,7 @@ func (i Items) SFMFA() (c SFMFAs) {
 }
 
 func (c *SFMFAs) DeDupe() {
-	var encountered []string
-
-	var deDuped SFMFAs
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewSFMFA returns an Item of type SFMFA without content.

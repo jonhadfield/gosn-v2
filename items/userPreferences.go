@@ -2,7 +2,6 @@ package items
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -75,19 +74,7 @@ func (i Items) UserPreferences() (c UserPreferencess) {
 }
 
 func (c *UserPreferencess) DeDupe() {
-	var encountered []string
-
-	var deDuped UserPreferencess
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewUserPreferences returns an Item of type UserPreferences without content.

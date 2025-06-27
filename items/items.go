@@ -874,17 +874,7 @@ func (ei *EncryptedItems) RemoveDeleted() {
 }
 
 func (i *Items) DeDupe() {
-	encountered := make(map[string]struct{})
-	deDuped := make(Items, 0, len(*i))
-
-	for _, j := range *i {
-		if _, ok := encountered[j.GetUUID()]; !ok {
-			encountered[j.GetUUID()] = struct{}{}
-			deDuped = append(deDuped, j)
-		}
-	}
-
-	*i = deDuped
+	*i = DeDupeByUUID(*i)
 }
 
 func (i *Items) RemoveDeleted() {

@@ -65,19 +65,7 @@ func (i Items) File() (c Files) {
 }
 
 func (c *Files) DeDupe() {
-	var encountered []string
-
-	var deDuped Files
-
-	for _, i := range *c {
-		if !slices.Contains(encountered, i.UUID) {
-			deDuped = append(deDuped, i)
-		}
-
-		encountered = append(encountered, i.UUID)
-	}
-
-	*c = deDuped
+	*c = DeDupeByUUID(*c)
 }
 
 // NewFile returns an Item of type File without content.
