@@ -2,15 +2,12 @@ package auth
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -21,23 +18,6 @@ import (
 	"github.com/jonhadfield/gosn-v2/crypto"
 	"github.com/jonhadfield/gosn-v2/log"
 )
-
-type cryptoSource struct{}
-
-func (s cryptoSource) Seed(seed int64) {}
-
-func (s cryptoSource) Int63() int64 {
-	return int64(s.Uint64() & ^uint64(1<<63))
-}
-
-func (s cryptoSource) Uint64() (v uint64) {
-	err := binary.Read(crand.Reader, binary.BigEndian, &v)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	return v
-}
 
 type doAuthRequestOutput struct {
 	Data     AuthParamsOutput `json:"data"`
@@ -806,18 +786,9 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 	// genInput.PasswordCost = common.DefaultPasswordCost
 
 	// generate salt seed (password nonce)
-	var src cryptoSource
-	rnd := rand.New(src)
-
-	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-
-	b := make([]rune, 65)
-	for i := range b {
-		b[i] = letterRunes[rnd.Intn(len(letterRunes))]
-	}
-
-	genInput.PasswordNonce = string(b)
-	pwNonce = string(b)[:32]
+	r := randomString(65)
+	genInput.PasswordNonce = r
+	pwNonce = r[:32]
 	// pw, _, _, err = generateEncryptedPasswordAndKeys(genInput)
 	masterKey, serverPassword, err = crypto.GenerateMasterKeyAndServerPassword004(crypto.GenerateEncryptedPasswordInput{
 		UserPassword:  password,
@@ -886,18 +857,8 @@ type generateLoginChallengeCodeVerifier struct {
 }
 
 func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChallengeCodeVerifier) {
-	// generate salt seed (password nonce)
-	var src cryptoSource
-	rnd := rand.New(src)
-
-	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-
-	b := make([]rune, 65)
-	for i := range b {
-		b[i] = letterRunes[rnd.Intn(len(letterRunes))]
-	}
-
-	loginCodeVerifier.codeVerifier = string(b)[:64]
+	r := randomString(65)
+	loginCodeVerifier.codeVerifier = r[:64]
 	sha25Hash := fmt.Sprintf("%x", sha256.Sum256([]byte(loginCodeVerifier.codeVerifier)))
 	loginCodeVerifier.codeChallenge = string(base64.URLEncoding.EncodeToString([]byte(sha25Hash)))[:86]
 
