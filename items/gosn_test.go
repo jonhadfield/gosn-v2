@@ -1,18 +1,16 @@
 package items
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/schemas"
 	"github.com/jonhadfield/gosn-v2/session"
+	"github.com/jonhadfield/gosn-v2/testutil"
 )
 
 var (
@@ -22,30 +20,11 @@ var (
 )
 
 func localTestMain() {
-	localServer := "http://ramea:3000"
-	testUserEmail = fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
-	testUserPassword = "secretsanta"
-
-	rInput := auth.RegisterInput{
-		Password:  testUserPassword,
-		Email:     testUserEmail,
-		APIServer: localServer,
-		Version:   common.DefaultSNVersion,
-		Debug:     true,
-	}
-
-	_, err := rInput.Register()
+	var err error
+	testUserEmail, testUserPassword, err = testutil.RegisterAndSignInLocalUser()
 	if err != nil {
-		panic(fmt.Sprintf("failed to register with: %s", localServer))
+		panic(err)
 	}
-
-	// auth.SignIn(localServer, testUserEmail, testUserPassword)
-	auth.SignIn(auth.SignInInput{
-		Email:     testUserEmail,
-		Password:  testUserPassword,
-		APIServer: localServer,
-		Debug:     false,
-	})
 }
 
 func TestMain(m *testing.M) {

@@ -1,4 +1,4 @@
-package auth
+package auth_test
 
 import (
 	"fmt"
@@ -6,22 +6,23 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	testSession      *SignInResponseDataSession
+	testSession      *auth.SignInResponseDataSession
 	testUserEmail    string
 	testUserPassword string
-	sInput           = SignInInput{
+	sInput           = auth.SignInInput{
 		Email:     os.Getenv(common.EnvEmail),
 		Password:  os.Getenv(common.EnvPassword),
 		APIServer: os.Getenv(common.EnvServer),
@@ -30,32 +31,11 @@ var (
 )
 
 func localTestMain() {
-	localServer := "http://ramea:3000"
-	testUserEmail = fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
-	testUserPassword = "secretsanta"
-
-	rInput := RegisterInput{
-		Client:    retryablehttp.NewClient(),
-		Password:  testUserPassword,
-		Email:     testUserEmail,
-		APIServer: localServer,
-		Version:   common.DefaultSNVersion,
-		Debug:     true,
-	}
-
-	_, err := rInput.Register()
+	var err error
+	testUserEmail, testUserPassword, err = testutil.RegisterAndSignInLocalUser()
 	if err != nil {
-		panic(fmt.Sprintf("failed to register with: %s", localServer))
+		panic(err)
 	}
-
-	// auth.SignIn(localServer, testUserEmail, testUserPassword)
-	SignIn(SignInInput{
-		HTTPClient: retryablehttp.NewClient(),
-		Email:      testUserEmail,
-		Password:   testUserPassword,
-		APIServer:  localServer,
-		Debug:      false,
-	})
 }
 
 func TestMain(m *testing.M) {
@@ -67,7 +47,7 @@ func TestMain(m *testing.M) {
 		localTestMain()
 	} else {
 		httpClient := common.NewHTTPClient()
-		out, err := SignIn(SignInInput{
+		out, err := auth.SignIn(auth.SignInInput{
 			HTTPClient: httpClient,
 			Email:      os.Getenv(common.EnvEmail),
 			Password:   os.Getenv(common.EnvPassword),
@@ -78,7 +58,7 @@ func TestMain(m *testing.M) {
 			panic(fmt.Sprintf("failed to sign-in with: %s", os.Getenv(common.EnvServer)))
 		}
 
-		testSession = &SignInResponseDataSession{
+		testSession = &auth.SignInResponseDataSession{
 			Debug:             true,
 			HTTPClient:        httpClient,
 			SchemaValidation:  false,
@@ -123,7 +103,7 @@ var (
 // server required for following tests.
 func TestSignIn(t *testing.T) {
 	sInput.HTTPClient = retryablehttp.NewClient()
-	sOut, err := SignIn(sInput)
+	sOut, err := auth.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	testSession = &sOut.Session
@@ -134,7 +114,7 @@ func TestSignIn(t *testing.T) {
 }
 
 func TestRefreshSession(t *testing.T) {
-	so, err := SignIn(sInput)
+	so, err := auth.SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
 
 	preAccessToken := so.Session.AccessToken
@@ -145,7 +125,7 @@ func TestRefreshSession(t *testing.T) {
 	// wait for 2 seconds to ensure that the expiration times are different
 	time.Sleep(1 * time.Second)
 
-	rt, err := RequestRefreshToken(so.Session.HTTPClient, os.Getenv(common.EnvServer)+common.AuthRefreshPath, so.Session.AccessToken, so.Session.RefreshToken, true)
+	rt, err := auth.RequestRefreshToken(so.Session.HTTPClient, os.Getenv(common.EnvServer)+common.AuthRefreshPath, so.Session.AccessToken, so.Session.RefreshToken, true)
 	require.NoError(t, err)
 	require.NotEmpty(t, rt.Data.Session.AccessToken)
 	require.NotEmpty(t, rt.Data.Session.RefreshToken)
@@ -161,7 +141,7 @@ func TestRegistrationWithInvalidShortPassword(t *testing.T) {
 	t.Parallel()
 
 	password := "secret"
-	rInput := RegisterInput{
+	rInput := auth.RegisterInput{
 		Email:     testEmailAddr,
 		Password:  password,
 		APIServer: os.Getenv(common.EnvServer),
@@ -176,7 +156,7 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 		emailAddr := testEmailAddr
 		password := "secretsanta"
 
-		rInput := RegisterInput{
+		rInput := auth.RegisterInput{
 			Password:  password,
 			Email:     emailAddr,
 			Version:   common.DefaultSNVersion,
@@ -187,12 +167,12 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 		_, err := rInput.Register()
 		require.NoError(t, err, "registration failed")
 
-		postRegSignInInput := SignInInput{
+		postRegSignInInput := auth.SignInInput{
 			APIServer: os.Getenv(common.EnvServer),
 			Email:     emailAddr,
 			Password:  password,
 		}
-		_, err = SignIn(postRegSignInInput)
+		_, err = auth.SignIn(postRegSignInInput)
 		require.NoError(t, err, err)
 
 		//
@@ -207,7 +187,7 @@ func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
 	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		password := "secret"
-		rInput := RegisterInput{
+		rInput := auth.RegisterInput{
 			Email:     testEmailAddr,
 			Password:  password,
 			APIServer: os.Getenv(common.EnvServer),
@@ -219,7 +199,7 @@ func TestRegistrationWithPreRegisteredEmail(t *testing.T) {
 
 func TestRegistrationAndSignInWithEmailWithPlusSign(t *testing.T) {
 	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
-		_, err := SignIn(SignInInput{
+		_, err := auth.SignIn(auth.SignInInput{
 			Email:     testEmailAddrWithPlus,
 			Password:  "secret",
 			APIServer: os.Getenv(common.EnvServer),
@@ -267,7 +247,7 @@ func TestSignInWithUnresolvableHost(t *testing.T) {
 
 	client.StandardClient().Transport = &transport
 
-	_, err := SignIn(SignInInput{
+	_, err := auth.SignIn(auth.SignInInput{
 		HTTPClient: client,
 		Email:      "sn@lessknown.co.uk",
 		Password:   "invalid",
@@ -296,7 +276,7 @@ func TestSignInWithInvalidURL(t *testing.T) {
 
 	client.StandardClient().Transport = &transport
 
-	_, err := SignIn(SignInInput{
+	_, err := auth.SignIn(auth.SignInInput{
 		HTTPClient: client,
 		Email:      "sn@lessknown.co.uk",
 		Password:   "invalid",
@@ -340,7 +320,7 @@ func TestSignInWithUnavailableServer(t *testing.T) {
 
 	client.StandardClient().Transport = &transport
 
-	_, err := SignIn(SignInInput{ //nolint:exhaustruct
+	_, err := auth.SignIn(auth.SignInInput{ //nolint:exhaustruct
 		HTTPClient: client,
 		Email:      "sn@lessknown.co.uk",
 		Password:   "invalid",
