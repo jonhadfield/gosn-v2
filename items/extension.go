@@ -84,6 +84,7 @@ func NewExtension() Extension {
 
 	c.ContentType = common.SNItemTypeExtension
 	c.CreatedAt = now
+	c.CreatedAtTimestamp = time.Now().UTC().UnixMicro()
 	c.UUID = GenUUID()
 
 	return c
@@ -310,7 +311,7 @@ func (cc ExtensionContent) References() ItemReferences {
 }
 
 func (cc *ExtensionContent) UpsertReferences(input ItemReferences) {
-	panic("implement me")
+	cc.SetReferences(UpsertReferences(cc.ItemReferences, input))
 }
 
 func (cc *ExtensionContent) SetReferences(input ItemReferences) {

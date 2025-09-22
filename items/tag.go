@@ -358,3 +358,43 @@ func (tagContent *TagContent) SetReferences(newRefs ItemReferences) {
 func (tagContent *TagContent) UpsertReferences(newRefs ItemReferences) {
 	tagContent.SetReferences(UpsertReferences(tagContent.ItemReferences, newRefs))
 }
+
+// GetIconString returns the icon string for the tag
+func (tagContent TagContent) GetIconString() string {
+	return tagContent.IconString
+}
+
+// SetIconString sets the icon string for the tag
+func (tagContent *TagContent) SetIconString(iconString string) {
+	tagContent.IconString = iconString
+}
+
+// GetExpanded returns whether the tag is expanded in the UI
+func (tagContent TagContent) GetExpanded() bool {
+	return tagContent.Expanded
+}
+
+// SetExpanded sets whether the tag is expanded in the UI
+func (tagContent *TagContent) SetExpanded(expanded bool) {
+	tagContent.Expanded = expanded
+}
+
+// GetParentId returns the parent tag ID for nested tags
+func (tagContent TagContent) GetParentId() string {
+	return tagContent.ParentId
+}
+
+// SetParentId sets the parent tag ID for nested tags
+func (tagContent *TagContent) SetParentId(parentId string) {
+	tagContent.ParentId = parentId
+}
+
+// GetNoteReferences returns references to notes (alias for References method)
+func (tagContent TagContent) GetNoteReferences() ItemReferences {
+	return tagContent.References()
+}
+
+// GetNoteCount returns the number of notes referenced by this tag
+func (tagContent TagContent) GetNoteCount() int {
+	return len(tagContent.ItemReferences)
+}

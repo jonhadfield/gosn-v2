@@ -14,8 +14,9 @@ import (
 
 const (
 	// API.
-	APIServer = "https://api.standardnotes.com"
-	SyncPath  = "/items/sync" // remote path for making sync calls
+	APIServer  = "https://api.standardnotes.com"
+	APIVersion = "20200115" // API version used in requests (working version)
+	SyncPath   = "/v1/items" // remote path for making sync calls
 
 	// Type names.
 	SNItemTypeNote                 = "Note"
@@ -32,8 +33,8 @@ const (
 	SNItemTypeFileSafeIntegration  = "SN|FileSafe|Integration"
 	SNItemTypeFileSafeCredentials  = "SN|FileSafe|Credentials" //nolint:gosec
 	SNItemTypeUserPreferences      = "SN|UserPreferences"
-	SNItemTypeExtensionRepo        = "SN|File"
-	SNItemTypeFile                 = "SN|ExtensionRepo"
+	SNItemTypeExtensionRepo        = "SN|ExtensionRepo"
+	SNItemTypeFile                 = "SN|File"
 
 	// Authentication.
 	AuthParamsPath    = "/v2/login-params" // remote path for getting auth parameters
@@ -54,14 +55,20 @@ const (
 
 	// HTTP.
 	MaxIdleConnections = 100 // HTTP transport limit
-	RequestTimeout     = 30  // HTTP transport limit
-	ConnectionTimeout  = 3   // HTTP transport dialer limit
+	RequestTimeout     = 30  // HTTP transport limit - increased from 5 to handle large syncs
+	ConnectionTimeout  = 10  // HTTP transport dialer limit - increased from 3
 	KeepAliveTimeout   = 60  // HTTP transport dialer limit
-	MaxRequestRetries  = 3
+	MaxRequestRetries  = 5
 )
 
 func NewHTTPClient() *retryablehttp.Client {
 	c := retryablehttp.NewClient()
+
+	// Allow overriding timeout via environment variable
+	timeout := RequestTimeout
+	if envTimeout, ok, err := ParseEnvInt64(EnvRequestTimeout); err == nil && ok {
+		timeout = int(envTimeout)
+	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 
@@ -82,12 +89,23 @@ func NewHTTPClient() *retryablehttp.Client {
 	c.HTTPClient.Transport = t
 
 	c.RetryMax = MaxRequestRetries
-	c.RetryWaitMin = 60 * time.Second
-	c.RetryWaitMax = 180 * time.Second
+
+	// Allow overriding retry wait times via environment variables
+	retryWaitMin := 2
+	if envMin, ok, err := ParseEnvInt64(EnvRetryWaitMin); err == nil && ok {
+		retryWaitMin = int(envMin)
+	}
+	retryWaitMax := 5
+	if envMax, ok, err := ParseEnvInt64(EnvRetryWaitMax); err == nil && ok {
+		retryWaitMax = int(envMax)
+	}
+
+	c.RetryWaitMin = time.Duration(retryWaitMin) * time.Second
+	c.RetryWaitMax = time.Duration(retryWaitMax) * time.Second
 	// c.Backoff = retryablehttp.LinearJitterBackoff(backoff)
 	c.Backoff = backoff
 	// c.Backoff = retryablehttp.DefaultBackoff
-	c.HTTPClient.Timeout = RequestTimeout * time.Second
+	c.HTTPClient.Timeout = time.Duration(timeout) * time.Second
 	c.Logger = nil
 
 	return c

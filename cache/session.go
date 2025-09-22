@@ -35,7 +35,7 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (*Session, e
 	// }
 	s.Session.HTTPClient = gs.HTTPClient
 	if s.Session.HTTPClient == nil {
-		s.Session.HTTPClient = retryablehttp.NewClient()
+		s.Session.HTTPClient = common.NewHTTPClient()
 	}
 
 	s.Session.Debug = gs.Debug
@@ -54,7 +54,7 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (*Session, e
 	if path == "" {
 		var dbPath string
 
-		dbPath, err = GenCacheDBPath(*s, dbPath, common.LibName)
+		dbPath, err = GenCacheDBPath(*s, "", common.LibName)
 		if err != nil {
 			return nil, err
 		}
