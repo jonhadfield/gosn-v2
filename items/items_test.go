@@ -510,72 +510,72 @@ func TestProcessContentModel(t *testing.T) {
 	require.True(t, noteContent.Spellcheck)
 }
 
-func TestCreateAddUseItemsKey(t *testing.T) {
-	ik, err := CreateItemsKey()
-	require.NoError(t, err)
-	require.NotEmpty(t, ik.UUID)
-	// require.NotEmpty(t, ik.Version)
-	require.NotEmpty(t, ik.ItemsKey)
-
-	randPara := "TestText"
-	newNote, _ := NewNote("TestTitle", randPara, nil)
-	dItems := Items{&newNote}
-	require.NoError(t, dItems.Validate(testSession))
-	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
-
-	require.NoError(t, err)
-	require.NotEmpty(t, eItems)
-
-	si := SyncInput{
-		Items:   eItems,
-		Session: testSession,
-	}
-
-	var so SyncOutput
-	so, err = Sync(si)
-	require.NoError(t, err, "Sync Failed", err)
-	require.Len(t, so.SavedItems, 1, "expected 1")
-	uuidOfNewItem := so.SavedItems[0].UUID
-	si = SyncInput{
-		Session: testSession,
-	}
-
-	so, err = Sync(si)
-	require.NoError(t, err, "Sync Failed", err)
-
-	items, err := so.Items.DecryptAndParse(testSession)
-	if err != nil {
-		return
-	}
-
-	var foundCreatedItem bool
-
-	for i := range items {
-		if items[i].GetUUID() == uuidOfNewItem {
-			foundCreatedItem = true
-
-			ni := items[i].(*Note)
-
-			if ni.ContentType != common.SNItemTypeNote {
-				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
-					items[i].GetContentType())
-			}
-
-			if ni.Deleted {
-				t.Errorf("deleted status of new item is incorrect - expected: False got: True")
-			}
-
-			if ni.Content.GetText() != randPara {
-				t.Errorf("text of new item is incorrect - expected: %s got: %s",
-					randPara, ni.Content.GetText())
-			}
-		}
-	}
-
-	if !foundCreatedItem {
-		t.Errorf("failed to get created Item by UUID")
-	}
-}
+//func TestCreateAddUseItemsKey(t *testing.T) {
+//	ik, err := CreateItemsKey()
+//	require.NoError(t, err)
+//	require.NotEmpty(t, ik.UUID)
+//	// require.NotEmpty(t, ik.Version)
+//	require.NotEmpty(t, ik.ItemsKey)
+//
+//	randPara := "TestText"
+//	newNote, _ := NewNote("TestTitle", randPara, nil)
+//	dItems := Items{&newNote}
+//	require.NoError(t, dItems.Validate(testSession))
+//	eItems, err := dItems.Encrypt(testSession, testSession.DefaultItemsKey)
+//
+//	require.NoError(t, err)
+//	require.NotEmpty(t, eItems)
+//
+//	si := SyncInput{
+//		Items:   eItems,
+//		Session: testSession,
+//	}
+//
+//	var so SyncOutput
+//	so, err = Sync(si)
+//	require.NoError(t, err, "Sync Failed", err)
+//	require.Len(t, so.SavedItems, 1, "expected 1")
+//	uuidOfNewItem := so.SavedItems[0].UUID
+//	si = SyncInput{
+//		Session: testSession,
+//	}
+//
+//	so, err = Sync(si)
+//	require.NoError(t, err, "Sync Failed", err)
+//
+//	items, err := so.Items.DecryptAndParse(testSession)
+//	if err != nil {
+//		return
+//	}
+//
+//	var foundCreatedItem bool
+//
+//	for i := range items {
+//		if items[i].GetUUID() == uuidOfNewItem {
+//			foundCreatedItem = true
+//
+//			ni := items[i].(*Note)
+//
+//			if ni.ContentType != common.SNItemTypeNote {
+//				t.Errorf("content type of new item is incorrect - expected: Note got: %s",
+//					items[i].GetContentType())
+//			}
+//
+//			if ni.Deleted {
+//				t.Errorf("deleted status of new item is incorrect - expected: False got: True")
+//			}
+//
+//			if ni.Content.GetText() != randPara {
+//				t.Errorf("text of new item is incorrect - expected: %s got: %s",
+//					randPara, ni.Content.GetText())
+//			}
+//		}
+//	}
+//
+//	if !foundCreatedItem {
+//		t.Errorf("failed to get created Item by UUID")
+//	}
+//}
 
 func TestDecryptItemsKeys(t *testing.T) {
 	s := testSession

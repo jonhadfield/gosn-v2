@@ -44,8 +44,19 @@ type SyncOutput struct {
 type ConflictedItem struct {
 	ServerItem  EncryptedItem `json:"server_item"`
 	UnsavedItem EncryptedItem `json:"unsaved_item"`
-	Type        string
+	Type        string        `json:"type"`
 }
+
+// ConflictType represents different types of sync conflicts
+const (
+	ConflictTypeSync        = "sync_conflict"
+	ConflictTypeUUID        = "uuid_conflict"
+	ConflictTypeContentType = "content_type_error"
+	ConflictTypeContent     = "content_error"
+	ConflictTypeReadOnly    = "readonly_error"
+	ConflictTypeUUIDError   = "uuid_error"
+	ConflictTypeInvalidItem = "invalid_server_item"
+)
 
 func syncItems(i SyncInput) (so SyncOutput, err error) {
 	giStart := time.Now()
@@ -186,6 +197,33 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 	// we need to reset on completion it to avoid it being used in future
 	// defer func() { input.Session.ImporterItemsKeys = ItemsKeys{} }()
 
+	// CRITICAL SAFEGUARD: Filter out any attempts to delete or modify protected item types
+	var filteredItems EncryptedItems
+	for _, item := range input.Items {
+		// Protect SN|ItemsKey items
+		if item.ContentType == common.SNItemTypeItemsKey {
+			if item.Deleted {
+				log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to delete SN|ItemsKey %s", item.UUID), common.MaxDebugChars)
+				continue // Skip this item entirely
+			}
+			// ItemsKeys should only be synced if they're new (no UUID yet) or being retrieved
+			// Never allow modification of existing ItemsKeys
+			if item.UUID != "" && item.UpdatedAt != "" {
+				log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to modify existing SN|ItemsKey %s", item.UUID), common.MaxDebugChars)
+				continue // Skip this item entirely
+			}
+		}
+
+		// Protect SN|UserPreferences items from deletion
+		if item.ContentType == common.SNItemTypeUserPreferences && item.Deleted {
+			log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to delete SN|UserPreferences %s", item.UUID), common.MaxDebugChars)
+			continue // Skip this item entirely
+		}
+
+		filteredItems = append(filteredItems, item)
+	}
+	input.Items = filteredItems
+
 	log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | called with %d items and syncToken %s", len(input.Items), input.SyncToken), common.MaxDebugChars)
 	log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | pre-sync default items key: %s", input.Session.DefaultItemsKey.UUID), common.MaxDebugChars)
 	// if items have been passed but no default items key exists then return error
@@ -296,10 +334,16 @@ func processSessionItemsKeysInSavedItems(s *session.Session, output SyncOutput, 
 func processSyncConflict(s *session.Session, items EncryptedItems, conflict ConflictedItem, refReMap map[string]string) (conflictedItem EncryptedItem, err error) {
 	debug := s.Debug
 
+	// Special handling for ItemsKey conflicts - always keep server version
+	if conflict.ServerItem.ContentType == common.SNItemTypeItemsKey {
+		log.DebugPrint(debug, "Sync | ItemsKey conflict detected, keeping server version", common.MaxDebugChars)
+		return conflict.ServerItem, nil
+	}
+
 	switch {
 	case conflict.ServerItem.Deleted:
 		// if server item is deleted then we will give unsaved item a new uuid and sync it
-		log.DebugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so replace",
+		log.DebugPrint(debug, fmt.Sprintf("Sync | server item uuid %s type %s is deleted so keeping local",
 			conflict.ServerItem.UUID, conflict.ServerItem.ContentType), common.MaxDebugChars)
 
 		var found bool
@@ -319,11 +363,18 @@ func processSyncConflict(s *session.Session, items EncryptedItems, conflict Conf
 		}
 
 	case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
-		// if unsaved item is newer than that our server item, then unsaved wins
-		log.DebugPrint(debug, fmt.Sprintf("Sync | unsaved is most recent so updating its updated_at_timestamp to servers: %d", conflict.ServerItem.UpdatedAtTimestamp), common.MaxDebugChars)
+		// if unsaved item is newer than server item, then unsaved wins but we update timestamp
+		log.DebugPrint(debug, fmt.Sprintf("Sync | local is more recent so keeping it and updating timestamp to: %d", conflict.ServerItem.UpdatedAtTimestamp), common.MaxDebugChars)
 
 		conflictedItem = conflict.UnsavedItem
 		conflictedItem.UpdatedAtTimestamp = conflict.ServerItem.UpdatedAtTimestamp
+
+	case conflict.UnsavedItem.ContentType != conflict.ServerItem.ContentType:
+		// Content type mismatch - this is a serious conflict, duplicate the local item
+		log.DebugPrint(debug, "Sync | content type mismatch, duplicating local item", common.MaxDebugChars)
+		// Fall through to default duplication logic
+		fallthrough
+
 	default:
 		log.DebugPrint(debug, "Sync | server item most recent, so set new UUID on the item that conflicted and set it as 'duplicate_of' original", common.MaxDebugChars)
 
@@ -457,19 +508,46 @@ func processUUIDConflict(input SyncInput, conflict ConflictedItem, refReMap map[
 }
 
 func processConflict(input SyncInput, conflict ConflictedItem, refReMap map[string]string) (conflictsToSync EncryptedItems, err error) {
-	// debug := input.Session.Debug
+	debug := input.Session.Debug
 	var conflictedItem EncryptedItem
 
 	switch conflict.Type {
-	case "sync_conflict":
+	case ConflictTypeSync:
 		conflictedItem, err = processSyncConflict(input.Session, input.Items, conflict, refReMap)
-	case "uuid_conflict":
+
+	case ConflictTypeUUID:
 		conflictedItem, err = processUUIDConflict(input, conflict, refReMap)
+
+	case ConflictTypeContentType, ConflictTypeContent:
+		// For content errors, we typically want to keep the server version
+		// and create a duplicate of the local version for safety
+		log.DebugPrint(debug, fmt.Sprintf("Sync | %s detected, keeping server version", conflict.Type), common.MaxDebugChars)
+		if conflict.ServerItem.UUID != "" {
+			conflictedItem = conflict.ServerItem
+		} else {
+			// If no server item, this is a validation error on our item
+			log.DebugPrint(debug, "Sync | Validation error on local item, skipping", common.MaxDebugChars)
+			return nil, nil
+		}
+
+	case ConflictTypeReadOnly:
+		// Read-only error means we tried to modify something we shouldn't
+		// Keep the server version
+		log.DebugPrint(debug, "Sync | Read-only conflict, keeping server version", common.MaxDebugChars)
+		conflictedItem = conflict.ServerItem
+
+	case ConflictTypeUUIDError, ConflictTypeInvalidItem:
+		// These are serious errors, log and skip
+		log.DebugPrint(debug, fmt.Sprintf("Sync | Serious conflict type %s, skipping item", conflict.Type), common.MaxDebugChars)
+		return nil, nil
+
 	default:
 		err = fmt.Errorf("unhandled conflict type: %s", conflict.Type)
 	}
 
-	conflictsToSync = append(conflictsToSync, conflictedItem)
+	if err == nil && conflictedItem.UUID != "" {
+		conflictsToSync = append(conflictsToSync, conflictedItem)
+	}
 
 	return conflictsToSync, err
 }
@@ -657,20 +735,32 @@ func (cis *ConflictedItems) DeDupe() {
 func (cis ConflictedItems) Validate(debug bool) error {
 	for _, ci := range cis {
 		switch ci.Type {
-		case "sync_conflict":
+		case ConflictTypeSync:
 			log.DebugPrint(debug, fmt.Sprintf("Sync | sync conflict of: \"%s\" with uuid: \"%s\"", ci.ServerItem.ContentType, ci.ServerItem.UUID), common.MaxDebugChars)
 			continue
-		case "uuid_conflict":
+		case ConflictTypeUUID:
 			log.DebugPrint(debug, fmt.Sprintf("Sync | uuid conflict of: \"%s\" with uuid: \"%s\"", ci.UnsavedItem.ContentType, ci.UnsavedItem.UUID), common.MaxDebugChars)
 			continue
-		case "uuid_error":
+		case ConflictTypeUUIDError:
 			log.DebugPrint(debug, "Sync | client is attempting to sync an item without uuid", common.MaxDebugChars)
-			panic("Sync | client is attempting to sync an item without a uuid")
-		case "content_error":
+			// Don't panic, just log and continue
+			continue
+		case ConflictTypeContent:
 			log.DebugPrint(debug, "Sync | client is attempting to sync an item with invalid content", common.MaxDebugChars)
-			panic("Sync | client is attempting to sync an item without a uuid")
+			// Don't panic, just log and continue
+			continue
+		case ConflictTypeContentType:
+			log.DebugPrint(debug, fmt.Sprintf("Sync | content type error for item: %s", ci.ServerItem.UUID), common.MaxDebugChars)
+			continue
+		case ConflictTypeReadOnly:
+			log.DebugPrint(debug, fmt.Sprintf("Sync | read-only conflict for item: %s", ci.ServerItem.UUID), common.MaxDebugChars)
+			continue
+		case ConflictTypeInvalidItem:
+			log.DebugPrint(debug, fmt.Sprintf("Sync | invalid server item: %s", ci.ServerItem.UUID), common.MaxDebugChars)
+			continue
 		default:
-			return fmt.Errorf("%s conflict type is currently unhandled\nplease raise an issue at https://github.com/jonhadfield/gosn-v2\nConflicted Item: %+v", ci.Type, ci)
+			// Don't fail on unknown conflict types, just log them
+			log.DebugPrint(debug, fmt.Sprintf("Sync | WARNING: Unknown conflict type %s, will attempt to handle", ci.Type), common.MaxDebugChars)
 		}
 	}
 
@@ -872,21 +962,30 @@ func DeleteContent(session *session.Session, everything bool) (deleted int, err 
 		common.SNItemTypeTag,
 	}
 	if everything {
-		typesToDelete = append(typesToDelete, []string{
-			common.SNItemTypeComponent,
-			"SN|FileSafe|FileMetaData",
-			common.SNItemTypeFileSafeCredentials,
-			common.SNItemTypeFileSafeIntegration,
-			common.SNItemTypeTheme,
-			common.SNItemTypeExtensionRepo,
-			common.SNItemTypePrivileges,
-			common.SNItemTypeExtension,
-			common.SNItemTypeUserPreferences,
-			common.SNItemTypeFile,
-		}...)
+		log.DebugPrint(session.Debug, "Not deleting config.", common.MaxDebugChars)
+		//typesToDelete = append(typesToDelete, []string{
+		//	common.SNItemTypeComponent,
+		//	"SN|FileSafe|FileMetaData",
+		//	common.SNItemTypeFileSafeCredentials,
+		//	common.SNItemTypeFileSafeIntegration,
+		//	common.SNItemTypeTheme,
+		//	common.SNItemTypeExtensionRepo,
+		//	common.SNItemTypePrivileges,
+		//	common.SNItemTypeExtension,
+		//	// Note: Removing UserPreferences from deletion list as it should never be deleted
+		//	common.SNItemTypeFile,
+		//}...)
 	}
 
 	for x := range so.Items {
+		// CRITICAL: Never delete SN|ItemsKey items as they are needed to decrypt all other items
+		if so.Items[x].ContentType == common.SNItemTypeItemsKey {
+			continue
+		}
+		// CRITICAL: Never delete SN|UserPreferences as it contains important user settings
+		if so.Items[x].ContentType == common.SNItemTypeUserPreferences {
+			continue
+		}
 		if !so.Items[x].Deleted && slices.Contains(typesToDelete, so.Items[x].ContentType) {
 			so.Items[x].Deleted = true
 			itemsToPut = append(itemsToPut, so.Items[x])

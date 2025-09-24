@@ -322,6 +322,21 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 		return errors.New("db not passed to SaveCacheItems")
 	}
 
+	// CRITICAL SAFEGUARD: Filter out any deleted protected items
+	var safeItems Items
+	for _, item := range items {
+		if item.ContentType == common.SNItemTypeItemsKey && item.Deleted {
+			log.DebugPrint(false, fmt.Sprintf("SaveCacheItems | WARNING: Refusing to save deleted SN|ItemsKey %s", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		if item.ContentType == common.SNItemTypeUserPreferences && item.Deleted {
+			log.DebugPrint(false, fmt.Sprintf("SaveCacheItems | WARNING: Refusing to save deleted SN|UserPreferences %s", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		safeItems = append(safeItems, item)
+	}
+	items = safeItems
+
 	total := len(items)
 
 	for i := 0; i < total; i += batchSize {
@@ -364,7 +379,7 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	return nil
 }
 
-// DeleteCacheItems saves Cache Items to the provided database.
+// DeleteCacheItems deletes Cache Items from the provided database.
 func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
 		return errors.New("no items provided to DeleteCacheItems")
@@ -372,6 +387,25 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 
 	if db == nil {
 		return errors.New("db not passed to DeleteCacheItems")
+	}
+
+	// CRITICAL SAFEGUARD: Never delete protected items from cache
+	var safeItems Items
+	for _, item := range items {
+		if item.ContentType == common.SNItemTypeItemsKey {
+			log.DebugPrint(false, fmt.Sprintf("DeleteCacheItems | WARNING: Refusing to delete SN|ItemsKey %s from cache", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		if item.ContentType == common.SNItemTypeUserPreferences {
+			log.DebugPrint(false, fmt.Sprintf("DeleteCacheItems | WARNING: Refusing to delete SN|UserPreferences %s from cache", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		safeItems = append(safeItems, item)
+	}
+	items = safeItems
+
+	if len(items) == 0 {
+		return nil // Nothing left to delete after filtering
 	}
 
 	total := len(items)
@@ -690,8 +724,26 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	var dirtyItemsToPush items.EncryptedItems
 
 	for _, d := range dirty {
-		if d.ContentType == common.SNItemTypeItemsKey && d.Content == "" {
-			panic("dirty items key is empty")
+		// CRITICAL SAFEGUARD: Never push deleted or modified SN|ItemsKey items
+		if d.ContentType == common.SNItemTypeItemsKey {
+			if d.Deleted {
+				log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to delete SN|ItemsKey %s from cache", d.UUID), common.MaxDebugChars)
+				continue // Skip this item entirely
+			}
+			if d.Content == "" {
+				panic("dirty items key is empty")
+			}
+			// Skip any attempt to modify existing ItemsKeys
+			if d.UUID != "" && d.UpdatedAt != "" {
+				log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to modify SN|ItemsKey %s from cache", d.UUID), common.MaxDebugChars)
+				continue // Skip this item entirely
+			}
+		}
+
+		// CRITICAL SAFEGUARD: Never push deleted SN|UserPreferences items
+		if d.ContentType == common.SNItemTypeUserPreferences && d.Deleted {
+			log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to delete SN|UserPreferences %s from cache", d.UUID), common.MaxDebugChars)
+			continue // Skip this item entirely
 		}
 
 		dirtyItemsToPush = append(dirtyItemsToPush, items.EncryptedItem{
@@ -887,6 +939,18 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	var newItems Items
 
 	for _, i := range gSO.Items {
+		// CRITICAL SAFEGUARD: Never delete SN|ItemsKey items from cache
+		if i.ContentType == common.SNItemTypeItemsKey && i.Deleted {
+			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | WARNING: Refusing to delete SN|ItemsKey %s from cache", i.UUID), common.MaxDebugChars)
+			continue // Skip deletion of ItemsKey
+		}
+
+		// CRITICAL SAFEGUARD: Never delete SN|UserPreferences items from cache
+		if i.ContentType == common.SNItemTypeUserPreferences && i.Deleted {
+			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | WARNING: Refusing to delete SN|UserPreferences %s from cache", i.UUID), common.MaxDebugChars)
+			continue // Skip deletion of UserPreferences
+		}
+
 		// if the item has been deleted in SN, then delete from db
 		if i.Deleted {
 			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | adding uuid for deletion %s %s and skipping addition to db", i.ContentType, i.UUID), common.MaxDebugChars)
