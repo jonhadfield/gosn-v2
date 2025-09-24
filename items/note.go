@@ -262,7 +262,7 @@ type NoteContent struct {
 	NoteType         string             `json:"noteType"`
 	EditorIdentifier string             `json:"editorIdentifier"`
 	Trashed          *bool              `json:"trashed,omitempty"`
-	HidePreview      bool               `json:"hidePreview,omitempty"`      // Whether to hide note preview
+	HidePreview      bool               `json:"hidePreview,omitempty"` // Whether to hide note preview
 }
 
 func (noteContent NoteContent) ToAdvancedCheckList() (AdvancedChecklist, error) {

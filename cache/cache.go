@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/asdine/storm/v3"
@@ -20,6 +22,45 @@ import (
 )
 
 const batchSize = 500
+
+// Sync management variables
+var (
+	lastSyncTime time.Time
+	syncMutex    sync.Mutex
+)
+
+// SyncErrorType represents different types of sync errors
+type SyncErrorType int
+
+const (
+	SyncErrorUnknown SyncErrorType = iota
+	SyncErrorRateLimit
+	SyncErrorValidation
+	SyncErrorAuthentication
+	SyncErrorItemsKey
+	SyncErrorConflict
+	SyncErrorNetwork
+)
+
+// SyncError provides detailed error information
+type SyncError struct {
+	Type      SyncErrorType
+	Original  error
+	Message   string
+	Retryable bool
+	BackoffMs int64
+}
+
+func (e *SyncError) Error() string {
+	return e.Message
+}
+
+// RateLimitBackoff tracks exponential backoff for rate limiting
+type RateLimitBackoff struct {
+	attempts    int64
+	baseDelayMs int64
+	maxDelayMs  int64
+}
 
 type Item struct {
 	UUID               string `storm:"id,unique"`
@@ -39,6 +80,7 @@ type Item struct {
 
 type SyncToken struct {
 	SyncToken string `storm:"id,unique"`
+	CreatedAt time.Time
 }
 
 type SyncInput struct {
@@ -69,15 +111,22 @@ func (i Items) UUIDs() []string {
 func (s *Session) gosn() *session.Session {
 	gs := session.Session{
 		Debug:             s.Debug,
+		HTTPClient:        s.HTTPClient,
+		SchemaValidation:  s.SchemaValidation,
 		Server:            s.Server,
+		FilesServerUrl:    s.FilesServerUrl,
 		Token:             s.Token,
 		MasterKey:         s.MasterKey,
 		ItemsKeys:         s.ItemsKeys,
 		DefaultItemsKey:   s.DefaultItemsKey,
+		KeyParams:         s.KeyParams,
 		AccessToken:       s.AccessToken,
 		RefreshToken:      s.RefreshToken,
 		AccessExpiration:  s.AccessExpiration,
 		RefreshExpiration: s.RefreshExpiration,
+		ReadOnlyAccess:    s.ReadOnlyAccess,
+		PasswordNonce:     s.PasswordNonce,
+		Schemas:           s.Schemas,
 	}
 
 	return &gs
@@ -86,7 +135,7 @@ func (s *Session) gosn() *session.Session {
 func (pi Items) ToItems(s *Session) (items.Items, error) {
 	var its items.Items
 	var err error
-	log.DebugPrint(s.Debug, fmt.Sprintf("ToItems | Converting %d cache items to gosn items", len(pi)), common.MaxDebugChars)
+	//log.DebugPrint(s.Debug, fmt.Sprintf("ToItems | Converting %d cache items to gosn items", len(pi)), common.MaxDebugChars)
 
 	// start := time.Now()
 
@@ -124,6 +173,7 @@ func (pi Items) ToItems(s *Session) (items.Items, error) {
 			DuplicateOf:        ei.DuplicateOf,
 		})
 
+		// Log duplicate items for debugging without recursion
 		if ei.ContentType == common.SNItemTypeNote && ei.DuplicateOf != nil {
 			log.DebugPrint(s.Debug, fmt.Sprintf("%s: %s is duplicate of %s", ei.ContentType, ei.UUID, *ei.DuplicateOf), 120)
 		}
@@ -322,6 +372,21 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 		return errors.New("db not passed to SaveCacheItems")
 	}
 
+	// CRITICAL SAFEGUARD: Filter out any deleted protected items
+	var safeItems Items
+	for _, item := range items {
+		if item.ContentType == common.SNItemTypeItemsKey && item.Deleted {
+			log.DebugPrint(false, fmt.Sprintf("SaveCacheItems | WARNING: Refusing to save deleted SN|ItemsKey %s", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		if item.ContentType == common.SNItemTypeUserPreferences && item.Deleted {
+			log.DebugPrint(false, fmt.Sprintf("SaveCacheItems | WARNING: Refusing to save deleted SN|UserPreferences %s", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		safeItems = append(safeItems, item)
+	}
+	items = safeItems
+
 	total := len(items)
 
 	for i := 0; i < total; i += batchSize {
@@ -364,7 +429,7 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	return nil
 }
 
-// DeleteCacheItems saves Cache Items to the provided database.
+// DeleteCacheItems deletes Cache Items from the provided database.
 func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 	if len(items) == 0 {
 		return errors.New("no items provided to DeleteCacheItems")
@@ -372,6 +437,25 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 
 	if db == nil {
 		return errors.New("db not passed to DeleteCacheItems")
+	}
+
+	// CRITICAL SAFEGUARD: Never delete protected items from cache
+	var safeItems Items
+	for _, item := range items {
+		if item.ContentType == common.SNItemTypeItemsKey {
+			log.DebugPrint(false, fmt.Sprintf("DeleteCacheItems | WARNING: Refusing to delete SN|ItemsKey %s from cache", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		if item.ContentType == common.SNItemTypeUserPreferences {
+			log.DebugPrint(false, fmt.Sprintf("DeleteCacheItems | WARNING: Refusing to delete SN|UserPreferences %s from cache", item.UUID), common.MaxDebugChars)
+			continue
+		}
+		safeItems = append(safeItems, item)
+	}
+	items = safeItems
+
+	if len(items) == 0 {
+		return nil // Nothing left to delete after filtering
 	}
 
 	total := len(items)
@@ -571,21 +655,391 @@ func retrieveItemsKeysFromCache(s *session.Session, i Items) (items.EncryptedIte
 	return encryptedItemKeys, nil
 }
 
+// enforceMinimumSyncDelay prevents rapid consecutive sync operations with adaptive timing
+func enforceMinimumSyncDelay() {
+	syncMutex.Lock()
+	defer syncMutex.Unlock()
+
+	// Enforce 5 second minimum delay between sync operations
+	const minDelay = 5 * time.Second
+	if elapsed := time.Since(lastSyncTime); elapsed < minDelay {
+		sleepDuration := minDelay - elapsed
+		log.DebugPrint(false, fmt.Sprintf("Sync | Enforcing %v delay before next sync (elapsed: %v)", sleepDuration, elapsed), common.MaxDebugChars)
+		time.Sleep(sleepDuration)
+	}
+	lastSyncTime = time.Now()
+}
+
+// enforceRateLimitBackoff implements exponential backoff for rate limit responses
+func enforceRateLimitBackoff(backoff *RateLimitBackoff) {
+	// Initialize defaults if not set
+	if backoff.attempts == 0 && backoff.baseDelayMs == 0 {
+		backoff.baseDelayMs = 1000 // Start at 1 second
+		backoff.maxDelayMs = 5000  // Max 5 seconds
+	}
+
+	backoff.attempts++
+	delayMs := backoff.baseDelayMs * (1 << (backoff.attempts - 1)) // Exponential: base, 2*base, 4*base, 8*base...
+	if delayMs > backoff.maxDelayMs {
+		delayMs = backoff.maxDelayMs
+	}
+
+	time.Sleep(time.Duration(delayMs) * time.Millisecond)
+}
+
+// classifySyncError analyzes error to determine type and retry strategy
+func classifySyncError(err error) *SyncError {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+	errLower := strings.ToLower(errMsg)
+
+	// HTTP 429 Rate Limiting
+	if strings.Contains(errLower, "429") || strings.Contains(errLower, "rate limit") ||
+		strings.Contains(errLower, "exceeded the maximum bandwidth") {
+		return &SyncError{
+			Type:      SyncErrorRateLimit,
+			Original:  err,
+			Message:   "Rate limit exceeded - server requested backoff",
+			Retryable: true,
+			BackoffMs: 5000, // 5 second initial backoff
+		}
+	}
+
+	// ItemsKey issues
+	if strings.Contains(errLower, "items key") || strings.Contains(errLower, "itemskey") ||
+		strings.Contains(errLower, "empty default items key") {
+		return &SyncError{
+			Type:      SyncErrorItemsKey,
+			Original:  err,
+			Message:   "Missing or invalid ItemsKey - account setup required",
+			Retryable: false,
+		}
+	}
+
+	// Authentication issues
+	if strings.Contains(errLower, "auth") || strings.Contains(errLower, "unauthorized") ||
+		strings.Contains(errLower, "invalid session") || strings.Contains(errLower, "token") {
+		return &SyncError{
+			Type:      SyncErrorAuthentication,
+			Original:  err,
+			Message:   "Authentication failed - session may be expired",
+			Retryable: false,
+		}
+	}
+
+	// Validation errors
+	if strings.Contains(errLower, "validation") || strings.Contains(errLower, "invalid") ||
+		strings.Contains(errLower, "malformed") || strings.Contains(errLower, "bad request") {
+		return &SyncError{
+			Type:      SyncErrorValidation,
+			Original:  err,
+			Message:   "Validation failed - check item data format",
+			Retryable: false,
+		}
+	}
+
+	// Network connectivity issues
+	if strings.Contains(errLower, "network") || strings.Contains(errLower, "connection") ||
+		strings.Contains(errLower, "timeout") || strings.Contains(errLower, "unreachable") {
+		return &SyncError{
+			Type:      SyncErrorNetwork,
+			Original:  err,
+			Message:   "Network connectivity issue - temporary failure",
+			Retryable: true,
+			BackoffMs: 2000, // 2 second backoff
+		}
+	}
+
+	// Sync conflicts
+	if strings.Contains(errLower, "conflict") {
+		return &SyncError{
+			Type:      SyncErrorConflict,
+			Original:  err,
+			Message:   "Sync conflict detected - items may need resolution",
+			Retryable: true,
+			BackoffMs: 1000, // 1 second backoff
+		}
+	}
+
+	// Default unknown error
+	return &SyncError{
+		Type:      SyncErrorUnknown,
+		Original:  err,
+		Message:   fmt.Sprintf("Unknown sync error: %v", err),
+		Retryable: true,
+		BackoffMs: 1000,
+	}
+}
+
+// validateSessionItemsKey checks if session has valid ItemsKey before sync
+func validateSessionItemsKey(s *Session) error {
+	if s == nil {
+		return errors.New("session is nil")
+	}
+	if s.Session == nil {
+		return errors.New("session.Session is nil")
+	}
+	// Check if DefaultItemsKey is zero value (empty struct)
+	if s.DefaultItemsKey.ItemsKey == "" {
+		return &SyncError{
+			Type:      SyncErrorItemsKey,
+			Original:  errors.New("no default ItemsKey available"),
+			Message:   "Session lacks valid ItemsKey for encryption operations",
+			Retryable: false,
+		}
+	}
+	if s.DefaultItemsKey.ItemsKey == "" {
+		return &SyncError{
+			Type:      SyncErrorItemsKey,
+			Original:  errors.New("empty default ItemsKey"),
+			Message:   "Session has empty ItemsKey - account setup required",
+			Retryable: false,
+		}
+	}
+	return nil
+}
+
+// SyncWithRetry performs sync with intelligent retry logic
+func SyncWithRetry(si SyncInput, maxRetries int) (so SyncOutput, err error) {
+	var rateLimitBackoff RateLimitBackoff
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			log.DebugPrint(si.Session.Debug,
+				fmt.Sprintf("SyncWithRetry | Attempt %d/%d", attempt+1, maxRetries+1),
+				common.MaxDebugChars)
+		}
+
+		so, err = Sync(si)
+		if err == nil {
+			// Success - reset any backoff state
+			rateLimitBackoff = RateLimitBackoff{}
+			return so, nil
+		}
+
+		// Analyze error for retry decision
+		syncErr, ok := err.(*SyncError)
+		if !ok {
+			// Non-classified error, apply basic classification
+			syncErr = classifySyncError(err)
+		}
+
+		log.DebugPrint(si.Session.Debug,
+			fmt.Sprintf("SyncWithRetry | Error type %d: %s (retryable: %t)",
+				syncErr.Type, syncErr.Message, syncErr.Retryable),
+			common.MaxDebugChars)
+
+		// Don't retry non-retryable errors
+		if !syncErr.Retryable {
+			return so, syncErr
+		}
+
+		// Don't retry on final attempt
+		if attempt >= maxRetries {
+			return so, syncErr
+		}
+
+		// Apply appropriate backoff based on error type
+		switch syncErr.Type {
+		case SyncErrorRateLimit:
+			log.DebugPrint(si.Session.Debug,
+				"SyncWithRetry | Rate limit detected, applying exponential backoff",
+				common.MaxDebugChars)
+			enforceRateLimitBackoff(&rateLimitBackoff)
+		case SyncErrorNetwork:
+			time.Sleep(time.Duration(syncErr.BackoffMs) * time.Millisecond)
+		case SyncErrorConflict:
+			// For conflicts, shorter delay as they may resolve quickly
+			time.Sleep(time.Duration(syncErr.BackoffMs) * time.Millisecond)
+		default:
+			// Standard backoff for unknown errors
+			time.Sleep(time.Duration(syncErr.BackoffMs) * time.Millisecond)
+		}
+	}
+
+	return so, err
+}
+
+// calculateSyncTimeout returns appropriate timeout based on dataset size
+func calculateSyncTimeout(itemCount int64) time.Duration {
+	baseTimeout := 30 * time.Second
+
+	switch {
+	case itemCount < 10:
+		return baseTimeout
+	case itemCount < 100:
+		return baseTimeout * 2
+	case itemCount < 1000:
+		return baseTimeout * 4
+	default:
+		return baseTimeout * 8 // Max 4 minutes for very large datasets
+	}
+}
+
+// getSyncConfiguration returns timeout and retry configuration based on environment and dataset
+func getSyncConfiguration(si SyncInput, itemCount int64) (timeout time.Duration, retries int) {
+	// Check environment overrides first
+	if envTimeout := os.Getenv("SN_SYNC_TIMEOUT"); envTimeout != "" {
+		if t, err := time.ParseDuration(envTimeout); err == nil {
+			timeout = t
+		}
+	}
+
+	// Default to calculated timeout based on dataset size
+	if timeout == 0 {
+		timeout = calculateSyncTimeout(itemCount)
+	}
+
+	retries = 3 // Reduced from 5 for faster failure detection
+	return
+}
+
+// validateAndCleanSyncToken validates and cleans stale sync tokens
+func validateAndCleanSyncToken(db *storm.DB, session *session.Session) (string, error) {
+	var syncTokens []SyncToken
+	if err := db.All(&syncTokens); err != nil {
+		return "", nil // No tokens, start fresh
+	}
+
+	if len(syncTokens) > 1 {
+		// Multiple tokens indicate corruption - reset
+		log.DebugPrint(session.Debug, "Sync | Multiple sync tokens found, resetting", common.MaxDebugChars)
+		if dropErr := db.Drop("SyncToken"); dropErr != nil {
+			return "", dropErr
+		}
+		return "", nil
+	}
+
+	// Validate token age - reset if older than 1 hour
+	if len(syncTokens) == 1 {
+		token := syncTokens[0]
+		if time.Since(token.CreatedAt) > time.Hour {
+			log.DebugPrint(session.Debug, "Sync | Sync token expired, resetting", common.MaxDebugChars)
+			if dropErr := db.Drop("SyncToken"); dropErr != nil {
+				return "", dropErr
+			}
+			return "", nil
+		}
+		return token.SyncToken, nil
+	}
+
+	return "", nil
+}
+
+// handleSyncError implements specific error recovery strategies
+func handleSyncError(err error, si SyncInput) (shouldRetry bool, newSi SyncInput, finalErr error) {
+	if err == nil {
+		return false, si, nil
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(errStr, "giving up"):
+		// HTTP client exhausted retries - this is final
+		return false, si, fmt.Errorf("sync timed out after maximum retries: %w", err)
+
+	case strings.Contains(errStr, "database is locked"):
+		// Database contention - retry with delay
+		time.Sleep(1 * time.Second)
+		return true, si, nil
+
+	case strings.Contains(errStr, "invalid sync token"):
+		// Reset sync token and retry
+		newSi := si
+		if si.Session.CacheDBPath != "" {
+			if db, dbErr := storm.Open(si.Session.CacheDBPath); dbErr == nil {
+				_ = db.Drop("SyncToken")
+				db.Close()
+			}
+		}
+		return true, newSi, nil
+
+	default:
+		return false, si, err
+	}
+}
+
+// shouldUseBatchedSync determines if we need progressive sync for large datasets
+func shouldUseBatchedSync(db *storm.DB) bool {
+	// Check if we have a large dataset that needs batched processing
+	if db == nil {
+		return false
+	}
+
+	var itemCount int64
+	if count, err := db.Count(&Items{}); err == nil {
+		itemCount = int64(count)
+	}
+	return itemCount > 100 // Threshold for batched sync
+}
+
 // Sync will push any dirty items to SN and make database cache consistent with SN.
 func Sync(si SyncInput) (so SyncOutput, err error) {
+	// Validate session and warn about ItemsKey issues (but don't fail)
+	if validationErr := validateSessionItemsKey(si.Session); validationErr != nil {
+		if syncErr, ok := validationErr.(*SyncError); ok {
+			log.DebugPrint(si.Session.Debug,
+				fmt.Sprintf("Sync | ItemsKey validation warning: %s - sync will continue but may not be fully functional", syncErr.Message),
+				common.MaxDebugChars)
+			// Log warning but don't return error - allow sync to proceed
+		} else {
+			// For non-SyncError validation issues (like nil session), still fail
+			return so, validationErr
+		}
+	}
+
+	// Prevent rapid consecutive syncs
+	enforceMinimumSyncDelay()
+
 	// Track sync timing for health monitoring
 	syncStart := time.Now()
+
+	// Database connection timeout
+	dbTimeout := 30 * time.Second
+
+	// Enhanced error handling with classification
 	defer func() {
+		if si.Close && so.DB != nil {
+			if closeErr := so.DB.Close(); closeErr != nil {
+				log.DebugPrint(si.Session.Debug,
+					fmt.Sprintf("Sync | WARNING: Failed to close DB: %v", closeErr),
+					common.MaxDebugChars)
+			}
+		}
+
 		duration := time.Since(syncStart)
 		if duration > 5*time.Second {
 			log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Sync took %v, exceeding healthy duration of 5s", duration), common.MaxDebugChars)
 		}
+
+		// Classify and enhance error information
+		if err != nil {
+			if syncErr := classifySyncError(err); syncErr != nil {
+				log.DebugPrint(si.Session.Debug,
+					fmt.Sprintf("Sync | Error classified as %d: %s (retryable: %t)",
+						syncErr.Type, syncErr.Message, syncErr.Retryable),
+					common.MaxDebugChars)
+				err = syncErr // Return enhanced error
+			}
+		}
 	}()
+
+	// Add database operation context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
 
 	// check session is valid
 	if si.Session == nil || !si.Session.Valid() {
-		err = errors.New("invalid session")
-
+		err = &SyncError{
+			Type:      SyncErrorAuthentication,
+			Original:  errors.New("invalid session"),
+			Message:   "Session is invalid or expired",
+			Retryable: false,
+		}
 		return
 	}
 
@@ -601,17 +1055,31 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// open DB if path provided
 	if si.Session.CacheDBPath != "" {
 		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath), common.MaxDebugChars)
-		db, err = storm.Open(si.Session.CacheDBPath)
-		if err != nil {
+
+		// Open database with timeout handling
+		done := make(chan error, 1)
+		go func() {
+			db, err = storm.Open(si.Session.CacheDBPath)
+			done <- err
+		}()
+
+		select {
+		case err = <-done:
+			if err != nil {
+				return
+			}
+		case <-ctx.Done():
+			err = fmt.Errorf("database open timed out after %v", dbTimeout)
 			return
 		}
 
 		si.CacheDB = db
+		so.DB = db
 
 		if si.Close {
 			defer func(db *storm.DB) {
 				if err = db.Close(); err != nil {
-					panic(err)
+					log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | ERROR: Failed to close DB: %v", err), common.MaxDebugChars)
 				}
 			}(db)
 		}
@@ -657,41 +1125,51 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | retrieved %d dirty Items from db", len(dirty)), common.MaxDebugChars)
 
-	// get sync token from previous operation to prevent syncing all data each time
-	var syncTokens []SyncToken
-	err = db.All(&syncTokens)
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		// on first ever sync, we won't have a sync token
+	// Get resource-aware sync configuration
+	itemCount := int64(len(all))
+	timeout, retries := getSyncConfiguration(si, itemCount)
+	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | Using timeout %v, retries %d for %d items", timeout, retries, itemCount), common.MaxDebugChars)
 
+	// Validate and clean sync token using new validation logic
+	syncToken, err := validateAndCleanSyncToken(db, si.Session.Session)
+	if err != nil {
+		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | Error validating sync token: %v", err), common.MaxDebugChars)
 		return
-	}
-	var syncToken string
-
-	if len(syncTokens) > 1 {
-		err = fmt.Errorf("expected maximum of one sync token but %d returned", len(syncTokens))
-
-		return
-	}
-
-	if len(syncTokens) == 1 {
-		syncToken = syncTokens[0].SyncToken
-		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | loaded sync token %s from db", syncToken), common.MaxDebugChars)
 	}
 
 	// if session doesn't contain items keys then remove sync token so we bring all items in
 	if si.Session.DefaultItemsKey.ItemsKey == "" {
 		fmt.Printf("Sync | no default items key in session so resetting sync token\n")
 		log.DebugPrint(si.Session.Debug, "Sync | no default items key in session so resetting sync token", common.MaxDebugChars)
-
 		syncToken = ""
+	} else if syncToken != "" {
+		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | loaded sync token %s from db", syncToken), common.MaxDebugChars)
 	}
 
 	// convert dirty to items.Items
 	var dirtyItemsToPush items.EncryptedItems
 
 	for _, d := range dirty {
-		if d.ContentType == common.SNItemTypeItemsKey && d.Content == "" {
-			panic("dirty items key is empty")
+		// CRITICAL SAFEGUARD: Never push deleted or modified SN|ItemsKey items
+		if d.ContentType == common.SNItemTypeItemsKey {
+			if d.Deleted {
+				log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to delete SN|ItemsKey %s from cache", d.UUID), common.MaxDebugChars)
+				continue // Skip this item entirely
+			}
+			if d.Content == "" {
+				panic("dirty items key is empty")
+			}
+			// Skip any attempt to modify existing ItemsKeys
+			if d.UUID != "" && d.UpdatedAt != "" {
+				log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to modify SN|ItemsKey %s from cache", d.UUID), common.MaxDebugChars)
+				continue // Skip this item entirely
+			}
+		}
+
+		// CRITICAL SAFEGUARD: Never push deleted SN|UserPreferences items
+		if d.ContentType == common.SNItemTypeUserPreferences && d.Deleted {
+			log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | WARNING: Blocking attempt to delete SN|UserPreferences %s from cache", d.UUID), common.MaxDebugChars)
+			continue // Skip this item entirely
 		}
 
 		dirtyItemsToPush = append(dirtyItemsToPush, items.EncryptedItem{
@@ -739,9 +1217,45 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	var gSO items.SyncOutput
 
+	// Retry logic with enhanced error handling
 	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | calling items.Sync with syncToken %s", syncToken), common.MaxDebugChars)
-	gSO, err = items.Sync(gSI)
+
+	for attempt := 0; attempt < retries; attempt++ {
+		if attempt > 0 {
+			log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | Retry attempt %d/%d", attempt+1, retries), common.MaxDebugChars)
+		}
+
+		gSO, err = items.Sync(gSI)
+		if err == nil {
+			break // Success, exit retry loop
+		}
+
+		// Check if we should retry based on error type
+		shouldRetry, newSI, finalErr := handleSyncError(err, si)
+		if !shouldRetry {
+			err = finalErr
+			return
+		}
+
+		// Update sync input if recovery strategy modified it
+		if newSI.Session != si.Session {
+			gSI.Session = newSI.Session.Session
+		}
+
+		// Don't sleep on the last attempt
+		if attempt < retries-1 {
+			sleepTime := time.Duration(attempt+1) * time.Second
+			// Cap delay at 5 seconds maximum
+			if sleepTime > 5*time.Second {
+				sleepTime = 5 * time.Second
+			}
+			log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | Sleeping %v before retry", sleepTime), common.MaxDebugChars)
+			time.Sleep(sleepTime)
+		}
+	}
+
 	if err != nil {
+		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | Failed after %d retries: %v", retries, err), common.MaxDebugChars)
 		return
 	}
 
@@ -887,6 +1401,18 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	var newItems Items
 
 	for _, i := range gSO.Items {
+		// CRITICAL SAFEGUARD: Never delete SN|ItemsKey items from cache
+		if i.ContentType == common.SNItemTypeItemsKey && i.Deleted {
+			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | WARNING: Refusing to delete SN|ItemsKey %s from cache", i.UUID), common.MaxDebugChars)
+			continue // Skip deletion of ItemsKey
+		}
+
+		// CRITICAL SAFEGUARD: Never delete SN|UserPreferences items from cache
+		if i.ContentType == common.SNItemTypeUserPreferences && i.Deleted {
+			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | WARNING: Refusing to delete SN|UserPreferences %s from cache", i.UUID), common.MaxDebugChars)
+			continue // Skip deletion of UserPreferences
+		}
+
 		// if the item has been deleted in SN, then delete from db
 		if i.Deleted {
 			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | adding uuid for deletion %s %s and skipping addition to db", i.ContentType, i.UUID), common.MaxDebugChars)
@@ -968,6 +1494,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// replace with latest from server
 	sv := SyncToken{
 		SyncToken: gSO.SyncToken,
+		CreatedAt: time.Now(),
 	}
 
 	if err = db.Save(&sv); err != nil {

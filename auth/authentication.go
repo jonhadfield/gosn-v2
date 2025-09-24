@@ -87,14 +87,24 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 	}
 
 	var reqBodyBytes []byte
-
 	apiVer := common.APIVersion
 
-	reqBodyBytes = []byte(fmt.Sprintf(`{"api":"%s","access_token":"%s","refresh_token":"%s"}`, apiVer, accessToken, refreshToken))
+	// Check if tokens are cookie-based (version 2) format: "2:privateIdentifier"
+	accessParts := strings.Split(accessToken, ":")
+	refreshParts := strings.Split(refreshToken, ":")
+	isCookieBased := len(accessParts) >= 2 && len(refreshParts) >= 2 && accessParts[0] == "2" && refreshParts[0] == "2"
+
+	if isCookieBased {
+		// For cookie-based sessions, send empty body - authentication is via cookies
+		reqBodyBytes = []byte(fmt.Sprintf(`{"api":"%s"}`, apiVer))
+	} else {
+		// For header-based sessions, send tokens in request body
+		reqBodyBytes = []byte(fmt.Sprintf(`{"api":"%s","access_token":"%s","refresh_token":"%s"}`, apiVer, accessToken, refreshToken))
+	}
 
 	var refreshSessionReq *retryablehttp.Request
 
-	log.DebugPrint(debug, fmt.Sprintf("refresh token url: %s", url), common.MaxDebugChars)
+	log.DebugPrint(debug, fmt.Sprintf("refresh token url: %s with API version: %s", url, common.APIVersion), common.MaxDebugChars)
 
 	refreshSessionReq, err = retryablehttp.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
@@ -103,6 +113,14 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 
 	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	refreshSessionReq.Header.Set("Connection", "keep-alive")
+
+	// For cookie-based sessions, we need more context to set proper cookies
+	// This function signature is limited - we need session context to extract actual cookie values
+	// For now, we'll return an error indicating that cookie-based refresh requires a different approach
+	if isCookieBased {
+		err = fmt.Errorf("cookie-based session refresh requires session context - use RefreshSessionWithContext instead")
+		return
+	}
 
 	var signInResp *http.Response
 
@@ -155,7 +173,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	} else {
 		reqBody = fmt.Sprintf(`{"api":"%s","password":"%s","email":"%s","code_verifier":"%s","ephemeral":false,"hvm_token":""}`, apiVer, input.encPassword, e, input.codeVerifier)
 	}
-	fmt.Println(reqBody)
+	log.DebugPrint(input.debug, fmt.Sprintf("sign-in request prepared with API version: %s", apiVer), common.MaxDebugChars)
 
 	reqBodyBytes = []byte(reqBody)
 
@@ -201,6 +219,8 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	if err != nil {
 		return
 	}
+
+	// Cookies are handled automatically by HTTP client cookie jar
 
 	// unmarshal failure
 	err = json.Unmarshal(signInRespBody, &signInFailure)
@@ -276,7 +296,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 	} else {
 		reqBody = fmt.Sprintf(`{"api":"%s","email":"%s","code_challenge":"%s"}`, apiVer, input.email, verifier.codeChallenge)
 	}
-	fmt.Println(reqBody)
+	log.DebugPrint(input.debug, fmt.Sprintf("sign-in request prepared with API version: %s", apiVer), common.MaxDebugChars)
 	reqBodyBytes = []byte(reqBody)
 
 	var req *retryablehttp.Request
@@ -573,6 +593,9 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		ReadOnlyAccess:    tokenResp.Data.Session.ReadOnlyAccess,
 		PasswordNonce:     tokenResp.Data.KeyParams.PwNonce,
 	}
+
+	// Cookies are handled automatically by HTTP client cookie jar
+
 	output.Session = ds
 
 	// check if we need to add a post sign in delay
@@ -584,6 +607,68 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 		log.DebugPrint(input.Debug, fmt.Sprintf("SignIn | sleeping %d milliseconds post sign in", psid), common.MaxDebugChars)
 		time.Sleep(time.Duration(psid) * time.Millisecond)
 	}
+
+	return output, nil
+}
+
+// RequestRefreshTokenWithSession is a session-aware refresh function that handles both
+// cookie-based (20240226) and header-based (20200115) authentication methods
+func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url string, debug bool) (output RefreshSessionResponse, err error) {
+	if session.HTTPClient == nil {
+		session.HTTPClient = common.NewHTTPClient()
+	}
+
+	var reqBodyBytes []byte
+	apiVer := common.APIVersion
+
+	// For both session types, the request body only contains the API version
+	reqBodyBytes = []byte(fmt.Sprintf(`{"api":"%s"}`, apiVer))
+
+	var refreshSessionReq *retryablehttp.Request
+
+	log.DebugPrint(debug, fmt.Sprintf("refresh token url: %s with API version: %s", url, common.APIVersion), common.MaxDebugChars)
+
+	refreshSessionReq, err = retryablehttp.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
+	if err != nil {
+		return
+	}
+
+	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
+	refreshSessionReq.Header.Set("Connection", "keep-alive")
+
+	// Use Authorization header - cookies are handled automatically by HTTP client cookie jar
+	refreshSessionReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	log.DebugPrint(debug, "Using Authorization header for token refresh", common.MaxDebugChars)
+
+	var signInResp *http.Response
+
+	start := time.Now()
+	signInResp, err = session.HTTPClient.Do(refreshSessionReq)
+	elapsed := time.Since(start)
+
+	log.DebugPrint(debug, fmt.Sprintf("refresh session | request took: %+v", elapsed), common.MaxDebugChars)
+
+	if err != nil {
+		return output, err
+	}
+
+	defer func() {
+		_ = signInResp.Body.Close()
+	}()
+
+	var respBody []byte
+	respBody, err = io.ReadAll(signInResp.Body)
+	if err != nil {
+		return
+	}
+
+	// unmarshal success
+	err = json.Unmarshal(respBody, &output)
+	if err != nil {
+		return
+	}
+
+	// Cookies are handled automatically by HTTP client cookie jar
 
 	return output, nil
 }

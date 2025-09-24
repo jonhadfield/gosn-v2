@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"strconv"
@@ -15,7 +16,7 @@ import (
 const (
 	// API.
 	APIServer  = "https://api.standardnotes.com"
-	APIVersion = "20200115" // API version used in requests (working version)
+	APIVersion = "20240226"  // API version used in requests (latest version with cookie support)
 	SyncPath   = "/v1/items" // remote path for making sync calls
 
 	// Type names.
@@ -69,6 +70,15 @@ func NewHTTPClient() *retryablehttp.Client {
 	if envTimeout, ok, err := ParseEnvInt64(EnvRequestTimeout); err == nil && ok {
 		timeout = int(envTimeout)
 	}
+
+	// Add cookie jar for automatic cookie handling (API version 20240226)
+	// Note: cookiejar is not thread-safe for concurrent requests
+	// For consecutive sync requests, this can cause race conditions
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		log.Fatalf("Failed to create cookie jar: %v\n", err)
+	}
+	c.HTTPClient.Jar = jar
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 

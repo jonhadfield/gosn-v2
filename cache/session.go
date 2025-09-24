@@ -115,15 +115,21 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 func (s Session) Gosn() session.Session {
 	return session.Session{
 		Debug:             s.Debug,
+		HTTPClient:        s.HTTPClient,
+		SchemaValidation:  s.SchemaValidation,
 		Server:            s.Server,
+		FilesServerUrl:    s.FilesServerUrl,
 		Token:             s.Token,
 		MasterKey:         s.MasterKey,
 		ItemsKeys:         s.ItemsKeys,
 		DefaultItemsKey:   s.DefaultItemsKey,
+		KeyParams:         s.KeyParams,
 		AccessToken:       s.AccessToken,
 		RefreshToken:      s.RefreshToken,
 		AccessExpiration:  s.AccessExpiration,
 		RefreshExpiration: s.RefreshExpiration,
-		SchemaValidation:  s.SchemaValidation,
+		ReadOnlyAccess:    s.ReadOnlyAccess,
+		PasswordNonce:     s.PasswordNonce,
+		Schemas:           s.Schemas,
 	}
 }

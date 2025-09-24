@@ -1,12 +1,50 @@
 package items
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
 )
+
+// FlexibleBool is a custom type that can unmarshal both boolean and string values
+type FlexibleBool bool
+
+// UnmarshalJSON implements custom JSON unmarshaling for FlexibleBool
+func (fb *FlexibleBool) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as boolean first
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		*fb = FlexibleBool(b)
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+
+	parsedBool, err := strconv.ParseBool(s)
+	if err != nil {
+		parsedBool = false
+	}
+
+	*fb = FlexibleBool(parsedBool)
+	return nil
+}
+
+// MarshalJSON implements custom JSON marshaling for FlexibleBool
+func (fb FlexibleBool) MarshalJSON() ([]byte, error) {
+	return json.Marshal(bool(fb))
+}
+
+// Bool returns the boolean value
+func (fb FlexibleBool) Bool() bool {
+	return bool(fb)
+}
 
 func parseComponent(i DecryptedItem) Item {
 	c := Component{}
@@ -38,14 +76,14 @@ type ComponentContent struct {
 	LocalURL           string         `json:"local_url,omitempty"`
 	URL                string         `json:"url,omitempty"`
 	ValidUntil         string         `json:"valid_until,omitempty"`
-	OfflineOnly        bool           `json:"offlineOnly,omitempty"`
+	OfflineOnly        FlexibleBool   `json:"offlineOnly,omitempty"`
 	Name               string         `json:"name"`
 	Area               string         `json:"area"`
 	PackageInfo        interface{}    `json:"package_info,omitempty"`
-	Permissions        []interface{}  `json:"permissions,omitempty"`         // Should be array
+	Permissions        []interface{}  `json:"permissions,omitempty"` // Should be array
 	Active             interface{}    `json:"active,omitempty"`
-	AutoUpdateDisabled bool           `json:"autoupdateDisabled,omitempty"`  // Should be bool, not string
-	ComponentData      interface{}    `json:"componentData,omitempty"`       // Legacy component data
+	AutoUpdateDisabled FlexibleBool   `json:"autoupdateDisabled,omitempty"` // Handles both bool and string values
+	ComponentData      interface{}    `json:"componentData,omitempty"`      // Legacy component data
 	DissociatedItemIds []string       `json:"disassociatedItemIds,omitempty"`
 	AssociatedItemIds  []string       `json:"associatedItemIds,omitempty"`
 	ItemReferences     ItemReferences `json:"references"`

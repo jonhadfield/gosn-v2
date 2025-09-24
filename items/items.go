@@ -11,10 +11,10 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
@@ -51,6 +51,12 @@ const (
 	retryScaleFactor   = 0.25
 	statusInvalidToken = 498
 )
+
+// syncMutex serializes sync requests to prevent race conditions with:
+// 1. Cookie jar concurrent access (cookiejar is not thread-safe)
+// 2. HTTP connection pool reuse conflicts
+// 3. Response body handling races
+var syncMutex sync.Mutex
 
 type EncryptedItems []EncryptedItem
 
@@ -278,7 +284,6 @@ func (ei EncryptedItems) DecryptAndParse(s *session.Session) (o Items, err error
 
 		return
 	}
-	fmt.Printf("%#+v\n", o)
 
 	return
 }
@@ -423,27 +428,53 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 }
 
 func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []byte, status int, err error) {
+	// Serialize sync requests to prevent race conditions
+	// This prevents concurrent access to the cookie jar and HTTP connection pool
+	syncMutex.Lock()
+	defer syncMutex.Unlock()
 	// time.Sleep(3 * time.Second) // REMOVED: This was causing unnecessary delays
 	// fmt.Println(string(reqBody))
-	if session.HTTPClient == nil {
-		log.DebugPrint(session.Debug, "makeSyncRequest | creating new http client", common.MaxDebugChars)
-		session.HTTPClient = common.NewHTTPClient()
+	// Create a fresh HTTP client for each sync request to avoid connection reuse issues
+	// This prevents HTTP connection state corruption while preserving authentication cookies
+	log.DebugPrint(session.Debug, "makeSyncRequest | creating fresh standard http client to avoid connection reuse issues", common.MaxDebugChars)
+
+	// Preserve the existing cookie jar if it exists
+	var existingCookieJar http.CookieJar
+	if session.HTTPClient != nil && session.HTTPClient.HTTPClient.Jar != nil {
+		existingCookieJar = session.HTTPClient.HTTPClient.Jar
+		log.DebugPrint(session.Debug, "makeSyncRequest | preserving existing cookie jar with authentication cookies", common.MaxDebugChars)
 	}
 
-	var request *retryablehttp.Request
+	// Create a new standard HTTP client instead of retryable client
+	client := &http.Client{
+		Timeout: time.Duration(common.RequestTimeout) * time.Second,
+		Jar:     existingCookieJar,
+	}
+
+	// Allow overriding timeout via environment variable
+	if envTimeout, ok, err := common.ParseEnvInt64(common.EnvRequestTimeout); err == nil && ok {
+		client.Timeout = time.Duration(envTimeout) * time.Second
+	}
+
+	// Configure debug logging
+	if session.Debug {
+		log.DebugPrint(session.Debug, fmt.Sprintf("Standard HTTP Client configured with timeout=%v", client.Timeout), common.MaxDebugChars)
+	}
+
 	u := session.Server + common.SyncPath
 	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | URL: %s", u), common.MaxDebugChars)
-	request, err = retryablehttp.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
+	request, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return
 	}
 	request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
-	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	request.Header.Set("User-Agent", "github.com/jonhadfield/gosn-v2")
 
+	// Always use Authorization header - cookies are handled automatically by HTTP client cookie jar
+	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
+
+	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
 
 	// Create a context with timeout for the request
-	// Use same timeout as HTTP client to avoid conflicts
 	timeout := common.RequestTimeout
 	if envTimeout, ok, err := common.ParseEnvInt64(common.EnvRequestTimeout); err == nil && ok {
 		timeout = int(envTimeout)
@@ -452,14 +483,153 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	defer cancel()
 	request = request.WithContext(ctx)
 
-	var response *http.Response
+	// Print headers
+	for name, values := range request.Header {
+		for _, value := range values {
+			// Mask the Authorization header for security
+			if name == "Authorization" && len(value) > 20 {
+				maskedValue := value[:7] + "..." + value[len(value)-4:]
+				log.DebugPrint(session.Debug, fmt.Sprintf("  %s: %s", name, maskedValue), common.MaxDebugChars)
+			} else {
+				log.DebugPrint(session.Debug, fmt.Sprintf("  %s: %s", name, value), common.MaxDebugChars)
+			}
+		}
+	}
+
+	// Print request body size and summary
+	log.DebugPrint(session.Debug, fmt.Sprintf("Request Body Size: %d bytes", len(reqBody)), common.MaxDebugChars)
+
+	// Parse and log key request body details (for debugging sync requests)
+	if len(reqBody) > 0 {
+		var reqData map[string]interface{}
+		if json.Unmarshal(reqBody, &reqData) == nil {
+			if api, ok := reqData["api"].(string); ok {
+				log.DebugPrint(session.Debug, fmt.Sprintf("API Version: %s", api), common.MaxDebugChars)
+			}
+			if limit, ok := reqData["limit"].(float64); ok {
+				log.DebugPrint(session.Debug, fmt.Sprintf("Limit: %.0f", limit), common.MaxDebugChars)
+			}
+			if items, ok := reqData["items"].([]interface{}); ok {
+				log.DebugPrint(session.Debug, fmt.Sprintf("Items to sync: %d", len(items)), common.MaxDebugChars)
+			}
+			if syncToken, ok := reqData["sync_token"].(string); ok && syncToken != "" {
+				// Show only first and last few characters of sync token for privacy
+				if len(syncToken) > 20 {
+					maskedToken := syncToken[:8] + "..." + syncToken[len(syncToken)-8:]
+					log.DebugPrint(session.Debug, fmt.Sprintf("Sync Token: %s", maskedToken), common.MaxDebugChars)
+				} else {
+					log.DebugPrint(session.Debug, fmt.Sprintf("Sync Token: %s", syncToken), common.MaxDebugChars)
+				}
+			}
+			if cursorToken, ok := reqData["cursor_token"].(string); ok && cursorToken != "" && cursorToken != "null" {
+				log.DebugPrint(session.Debug, fmt.Sprintf("Cursor Token: %s", cursorToken), common.MaxDebugChars)
+			}
+		}
+	}
+
+	// Log full request body for small payloads to debug differences between requests
+	if len(reqBody) < 300 {
+		log.DebugPrint(session.Debug, fmt.Sprintf("Full Request Body: %s", string(reqBody)), 1000)
+	}
+
+	log.DebugPrint(session.Debug, "=== END REQUEST DETAILS ===", common.MaxDebugChars)
 
 	start := time.Now()
-	// fmt.Printf("MAKING REQ at %s with timeout %ds\n", time.Now().Format("15:04:05.000"), timeout)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Making sync request at %s", time.Now().Format("15:04:05.000")), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Standard HTTP Client Timeout: %v", client.Timeout), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Request URL: %s", request.URL.String()), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Request Method: %s", request.Method), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Request Context Timeout: %v", request.Context().Value("timeout")), common.MaxDebugChars)
+	deadline, hasDeadline := request.Context().Deadline()
+	log.DebugPrint(session.Debug, fmt.Sprintf("Request Context Deadline: %v (has deadline: %v)", deadline, hasDeadline), common.MaxDebugChars)
 
-	response, err = session.HTTPClient.Do(request)
-	// fmt.Printf("GOT RESP at %s (took %v)\n", time.Now().Format("15:04:05.000"), time.Since(start))
+	// Check if HTTP client has cookie jar
+	if client.Jar != nil {
+		log.DebugPrint(session.Debug, "Cookie jar is enabled", common.MaxDebugChars)
+		cookies := client.Jar.Cookies(request.URL)
+		log.DebugPrint(session.Debug, fmt.Sprintf("Cookies for URL: %d cookies", len(cookies)), common.MaxDebugChars)
+		for i, cookie := range cookies {
+			log.DebugPrint(session.Debug, fmt.Sprintf("Cookie %d: %s=%s...", i, cookie.Name, cookie.Value[:min(10, len(cookie.Value))]), common.MaxDebugChars)
+		}
+	} else {
+		log.DebugPrint(session.Debug, "Cookie jar is NOT enabled", common.MaxDebugChars)
+	}
+
+	log.DebugPrint(session.Debug, "=== STARTING HTTP REQUEST ===", common.MaxDebugChars)
+
+	// Implement exponential backoff retry for HTTP 429 (Too Many Requests)
+	var response *http.Response
+	var requestErr error
+	var elapsed time.Duration
+	maxRetries := common.MaxRequestRetries
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Make the request with detailed error logging using standard HTTP client
+		response, requestErr = client.Do(request)
+
+		// Calculate elapsed time and add checkpoint after request
+		elapsed = time.Since(start)
+
+		if requestErr != nil {
+			log.DebugPrint(session.Debug, fmt.Sprintf("HTTP request failed after %v (attempt %d/%d)", elapsed, attempt+1, maxRetries+1), common.MaxDebugChars)
+			log.DebugPrint(session.Debug, fmt.Sprintf("Error type: %T", requestErr), common.MaxDebugChars)
+			log.DebugPrint(session.Debug, fmt.Sprintf("Error details: %+v", requestErr), common.MaxDebugChars)
+			// For non-HTTP errors, return immediately (network issues, etc.)
+			return nil, 0, requestErr
+		}
+
+		// Check for HTTP 429 (Too Many Requests)
+		if response.StatusCode == http.StatusTooManyRequests {
+			if attempt < maxRetries {
+				// Calculate exponential backoff delay: 1s, 2s, 4s, 8s, 16s
+				delay := time.Duration(1<<uint(attempt)) * time.Second
+				log.DebugPrint(session.Debug, fmt.Sprintf("HTTP 429 Too Many Requests - retrying in %v (attempt %d/%d)", delay, attempt+1, maxRetries+1), common.MaxDebugChars)
+
+				// Close the current response body before retrying
+				if response.Body != nil {
+					_ = response.Body.Close()
+				}
+
+				// Wait with exponential backoff
+				time.Sleep(delay)
+
+				// Create a new request with fresh body for retry
+				request, err = http.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
+				if err != nil {
+					return nil, 0, fmt.Errorf("failed to create retry request: %w", err)
+				}
+				request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
+				request.Header.Set("Authorization", "Bearer "+session.AccessToken)
+				request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
+				request = request.WithContext(ctx)
+
+				continue // Retry the request
+			} else {
+				// Max retries exceeded for 429
+				log.DebugPrint(session.Debug, fmt.Sprintf("HTTP 429 Too Many Requests - max retries (%d) exceeded", maxRetries), common.MaxDebugChars)
+			}
+		}
+
+		// If we get here, either the request succeeded (not 429) or we've exceeded retries
+		break
+	}
+
+	// Continue with existing error handling and response processing
+	err = requestErr
 	if err != nil {
+		// Error handling already done in retry loop above
+	} else {
+		log.DebugPrint(session.Debug, fmt.Sprintf("HTTP request succeeded in %v", elapsed), common.MaxDebugChars)
+		if response != nil {
+			log.DebugPrint(session.Debug, fmt.Sprintf("Response status: %d %s", response.StatusCode, response.Status), common.MaxDebugChars)
+		}
+	}
+	if err != nil {
+		log.DebugPrint(session.Debug, "=== SYNC REQUEST FAILED ===", common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("Request duration: %v", elapsed), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("Error: %v", err), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, "=== END REQUEST FAILURE ===", common.MaxDebugChars)
+
 		// Check if context was cancelled (timeout)
 		if errors.Is(err, context.DeadlineExceeded) {
 			fmt.Printf("Request timeout after %d seconds\n", timeout)
@@ -467,32 +637,86 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		}
 		return nil, 0, err
 	}
-	// fmt.Printf("RESP CODE %d at %s\n", response.StatusCode, time.Now().Format("15:04:05.000"))
 	if response == nil {
+		log.DebugPrint(session.Debug, "=== SYNC RESPONSE ERROR ===", common.MaxDebugChars)
+		log.DebugPrint(session.Debug, "Response is nil", common.MaxDebugChars)
+		log.DebugPrint(session.Debug, "=== END RESPONSE ERROR ===", common.MaxDebugChars)
 		return nil, 0, errors.New("response is nil")
 	}
 
-	elapsed := time.Since(start)
+	// Print full response details
+	log.DebugPrint(session.Debug, "=== SYNC RESPONSE DETAILS ===", common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Request duration: %v", elapsed), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Status Code: %d %s", response.StatusCode, response.Status), common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Response received at: %s", time.Now().Format("15:04:05.000")), common.MaxDebugChars)
 
-	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | request took: %v, status: %d", elapsed, response.StatusCode), common.MaxDebugChars)
-
-	defer func() {
-		// Always drain response body to prevent connection leak
-		if response != nil && response.Body != nil {
-			_, _ = io.Copy(io.Discard, response.Body)
-			if err = response.Body.Close(); err != nil {
-				log.DebugPrint(session.Debug, "makeSyncRequest | failed to close body closed", common.MaxDebugChars)
-			}
+	// Print response headers
+	log.DebugPrint(session.Debug, "Response Headers:", common.MaxDebugChars)
+	for name, values := range response.Header {
+		for _, value := range values {
+			log.DebugPrint(session.Debug, fmt.Sprintf("  %s: %s", name, value), common.MaxDebugChars)
 		}
-	}()
+	}
 
-	// Always read the response body to prevent connection pool exhaustion
+	log.DebugPrint(session.Debug, "=== END RESPONSE DETAILS ===", common.MaxDebugChars)
+
+	// Read the response body first to prevent race conditions
 	responseBody, err = io.ReadAll(response.Body)
 	if err != nil {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | failed to read response body: %v", err), common.MaxDebugChars)
+		// Still need to close the body even if read failed
+		if response.Body != nil {
+			_ = response.Body.Close()
+		}
 		return nil, response.StatusCode, fmt.Errorf("failed to read response body: %w", err)
 	}
-	// fmt.Println("RESPONSE_BODY", string(responseBody))
+
+	// Close the response body after successful read
+	if response.Body != nil {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | failed to close response body: %v", closeErr), common.MaxDebugChars)
+		}
+	}
+
+	// Log response body details
+	log.DebugPrint(session.Debug, "=== SYNC RESPONSE BODY ===", common.MaxDebugChars)
+	log.DebugPrint(session.Debug, fmt.Sprintf("Response Body Size: %d bytes", len(responseBody)), common.MaxDebugChars)
+
+	// Parse and log key response details for successful responses
+	if response.StatusCode == http.StatusOK && len(responseBody) > 0 {
+		var respData map[string]interface{}
+		if json.Unmarshal(responseBody, &respData) == nil {
+			if data, ok := respData["data"].(map[string]interface{}); ok {
+				if items, ok := data["items"].([]interface{}); ok {
+					log.DebugPrint(session.Debug, fmt.Sprintf("Items returned: %d", len(items)), common.MaxDebugChars)
+				}
+				if savedItems, ok := data["saved_items"].([]interface{}); ok {
+					log.DebugPrint(session.Debug, fmt.Sprintf("Saved items: %d", len(savedItems)), common.MaxDebugChars)
+				}
+				if conflicts, ok := data["conflicts"].([]interface{}); ok && len(conflicts) > 0 {
+					log.DebugPrint(session.Debug, fmt.Sprintf("Conflicts: %d", len(conflicts)), common.MaxDebugChars)
+				}
+				if syncToken, ok := data["sync_token"].(string); ok && syncToken != "" {
+					// Show only first and last few characters of sync token for privacy
+					if len(syncToken) > 20 {
+						maskedToken := syncToken[:8] + "..." + syncToken[len(syncToken)-8:]
+						log.DebugPrint(session.Debug, fmt.Sprintf("New Sync Token: %s", maskedToken), common.MaxDebugChars)
+					} else {
+						log.DebugPrint(session.Debug, fmt.Sprintf("New Sync Token: %s", syncToken), common.MaxDebugChars)
+					}
+				}
+			}
+		}
+	} else if response.StatusCode != http.StatusOK {
+		// For error responses, show the response body (truncated if too long)
+		bodyStr := string(responseBody)
+		if len(bodyStr) > 500 {
+			bodyStr = bodyStr[:500] + "... (truncated)"
+		}
+		log.DebugPrint(session.Debug, fmt.Sprintf("Error Response Body: %s", bodyStr), 500)
+	}
+
+	log.DebugPrint(session.Debug, "=== END RESPONSE BODY ===", common.MaxDebugChars)
 
 	if response.StatusCode == http.StatusRequestEntityTooLarge {
 		err = errors.New("payload too large")
@@ -506,10 +730,73 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 
 	if response.StatusCode == http.StatusUnauthorized {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
+		log.DebugPrint(session.Debug, "makeSyncRequest | attempting to refresh access token due to 401 Unauthorized", common.MaxDebugChars)
 
-		err = errors.New("server returned 401 unauthorized during sync request so most likely throttling due to excessive number of requests")
+		// Attempt to refresh the access token before failing
+		refreshURL := session.Server + common.AuthRefreshPath
+		refreshResp, refreshErr := auth.RequestRefreshTokenWithSession(&auth.SignInResponseDataSession{
+			HTTPClient:        session.HTTPClient,
+			Debug:             session.Debug,
+			Server:            session.Server,
+			Token:             session.Token,
+			MasterKey:         session.MasterKey,
+			KeyParams:         session.KeyParams,
+			AccessToken:       session.AccessToken,
+			RefreshToken:      session.RefreshToken,
+			AccessExpiration:  session.AccessExpiration,
+			RefreshExpiration: session.RefreshExpiration,
+			ReadOnlyAccess:    session.ReadOnlyAccess,
+			PasswordNonce:     session.PasswordNonce,
+		}, refreshURL, session.Debug)
 
-		return responseBody, response.StatusCode, err
+		if refreshErr != nil {
+			log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | token refresh failed: %v", refreshErr), common.MaxDebugChars)
+			err = fmt.Errorf("server returned 401 unauthorized and token refresh failed: %w", refreshErr)
+			return responseBody, response.StatusCode, err
+		}
+
+		// Update session with new tokens
+		session.AccessToken = refreshResp.Data.Session.AccessToken
+		session.RefreshToken = refreshResp.Data.Session.RefreshToken
+		session.AccessExpiration = refreshResp.Data.Session.AccessExpiration
+		session.RefreshExpiration = refreshResp.Data.Session.RefreshExpiration
+		log.DebugPrint(session.Debug, "makeSyncRequest | successfully refreshed access token, retrying original request", common.MaxDebugChars)
+
+		// Retry the original request with the new token
+		// Create a new request with fresh body since the original body was already consumed
+		retryRequest, retryReqErr := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
+		if retryReqErr != nil {
+			log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | failed to create retry request: %v", retryReqErr), common.MaxDebugChars)
+			return nil, 0, fmt.Errorf("failed to create retry request: %w", retryReqErr)
+		}
+		retryRequest.Header.Set(common.HeaderContentType, common.SNAPIContentType)
+		retryRequest.Header.Set("Authorization", "Bearer "+session.AccessToken)
+		retryRequest.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
+		retryRequest = retryRequest.WithContext(ctx)
+
+		log.DebugPrint(session.Debug, "makeSyncRequest | retrying request with refreshed token", common.MaxDebugChars)
+		retryResponse, retryErr := client.Do(retryRequest)
+		if retryErr != nil {
+			log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | retry after token refresh failed: %v", retryErr), common.MaxDebugChars)
+			return nil, 0, fmt.Errorf("retry after token refresh failed: %w", retryErr)
+		}
+
+		// Read retry response body
+		retryResponseBody, retryReadErr := io.ReadAll(retryResponse.Body)
+		if retryReadErr != nil {
+			if retryResponse.Body != nil {
+				_ = retryResponse.Body.Close()
+			}
+			return nil, retryResponse.StatusCode, fmt.Errorf("failed to read retry response body: %w", retryReadErr)
+		}
+
+		// Close retry response body
+		if retryResponse.Body != nil {
+			_ = retryResponse.Body.Close()
+		}
+
+		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | retry request completed with status: %d", retryResponse.StatusCode), common.MaxDebugChars)
+		return retryResponseBody, retryResponse.StatusCode, nil
 	}
 
 	if response.StatusCode > http.StatusBadRequest {
@@ -556,9 +843,9 @@ type TagContent struct {
 	Title          string         `json:"title"`
 	ItemReferences ItemReferences `json:"references"`
 	AppData        AppDataContent `json:"appData"`
-	IconString     string         `json:"iconString,omitempty"`     // Icon for the tag (emoji or icon name)
-	Expanded       bool           `json:"expanded,omitempty"`       // Whether tag is expanded in UI
-	ParentId       string         `json:"parentId,omitempty"`       // Parent tag for nested tags
+	IconString     string         `json:"iconString,omitempty"` // Icon for the tag (emoji or icon name)
+	Expanded       bool           `json:"expanded,omitempty"`   // Whether tag is expanded in UI
+	ParentId       string         `json:"parentId,omitempty"`   // Parent tag for nested tags
 }
 
 func removeStringFromSlice(inSt string, inSl []string) []string {
@@ -680,7 +967,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		var nc NoteContent
 
 		if err = json.Unmarshal([]byte(input), &nc); err != nil {
-			err = fmt.Errorf("processContentModel | %w", err)
+			err = fmt.Errorf("processContentModel note | %w", err)
 
 			return output, err
 		}
@@ -689,7 +976,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	case common.SNItemTypeTag:
 		var tc TagContent
 		if err = json.Unmarshal([]byte(input), &tc); err != nil {
-			err = fmt.Errorf("processContentModel | %w", err)
+			err = fmt.Errorf("processContentModel tag | %w", err)
 
 			return output, err
 		}
@@ -698,7 +985,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	case common.SNItemTypeComponent:
 		var cc ComponentContent
 		if err = json.Unmarshal([]byte(input), &cc); err != nil {
-			err = fmt.Errorf("processContentModel | %w", err)
+			err = fmt.Errorf("processContentModel component | %w", err)
 
 			return
 		}
@@ -707,7 +994,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	case common.SNItemTypeTheme:
 		var tc ThemeContent
 		if err = json.Unmarshal([]byte(input), &tc); err != nil {
-			err = fmt.Errorf("processContentModel | %w", err)
+			err = fmt.Errorf("processContentModel theme | %w", err)
 
 			return
 		}
@@ -717,7 +1004,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		var pc PrivilegesContent
 		if err = json.Unmarshal([]byte(input), &pc); err != nil {
 			if err = json.Unmarshal([]byte(input), &pc); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel privileges | %w", err)
 
 				return
 			}
@@ -727,7 +1014,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 	case common.SNItemTypeExtension:
 		var ec ExtensionContent
 		if err = json.Unmarshal([]byte(input), &ec); err != nil {
-			err = fmt.Errorf("processContentModel | %w", err)
+			err = fmt.Errorf("processContentModel extension | %w", err)
 
 			return
 		}
@@ -738,7 +1025,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &sfe); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel sf extension | %w", err)
 
 				return
 			}
@@ -750,7 +1037,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &sfm); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel sf mfa | %w", err)
 
 				return
 			}
@@ -762,7 +1049,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &st); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel smart tag | %w", err)
 
 				return
 			}
@@ -775,7 +1062,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &fsfm); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel sf metadata | %w", err)
 
 				return
 			}
@@ -788,7 +1075,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &fsi); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel fs integration | %w", err)
 
 				return
 			}
@@ -800,7 +1087,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &upc); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel user preferences | %w", err)
 
 				return
 			}
@@ -812,7 +1099,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &erc); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel extension repo | %w", err)
 
 				return
 			}
@@ -824,7 +1111,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &fsc); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel fs credentials | %w", err)
 
 				return
 			}
@@ -836,7 +1123,7 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		if len(input) > 0 {
 			if err = json.Unmarshal([]byte(input), &fc); err != nil {
-				err = fmt.Errorf("processContentModel | %w", err)
+				err = fmt.Errorf("processContentModel file | %w", err)
 
 				return
 			}

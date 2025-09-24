@@ -15,9 +15,9 @@ const (
 	EnvPassword             = "SN_PASSWORD"
 	EnvSkipSessionTests     = "SN_SKIP_SESSION_TESTS"
 	EnvDebug                = "SN_DEBUG"
-	EnvRequestTimeout       = "SN_REQUEST_TIMEOUT"  // Override default request timeout in seconds
-	EnvRetryWaitMin         = "SN_RETRY_WAIT_MIN"   // Override minimum retry wait in seconds
-	EnvRetryWaitMax         = "SN_RETRY_WAIT_MAX"   // Override maximum retry wait in seconds
+	EnvRequestTimeout       = "SN_REQUEST_TIMEOUT" // Override default request timeout in seconds
+	EnvRetryWaitMin         = "SN_RETRY_WAIT_MIN"  // Override minimum retry wait in seconds
+	EnvRetryWaitMax         = "SN_RETRY_WAIT_MAX"  // Override maximum retry wait in seconds
 )
 
 // ParseEnvInt64 looks up an environment variable and attempts to parse
