@@ -86,7 +86,7 @@ type Session struct {
 	RefreshExpiration int64          `json:"refresh_expiration"`
 	ReadOnlyAccess    bool           `json:"readonly_access"`
 	PasswordNonce     string
-	Schemas           map[string]*jsonschema.Schema
+	Schemas            map[string]*jsonschema.Schema
 }
 
 type MinimalSession struct {
