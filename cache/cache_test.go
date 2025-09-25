@@ -36,7 +36,6 @@ func testSetup() {
 	if err != nil {
 		return
 	}
-	fmt.Printf("Test session: %#+v\n", testSession)
 
 	if testSession == nil {
 		panic("testSession is nil")
@@ -60,18 +59,15 @@ func testSetup() {
 
 	testSession.CacheDBPath = path
 
-	fmt.Println("STARTING PRIMARY SYNC")
 	_, err = Sync(SyncInput{
 		Session: testSession,
 		Close:   true,
 	})
-	fmt.Println("FINISHING PRIMARY SYNC")
 	if err != nil {
 		panic(err)
 	}
 
 	if testSession.Session.DefaultItemsKey.ItemsKey == "" {
-		fmt.Println("WARNING: Test session lacks ItemsKey - some tests may be limited")
 		// Don't panic - allow tests to run with warnings
 		// Tests that require ItemsKey will skip or handle gracefully
 	}

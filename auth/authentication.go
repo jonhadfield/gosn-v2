@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/crypto"
@@ -518,7 +517,6 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	var getAuthParamsOutput AuthParamsOutput
 
 	getAuthParamsOutput, err = getAuthParams(getAuthParamsInput)
-	spew.Dump(getAuthParamsOutput)
 	if err != nil {
 		log.DebugPrint(input.Debug, fmt.Sprintf("getAuthParams error: %+v", err), common.MaxDebugChars)
 		return output, processConnectionFailure(err, getAuthParamsInput.authParamsURL)
