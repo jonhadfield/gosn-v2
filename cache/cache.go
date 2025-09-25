@@ -660,8 +660,8 @@ func enforceMinimumSyncDelay() {
 	syncMutex.Lock()
 	defer syncMutex.Unlock()
 
-	// Enforce 5 second minimum delay between sync operations
-	const minDelay = 5 * time.Second
+	// Enforce minimum delay between sync operations
+	const minDelay = 1 * time.Second
 	if elapsed := time.Since(lastSyncTime); elapsed < minDelay {
 		sleepDuration := minDelay - elapsed
 		log.DebugPrint(false, fmt.Sprintf("Sync | Enforcing %v delay before next sync (elapsed: %v)", sleepDuration, elapsed), common.MaxDebugChars)
@@ -1105,7 +1105,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		if err != nil {
 			return
 		}
-		fmt.Printf("Sync | retrieved %d items keys from cache\n", len(cachedKeys))
 
 		if err = processCachedItemsKeys(si.Session, cachedKeys); err != nil {
 			return
