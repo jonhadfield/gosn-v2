@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: cimg/go:1.21
+      - image: cimg/go:1.25.1
     steps:
       - checkout
       - run: go test -v -failfast -p 1 -parallel 1 ./...
