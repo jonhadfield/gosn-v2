@@ -32,16 +32,24 @@ func parseFile(i DecryptedItem) Item {
 }
 
 type FileContent struct {
-	EncryptionHeader   string         `json:"encryptionHeader"`
-	Key                string         `json:"key"`
-	MimeType           string         `json:"mimeType"`
-	Name               string         `json:"name"`
-	RemoteIdentifier   string         `json:"remoteIdentifier"`
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
+	// Core file attributes from official Standard Notes
+	RemoteIdentifier     string         `json:"remoteIdentifier"`
+	Name                 string         `json:"name"`
+	Key                  string         `json:"key"`
+	EncryptionHeader     string         `json:"encryptionHeader"`
+	MimeType             string         `json:"mimeType"`
+	DecryptedSize        int64          `json:"decryptedSize"`
+	EncryptedChunkSizes  []int64        `json:"encryptedChunkSizes"`
+	// Deprecated fields for backward compatibility
+	Size                 *int64         `json:"size,omitempty"`
+	ChunkSizes           []int64        `json:"chunkSizes,omitempty"`
+	// Standard item content attributes
+	ItemReferences       ItemReferences `json:"references"`
+	AppData              AppDataContent `json:"appData"`
+	// Legacy attributes (may be deprecated)
+	DissociatedItemIds   []string       `json:"disassociatedItemIds,omitempty"`
+	AssociatedItemIds    []string       `json:"associatedItemIds,omitempty"`
+	Active               interface{}    `json:"active,omitempty"`
 }
 
 type File struct {

@@ -36,6 +36,11 @@ const (
 	SNItemTypeUserPreferences      = "SN|UserPreferences"
 	SNItemTypeExtensionRepo        = "SN|ExtensionRepo"
 	SNItemTypeFile                 = "SN|File"
+	// New item types for modern Standard Notes features
+	SNItemTypeTrustedContact       = "SN|TrustedContact"
+	SNItemTypeVaultListing         = "SN|VaultListing"
+	SNItemTypeKeySystemRootKey     = "SN|KeySystemRootKey"
+	SNItemTypeKeySystemItemsKey    = "SN|KeySystemItemsKey"
 
 	// Authentication.
 	AuthParamsPath    = "/v2/login-params" // remote path for getting auth parameters

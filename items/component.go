@@ -88,6 +88,8 @@ type ComponentContent struct {
 	AssociatedItemIds  []string       `json:"associatedItemIds,omitempty"`
 	ItemReferences     ItemReferences `json:"references"`
 	AppData            AppDataContent `json:"appData"`
+	// Missing attributes from official Standard Notes
+	IsDeprecated       bool           `json:"isDeprecated,omitempty"` // Component deprecation flag
 }
 
 type Component struct {
