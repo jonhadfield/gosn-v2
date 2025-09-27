@@ -252,17 +252,20 @@ func (noteContent NoteContent) MarshalJSON() ([]byte, error) {
 }
 
 type NoteContent struct {
-	Title            string             `json:"title"`
-	Text             string             `json:"text"`
-	ItemReferences   ItemReferences     `json:"references"`
-	AppData          NoteAppDataContent `json:"appData"`
-	PreviewPlain     string             `json:"preview_plain"`
-	Spellcheck       bool               `json:"spellcheck"`
-	PreviewHtml      string             `json:"preview_html"`
-	NoteType         string             `json:"noteType"`
-	EditorIdentifier string             `json:"editorIdentifier"`
-	Trashed          *bool              `json:"trashed,omitempty"`
-	HidePreview      bool               `json:"hidePreview,omitempty"` // Whether to hide note preview
+	Title                string             `json:"title"`
+	Text                 string             `json:"text"`
+	ItemReferences       ItemReferences     `json:"references"`
+	AppData              NoteAppDataContent `json:"appData"`
+	PreviewPlain         string             `json:"preview_plain"`
+	Spellcheck           bool               `json:"spellcheck"`
+	PreviewHtml          string             `json:"preview_html"`
+	NoteType             string             `json:"noteType"`
+	EditorIdentifier     string             `json:"editorIdentifier"`
+	Trashed              *bool              `json:"trashed,omitempty"`
+	HidePreview          bool               `json:"hidePreview,omitempty"`
+	// Missing attributes from official Standard Notes
+	EditorWidth          string             `json:"editorWidth,omitempty"`
+	AuthorizedForListed  bool               `json:"authorizedForListed,omitempty"`
 }
 
 func (noteContent NoteContent) ToAdvancedCheckList() (AdvancedChecklist, error) {

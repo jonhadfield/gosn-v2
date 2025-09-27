@@ -846,6 +846,8 @@ type TagContent struct {
 	IconString     string         `json:"iconString,omitempty"` // Icon for the tag (emoji or icon name)
 	Expanded       bool           `json:"expanded,omitempty"`   // Whether tag is expanded in UI
 	ParentId       string         `json:"parentId,omitempty"`   // Parent tag for nested tags
+	// Missing attributes from official Standard Notes
+	Preferences    interface{}    `json:"preferences,omitempty"` // TagPreferences object
 }
 
 func removeStringFromSlice(inSt string, inSl []string) []string {
@@ -890,7 +892,7 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 	case common.SNItemTypeSFMFA:
 		pi = parseSFMFA(di)
 	case common.SNItemTypeSmartTag:
-		pi = parseSmartTag(di)
+		pi = parseSmartView(di)
 	case common.SNItemTypeFileSafeFileMetaData:
 		pi = parseFileSafeFileMetadata(di)
 	case common.SNItemTypeFileSafeIntegration:
@@ -903,6 +905,14 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 		pi = parseFileSafeCredentials(di)
 	case common.SNItemTypeFile:
 		pi = parseFile(di)
+	case common.SNItemTypeTrustedContact:
+		pi = parseTrustedContact(di)
+	case common.SNItemTypeVaultListing:
+		pi = parseVaultListing(di)
+	case common.SNItemTypeKeySystemRootKey:
+		pi = parseKeySystemRootKey(di)
+	case common.SNItemTypeKeySystemItemsKey:
+		pi = parseKeySystemItemsKey(di)
 	default:
 		return nil, fmt.Errorf("unhandled type1 '%s' %s", di.ContentType, di.Content)
 	}
@@ -936,7 +946,7 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 		case common.SNItemTypeSFMFA:
 			pi = parseSFMFA(i)
 		case common.SNItemTypeSmartTag:
-			pi = parseSmartTag(i)
+			pi = parseSmartView(i)
 		case common.SNItemTypeFileSafeFileMetaData:
 			pi = parseFileSafeFileMetadata(i)
 		case common.SNItemTypeFileSafeIntegration:
@@ -949,6 +959,14 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			pi = parseFileSafeCredentials(i)
 		case common.SNItemTypeFile:
 			pi = parseFile(i)
+		case common.SNItemTypeTrustedContact:
+			pi = parseTrustedContact(i)
+		case common.SNItemTypeVaultListing:
+			pi = parseVaultListing(i)
+		case common.SNItemTypeKeySystemRootKey:
+			pi = parseKeySystemRootKey(i)
+		case common.SNItemTypeKeySystemItemsKey:
+			pi = parseKeySystemItemsKey(i)
 		default:
 			return nil, fmt.Errorf("unhandled type2 '%s' %s", i.ContentType, i.Content)
 		}
@@ -1045,17 +1063,17 @@ func processContentModel(contentType, input string) (output Content, err error) 
 
 		return &sfm, nil
 	case common.SNItemTypeSmartTag:
-		var st SmartTagContent
+		var sv SmartViewContent
 
 		if len(input) > 0 {
-			if err = json.Unmarshal([]byte(input), &st); err != nil {
-				err = fmt.Errorf("processContentModel smart tag | %w", err)
+			if err = json.Unmarshal([]byte(input), &sv); err != nil {
+				err = fmt.Errorf("processContentModel smart view | %w", err)
 
 				return
 			}
 		}
 
-		return &st, nil
+		return &sv, nil
 
 	case common.SNItemTypeFileSafeFileMetaData:
 		var fsfm FileSafeFileMetaDataContent
@@ -1130,6 +1148,54 @@ func processContentModel(contentType, input string) (output Content, err error) 
 		}
 
 		return &fc, nil
+	case common.SNItemTypeTrustedContact:
+		var tc TrustedContactContent
+
+		if len(input) > 0 {
+			if err = json.Unmarshal([]byte(input), &tc); err != nil {
+				err = fmt.Errorf("processContentModel trusted contact | %w", err)
+
+				return
+			}
+		}
+
+		return &tc, nil
+	case common.SNItemTypeVaultListing:
+		var vl VaultListingContent
+
+		if len(input) > 0 {
+			if err = json.Unmarshal([]byte(input), &vl); err != nil {
+				err = fmt.Errorf("processContentModel vault listing | %w", err)
+
+				return
+			}
+		}
+
+		return &vl, nil
+	case common.SNItemTypeKeySystemRootKey:
+		var ksrk KeySystemRootKeyContent
+
+		if len(input) > 0 {
+			if err = json.Unmarshal([]byte(input), &ksrk); err != nil {
+				err = fmt.Errorf("processContentModel key system root key | %w", err)
+
+				return
+			}
+		}
+
+		return &ksrk, nil
+	case common.SNItemTypeKeySystemItemsKey:
+		var ksik KeySystemItemsKeyContent
+
+		if len(input) > 0 {
+			if err = json.Unmarshal([]byte(input), &ksik); err != nil {
+				err = fmt.Errorf("processContentModel key system items key | %w", err)
+
+				return
+			}
+		}
+
+		return &ksik, nil
 	default:
 		return nil, fmt.Errorf("unexpected type '%s'", contentType)
 	}

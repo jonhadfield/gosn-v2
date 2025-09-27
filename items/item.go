@@ -56,6 +56,14 @@ type ItemCommon struct {
 	SharedVaultUUID     *string
 	UserUUID            *string
 	LastEditedByUUID    *string
+	// Base ItemContent attributes from official Standard Notes
+	ConflictOf          *string `json:"conflict_of,omitempty"`
+	Protected           bool    `json:"protected,omitempty"`
+	Trashed             bool    `json:"trashed,omitempty"`
+	Pinned              bool    `json:"pinned,omitempty"`
+	Archived            bool    `json:"archived,omitempty"`
+	Starred             bool    `json:"starred,omitempty"`
+	Locked              bool    `json:"locked,omitempty"`
 }
 
 func GetMatchingItem(uuid string, iks []session.SessionItemsKey) session.SessionItemsKey {

@@ -46,12 +46,15 @@ func parseSNTime(s string) (t time.Time, err error) {
 }
 
 type UserPreferencesContent struct {
-	ItemReferences     ItemReferences `json:"references"`
-	AppData            AppDataContent `json:"appData"`
-	Name               string         `json:"name"`
-	DissociatedItemIds []string       `json:"disassociatedItemIds"`
-	AssociatedItemIds  []string       `json:"associatedItemIds"`
-	Active             interface{}    `json:"active"`
+	// Enhanced structured preferences system from official Standard Notes
+	Preferences        map[string]interface{} `json:"preferences"` // Structured preference key-value system
+	ItemReferences     ItemReferences         `json:"references"`
+	AppData            AppDataContent         `json:"appData"`
+	// Legacy fields (may be deprecated)
+	Name               string                 `json:"name,omitempty"`
+	DissociatedItemIds []string               `json:"disassociatedItemIds,omitempty"`
+	AssociatedItemIds  []string               `json:"associatedItemIds,omitempty"`
+	Active             interface{}            `json:"active,omitempty"`
 }
 
 type UserPreferences struct {
@@ -330,4 +333,55 @@ func (cc *UserPreferencesContent) UpsertReferences(input ItemReferences) {
 
 func (cc *UserPreferencesContent) SetReferences(input ItemReferences) {
 	cc.ItemReferences = input
+}
+
+// GetPref returns a preference value for the given key
+func (cc *UserPreferencesContent) GetPref(key string) (interface{}, bool) {
+	if cc.Preferences == nil {
+		return nil, false
+	}
+	value, exists := cc.Preferences[key]
+	return value, exists
+}
+
+// SetPref sets a preference value for the given key
+func (cc *UserPreferencesContent) SetPref(key string, value interface{}) {
+	if cc.Preferences == nil {
+		cc.Preferences = make(map[string]interface{})
+	}
+	cc.Preferences[key] = value
+}
+
+// DeletePref removes a preference key
+func (cc *UserPreferencesContent) DeletePref(key string) {
+	if cc.Preferences != nil {
+		delete(cc.Preferences, key)
+	}
+}
+
+// GetAllPrefs returns all preferences
+func (cc *UserPreferencesContent) GetAllPrefs() map[string]interface{} {
+	if cc.Preferences == nil {
+		return make(map[string]interface{})
+	}
+	// Return a copy to prevent external modification
+	prefs := make(map[string]interface{})
+	for k, v := range cc.Preferences {
+		prefs[k] = v
+	}
+	return prefs
+}
+
+// SetAllPrefs sets all preferences (replaces existing)
+func (cc *UserPreferencesContent) SetAllPrefs(preferences map[string]interface{}) {
+	cc.Preferences = preferences
+}
+
+// HasPref checks if a preference key exists
+func (cc *UserPreferencesContent) HasPref(key string) bool {
+	if cc.Preferences == nil {
+		return false
+	}
+	_, exists := cc.Preferences[key]
+	return exists
 }

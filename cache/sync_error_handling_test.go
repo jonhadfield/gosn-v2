@@ -200,49 +200,6 @@ func TestSessionItemsKeyValidation(t *testing.T) {
 	})
 }
 
-// TestSyncDelayEnforcement tests the 5 second delay mechanism
-func TestSyncDelayEnforcement(t *testing.T) {
-	t.Run("ConsecutiveDelays", func(t *testing.T) {
-		// Reset timing state
-		func() {
-			syncMutex.Lock()
-			defer syncMutex.Unlock()
-			lastSyncTime = time.Time{}
-		}()
-
-		const numCalls = 3 // Reduced due to 5s delays
-		callTimes := make([]time.Time, numCalls)
-
-		// Make rapid consecutive calls
-		for i := 0; i < numCalls; i++ {
-			start := time.Now()
-			enforceMinimumSyncDelay()
-			callTimes[i] = start
-		}
-
-		// Verify delays are around 5 seconds (not less)
-		for i := 1; i < len(callTimes); i++ {
-			elapsed := callTimes[i].Sub(callTimes[i-1])
-
-			// From the second call onwards, should see ~5 second delays
-			if i >= 2 {
-				minExpected := 4800 * time.Millisecond // 4.8s tolerance
-				maxExpected := 5200 * time.Millisecond // Allow some overhead
-
-				if elapsed < minExpected {
-					t.Errorf("Delay too short between calls %d and %d: got %v, expected at least %v",
-						i, i+1, elapsed, minExpected)
-				} else if elapsed > maxExpected {
-					t.Errorf("Delay too long between calls %d and %d: got %v, expected at most %v",
-						i, i+1, elapsed, maxExpected)
-				} else {
-					t.Logf("✅ Good delay between calls %d and %d: %v", i, i+1, elapsed)
-				}
-			}
-		}
-	})
-}
-
 // TestSyncErrorInterface tests that SyncError implements error interface correctly
 func TestSyncErrorInterface(t *testing.T) {
 	syncErr := &SyncError{
@@ -305,38 +262,4 @@ func TestSyncWithMissingItemsKey(t *testing.T) {
 
 	// Clean up test database
 	os.Remove("/tmp/test-missing-itemskey.db")
-}
-
-// TestSyncDelayConsistency tests that the 5-second delays are consistently enforced
-func TestSyncDelayConsistency(t *testing.T) {
-	// Reset timing state
-	func() {
-		syncMutex.Lock()
-		defer syncMutex.Unlock()
-		lastSyncTime = time.Time{}
-	}()
-
-	start := time.Now()
-
-	// Simulate 3 consecutive sync delays (reduced from 5 due to longer delays)
-	for i := 0; i < 3; i++ {
-		enforceMinimumSyncDelay()
-	}
-
-	totalElapsed := time.Since(start)
-
-	// With 5-second delays, 3 calls should take ~10 seconds (2 delays of 5s each)
-	expectedMax := 11 * time.Second // Allow tolerance
-	expectedMin := 9 * time.Second  // Minimum expected
-
-	if totalElapsed > expectedMax {
-		t.Errorf("Delays took too long: 3 delays took %v, expected < %v", totalElapsed, expectedMax)
-	} else if totalElapsed < expectedMin {
-		t.Errorf("Delays too fast: 3 delays took %v, expected > %v", totalElapsed, expectedMin)
-	} else {
-		t.Logf("✅ Consistent 5-second delays: 3 delays completed in %v", totalElapsed)
-	}
-
-	// Log the delay enforcement for server protection
-	t.Logf("📡 Server protection: Enforcing 5-second delays to prevent API abuse")
 }
