@@ -1,6 +1,6 @@
 module github.com/jonhadfield/gosn-v2
 
-go 1.24.0
+go 1.25.1
 
 require (
 	github.com/asdine/storm/v3 v3.2.1
