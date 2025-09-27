@@ -58,6 +58,15 @@ const (
 	ConflictTypeInvalidItem = "invalid_server_item"
 )
 
+// getConflictTypes returns a slice of conflict types for debugging
+func getConflictTypes(conflicts ConflictedItems) []string {
+	var types []string
+	for _, conflict := range conflicts {
+		types = append(types, conflict.Type)
+	}
+	return types
+}
+
 func syncItems(i SyncInput) (so SyncOutput, err error) {
 	giStart := time.Now()
 	defer func() {
@@ -137,7 +146,8 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 				time.Sleep(time.Duration(attempt) * time.Second)
 				return attempt < 4, rErr
 			default:
-				panic(fmt.Sprintf("sync returned unhandled error: %+v", rErr))
+				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | Unhandled error details: Type=%T, Error=%+v, Session=%s, PageSize=%d, NextItem=%d", rErr, rErr, i.Session.Server, i.PageSize, i.NextItem), common.MaxDebugChars)
+				return false, fmt.Errorf("sync returned unhandled error: %w", rErr)
 			}
 		}
 
@@ -284,7 +294,8 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 		// we only expect to get saved items back from the new sync as these are conflicts being resolved
 		if len(resyncOutput.Conflicts) > 0 {
-			panic(fmt.Sprintf("we didn't expect to get any conflicts now, but got: %d", len(resyncOutput.Conflicts)))
+			log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | Unexpected conflicts during conflict resolution: Count=%d, ConflictTypes=%v", len(resyncOutput.Conflicts), getConflictTypes(resyncOutput.Conflicts)), common.MaxDebugChars)
+			return SyncOutput{}, fmt.Errorf("unexpected conflicts during conflict resolution: got %d conflicts when none were expected", len(resyncOutput.Conflicts))
 		}
 
 		// zero the conflicts as we've resolved them
@@ -364,7 +375,8 @@ func processSyncConflict(s *session.Session, items EncryptedItems, conflict Conf
 		}
 
 		if !found {
-			panic("could not find item that failed to sync")
+			log.DebugPrint(debug, fmt.Sprintf("Sync | Could not find conflicted item: ServerUUID=%s, ServerType=%s, UnsavedUUID=%s, UnsavedType=%s, TotalItems=%d", conflict.ServerItem.UUID, conflict.ServerItem.ContentType, conflict.UnsavedItem.UUID, conflict.UnsavedItem.ContentType, len(items)), common.MaxDebugChars)
+			return EncryptedItem{}, fmt.Errorf("could not find item that failed to sync: server item %s (%s)", conflict.ServerItem.UUID, conflict.ServerItem.ContentType)
 		}
 
 	case conflict.UnsavedItem.UpdatedAtTimestamp > conflict.ServerItem.UpdatedAtTimestamp:
@@ -441,7 +453,8 @@ func processSyncConflict(s *session.Session, items EncryptedItems, conflict Conf
 		}
 
 		if !found {
-			panic("could not find item that failed to sync")
+			log.DebugPrint(debug, fmt.Sprintf("Sync | Could not find conflicted item during duplication: ServerUUID=%s, ServerType=%s, UnsavedUUID=%s, UnsavedType=%s, TotalItems=%d", conflict.ServerItem.UUID, conflict.ServerItem.ContentType, conflict.UnsavedItem.UUID, conflict.UnsavedItem.ContentType, len(items)), common.MaxDebugChars)
+			return EncryptedItem{}, fmt.Errorf("could not find item that failed to sync during duplication: server item %s (%s)", conflict.ServerItem.UUID, conflict.ServerItem.ContentType)
 		}
 	}
 
@@ -506,7 +519,8 @@ func processUUIDConflict(input SyncInput, conflict ConflictedItem, refReMap map[
 	}
 
 	if !found {
-		panic("could not find item that failed to sync")
+		log.DebugPrint(input.Session.Debug, fmt.Sprintf("Sync | Could not find UUID conflicted item: UnsavedUUID=%s, UnsavedType=%s, TotalItems=%d", conflict.UnsavedItem.UUID, conflict.UnsavedItem.ContentType, len(input.Items)), common.MaxDebugChars)
+		return EncryptedItem{}, fmt.Errorf("could not find item that failed to sync: unsaved item %s (%s)", conflict.UnsavedItem.UUID, conflict.UnsavedItem.ContentType)
 	}
 
 	return
@@ -592,11 +606,13 @@ func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflict
 	// logging.DebugPrint(debug, fmt.Sprintf("Sync | sync token: %+v", stripLineBreak(syncOutput.SyncToken)))
 
 	if err = syncOutput.Items.Validate(); err != nil {
-		panic(err)
+		log.DebugPrint(debug, fmt.Sprintf("Sync | Items validation failed: Error=%+v, ItemCount=%d, SyncToken=%s", err, len(syncOutput.Items), syncOutput.SyncToken), common.MaxDebugChars)
+		return nil, syncOutput, fmt.Errorf("sync items validation failed: %w", err)
 	}
 
 	if err = syncOutput.Conflicts.Validate(debug); err != nil {
-		panic(err)
+		log.DebugPrint(debug, fmt.Sprintf("Sync | Conflicts validation failed: Error=%+v, ConflictCount=%d, ConflictTypes=%v", err, len(syncOutput.Conflicts), getConflictTypes(syncOutput.Conflicts)), common.MaxDebugChars)
+		return nil, syncOutput, fmt.Errorf("sync conflicts validation failed: %w", err)
 	}
 
 	if len(syncOutput.Conflicts) == 0 {
@@ -730,7 +746,9 @@ func (cis *ConflictedItems) DeDupe() {
 				seenUnsavedItems = append(seenUnsavedItems, ci.UnsavedItem.UUID)
 			}
 		default:
-			panic("unexpected conflict")
+			log.DebugPrint(false, fmt.Sprintf("DeDupe | Unexpected conflict state: ServerUUID=%s, ServerType=%s, UnsavedUUID=%s, UnsavedType=%s", ci.ServerItem.UUID, ci.ServerItem.ContentType, ci.UnsavedItem.UUID, ci.UnsavedItem.ContentType), common.MaxDebugChars)
+			// Continue processing instead of panicking
+			deDuped = append(deDuped, ci)
 		}
 	}
 
