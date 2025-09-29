@@ -2,77 +2,63 @@
 
 [![Build Status](https://www.travis-ci.org/jonhadfield/gosn-v2.svg?branch=master)](https://www.travis-ci.org/jonhadfield/gosn-v2) [![CircleCI](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master.svg?style=svg)](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master) [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jonhadfield/gosn-v2/) [![Go Report Card](https://goreportcard.com/badge/github.com/jonhadfield/gosn-v2)](https://goreportcard.com/report/github.com/jonhadfield/gosn-v2)
 
-This release adds support for version 004 of encryption (introduced Nov 2020) and removes support for 003.  
+`gosn-v2` is a Go library for building Standard Notes clients. It wraps authentication, sync, encryption, and caching flows while letting you integrate with the official or a self-hosted Standard Notes server.
 
-#### Note: This is an early release with significant changes. Please take a backup before using with any real data and report any issues you find. 
+## Highlights
+- Handles the Standard Notes v004 encryption protocol out of the box.
+- Ships caching helpers for delta syncs and reducing server load.
+- Includes schema validators, CLI utilities, and fixtures for reproducible tests.
 
-## about
-<a href="https://standardnotes.org/" target="_blank">Standard Notes</a> is a service and application for the secure
-management and storage of notes.
+## Requirements
+- Go 1.25.1 or later (see `go.mod`).
+- Access to a Standard Notes server account for live integration tests.
+- macOS, Linux, or Windows with the Go toolchain installed.
 
-gosn-v2 is a library to help develop your own application to manage notes on the official, or your self-hosted, Standard
-Notes server.
-
-
-## documentation
-
-- [guides](docs/index.md)
-- [go docs](https://pkg.go.dev/github.com/jonhadfield/gosn-v2)
-
-## basic usage
-
-The following example shows how to use this library to interact with the SN API directly. To prevent a full download of all items on every sync, use the provided [cache package](cache/README.md) to persist an encrypted copy to disk, only syncing deltas on subsequent calls.
-
-## installation
-
+## Installation
 ```bash
-GO111MODULE=on go get -u github.com/jonhadfield/gosn-v2
+GO111MODULE=on go get github.com/jonhadfield/gosn-v2
 ```
 
-## importing
-
+## Quick Start
 ```go
 import "github.com/jonhadfield/gosn-v2"
+
+// Sign in and establish a session
+sio, err := gosn.SignIn(gosn.SignInInput{Email: "user@example.com", Password: "topsecret"})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Perform an initial sync
+so, err := gosn.Sync(gosn.SyncInput{Session: &sio.Session})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Decrypt and work with your items
+items, err := so.Items.DecryptAndParse(&sio.Session)
 ```
 
-## basic usage
+## Project Layout
+- `auth/`, `session/`, `items/` — domain packages for authentication, session lifecycle, and note models.
+- `crypto/` — key derivation, encryption, and signing helpers.
+- `cache/` — tooling for encrypted sync snapshots and cache persistence.
+- `docs/` — user guides and reference material; start with `docs/index.md`.
+- `schemas/`, `test.json` — JSON schemas and fixtures for validation and integration tests.
+- `bin/` — utility scripts for development and troubleshooting.
 
-### authenticating
+## Development Workflow
+- `go build ./...` verifies every package compiles.
+- `go test ./...` runs unit tests across the repository. Set `SN_SKIP_SESSION_TESTS=true` to skip live server checks.
+- `make test` aggregates coverage into `coverage.txt`; `make fmt` applies `gofmt` and `goimports` to all Go files.
+- `make lint` runs `golangci-lint` with the configured rule set; `make critic` enables additional `gocritic` analysis.
 
-Sign-in to obtain your session
+## Documentation & Support
+- Browse the guides in `docs/` or the Go API reference on [pkg.go.dev](https://pkg.go.dev/github.com/jonhadfield/gosn-v2).
+- For issues or feature requests, open a GitHub issue with reproduction steps or context about your Standard Notes setup.
 
-```go
-sio, _ := gosn.SignIn(gosn.SignInInput{
-    Email:    "user@example.com",
-    Password: "topsecret",
-})
-```
+## Contributing
+Review the [Repository Guidelines](AGENTS.md) before opening a pull request. They cover project structure, testing expectations, and the commit/PR workflow.
 
-### initial sync
-
-An initial sync is required to retrieve your items, as well as your Items Keys that are then added to your session
-
-```go
-so, _ := gosn.Sync(gosn.SyncInput{
-    Session: &sio.Session,
-})
-```
-
-### decrypt and parse items
-
-```go
-items, _ := so.Items.DecryptAndParse(&sio.Session)
-```
-
-## running tests
-
-Execute the full test suite using the standard Go tooling:
-
-```bash
-go test ./...
-```
-
-This runs all unit tests across the repository. Some integration tests require
-access to a Standard Notes server. If you don't have credentials or network
-access, set `SN_SKIP_SESSION_TESTS=true` to skip those tests.
-
+## License
+This project is distributed under the [MIT License](LICENSE).
