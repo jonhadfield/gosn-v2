@@ -1057,17 +1057,24 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | using db in '%s'", si.Session.CacheDBPath), common.MaxDebugChars)
 
 		// Open database with timeout handling
-		done := make(chan error, 1)
+		type openResult struct {
+			db  *storm.DB
+			err error
+		}
+
+		done := make(chan openResult, 1)
 		go func() {
-			db, err = storm.Open(si.Session.CacheDBPath)
-			done <- err
+			database, openErr := storm.Open(si.Session.CacheDBPath)
+			done <- openResult{db: database, err: openErr}
 		}()
 
 		select {
-		case err = <-done:
-			if err != nil {
+		case result := <-done:
+			if result.err != nil {
+				err = result.err
 				return
 			}
+			db = result.db
 		case <-ctx.Done():
 			err = fmt.Errorf("database open timed out after %v", dbTimeout)
 			return
@@ -1075,14 +1082,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 		si.CacheDB = db
 		so.DB = db
-
-		if si.Close {
-			defer func(db *storm.DB) {
-				if err = db.Close(); err != nil {
-					log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | ERROR: Failed to close DB: %v", err), common.MaxDebugChars)
-				}
-			}(db)
-		}
 	}
 
 	var all Items
