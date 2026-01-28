@@ -641,7 +641,21 @@ func (sess *Session) Refresh() error {
 	// request token
 	var requestTokenFailure auth.ErrorResponse
 
-	refreshSessionOutput, err := auth.RequestRefreshToken(sess.HTTPClient, server+common.AuthRefreshPath, sess.AccessToken, sess.RefreshToken, sess.Debug)
+	// Use the session-aware refresh function that handles both cookie-based and header-based sessions
+	authSession := auth.SignInResponseDataSession{
+		HTTPClient:        sess.HTTPClient,
+		Debug:             sess.Debug,
+		Server:            sess.Server,
+		MasterKey:         sess.MasterKey,
+		KeyParams:         sess.KeyParams,
+		AccessToken:       sess.AccessToken,
+		RefreshToken:      sess.RefreshToken,
+		AccessExpiration:  sess.AccessExpiration,
+		RefreshExpiration: sess.RefreshExpiration,
+		PasswordNonce:     sess.PasswordNonce,
+	}
+
+	refreshSessionOutput, err := auth.RequestRefreshTokenWithSession(&authSession, server+common.AuthRefreshPath, sess.Debug)
 	if err != nil {
 		log.DebugPrint(sess.Debug, fmt.Sprintf("refresh session failure: %+v error: %+v", requestTokenFailure, err), common.MaxDebugChars)
 
