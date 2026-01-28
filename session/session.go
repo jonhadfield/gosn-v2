@@ -38,31 +38,15 @@ const (
 type SessionItemsKey struct {
 	UUID               string `json:"uuid"`
 	ItemsKey           string `json:"itemsKey"`
+	Version            string `json:"version"`
 	Default            bool   `json:"isDefault"`
+	CreatedAt          string `json:"created_at"`
+	UpdatedAt          string `json:"updated_at"`
 	CreatedAtTimestamp int64  `json:"created_at_timestamp"`
 	UpdatedAtTimestamp int64  `json:"updated_at_timestamp"`
-
-	// Following attributes set from:
-	// - unmarshalling of the EncryptedItem
-	// UUID               string `json:"uuid"`
-	// EncryptedItemKey   EIT    `json:"enc_item_key"`
-	// ContentType        string `json:"content_type"`
-	// Deleted            bool   `json:"deleted"`
-	// CreatedAt          string `json:"created_at"`
-	// UpdatedAt          string `json:"updated_at"`
-	// CreatedAtTimestamp int64  `json:"created_at_timestamp"`
-	// UpdatedAtTimestamp int64  `json:"updated_at_timestamp"`
-	// Following attributes set from:
-	// - the unmarshalled content, post decryption
-	// - creation of a new ItemsKey
-	// ItemsKey       string         `json:"itemsKey"`
-	// Version        string         `json:"version"`
-	// ItemReferences ItemReferences `json:"references"`
-	// AppData        AppDataContent `json:"appData"`
-	// Default        bool           `json:"isDefault"`
-	// Following attibute set only for the purpose of marshaling a new ItemsKey when encrypting
-	// Content     ItemsKeyContent `json:"content"`
-	// ContentSize int
+	Deleted            bool   `json:"deleted"`
+	// Note: ItemReferences and AppData are typically empty for ItemsKeys
+	// but could be added if needed in the future
 }
 
 // Session holds authentication and encryption parameters required

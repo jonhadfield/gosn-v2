@@ -103,9 +103,15 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []se
 
 	for _, dpik := range dpiks {
 		o = append(o, session.SessionItemsKey{
-			UUID:     dpik.UUID,
-			ItemsKey: dpik.ItemsKey,
-			Default:  dpik.Default,
+			UUID:               dpik.UUID,
+			ItemsKey:           dpik.ItemsKey,
+			Version:            dpik.Version,
+			Default:            dpik.Default,
+			CreatedAt:          dpik.CreatedAt,
+			UpdatedAt:          dpik.UpdatedAt,
+			CreatedAtTimestamp: dpik.CreatedAtTimestamp,
+			UpdatedAtTimestamp: dpik.UpdatedAtTimestamp,
+			Deleted:            dpik.Deleted,
 		})
 	}
 
