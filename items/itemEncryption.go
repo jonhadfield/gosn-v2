@@ -34,73 +34,83 @@ func encryptItems(s *session.Session, decItems *Items, ik session.SessionItemsKe
 
 func EncryptItemsKey(ik session.SessionItemsKey, s *session.Session, new bool) (encryptedItem EncryptedItem, err error) {
 	encryptedItem.UUID = ik.UUID
-
 	encryptedItem.ContentType = common.SNItemTypeItemsKey
 
-	// updatedat is set by SN so will be zero for a new key
-	// if !new {
-	// 	encryptedItem.UpdatedAt = ik.UpdatedAt
-	// 	encryptedItem.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
-	// }
-	//
-	// encryptedItem.CreatedAt = ik.CreatedAt
-	// encryptedItem.Deleted = ik.Deleted
+	// Set timestamps - updated_at is set by SN server for new keys
+	if !new {
+		encryptedItem.UpdatedAt = ik.UpdatedAt
+		encryptedItem.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
+	}
 
-	// if ik.CreatedAtTimestamp == 0 {
-	// 	panic("ik.CreatedAtTimeStamp is 0")
-	// }
+	encryptedItem.CreatedAt = ik.CreatedAt
+	encryptedItem.Deleted = ik.Deleted
 
-	// encryptedItem.CreatedAtTimestamp = ik.CreatedAtTimestamp
-	//
-	// itemEncryptionKey := crypto.GenerateItemKey(64)
-	//
-	// var encryptedContent string
-	//
-	// if ik.ItemsKey == "" {
-	// 	panic("attempting to encrypt empty items key")
-	// }
-	//
-	// // Marshall the ItemsKey plaintext content
-	// mContent, err := json.Marshal(ik.Content)
-	// if err != nil {
-	// 	return
-	// }
-	//
-	// // Create the auth data that will be used to authenticate the encrypted content
-	// authData := auth.GenerateAuthData(ik.ContentType, ik.UUID, s.KeyParams)
-	//
-	// b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
-	// // Generate nonce
-	// nonce := hex.EncodeToString(crypto.GenerateNonce())
-	//
-	// encryptedContent, err = crypto.EncryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
-	// if err != nil {
-	// 	return
-	// }
-	//
-	// // Create the Encrypted Items Key content element
-	// content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
-	//
-	// encryptedItem.Content = content
-	// nonce = hex.EncodeToString(crypto.GenerateNonce())
-	//
-	// // Encrypt the Encrypted Items Key content element with the master key
-	// var encryptedContentKey string
-	// encryptedContentKey, err = crypto.EncryptString(itemEncryptionKey, s.MasterKey, nonce, b64AuthData, 32)
-	// encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
-	// encryptedItem.EncItemKey = encItemKey
+	if ik.CreatedAtTimestamp == 0 {
+		panic("ik.CreatedAtTimeStamp is 0")
+	}
+
+	encryptedItem.CreatedAtTimestamp = ik.CreatedAtTimestamp
+
+	// Generate random item encryption key
+	itemEncryptionKey := crypto.GenerateItemKey(64)
+
+	var encryptedContent string
+
+	if ik.ItemsKey == "" {
+		panic("attempting to encrypt empty items key")
+	}
+
+	// Construct ItemsKeyContent from SessionItemsKey fields
+	content := ItemsKeyContent{
+		ItemsKey: ik.ItemsKey,
+		Version:  ik.Version,
+		Default:  ik.Default,
+		// ItemReferences and AppData typically empty for ItemsKeys
+		ItemReferences: ItemReferences{},
+		AppData:        AppDataContent{},
+	}
+
+	// Marshall the ItemsKey plaintext content
+	mContent, err := json.Marshal(content)
+	if err != nil {
+		return
+	}
+
+	// Create the auth data that will be used to authenticate the encrypted content
+	authData := auth.GenerateAuthData(common.SNItemTypeItemsKey, ik.UUID, s.KeyParams)
+
+	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
+	// Generate nonce
+	nonce := hex.EncodeToString(crypto.GenerateNonce())
+
+	encryptedContent, err = crypto.EncryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
+	if err != nil {
+		return
+	}
+
+	// Create the Encrypted Items Key content element
+	contentStr := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
+
+	encryptedItem.Content = contentStr
+	nonce = hex.EncodeToString(crypto.GenerateNonce())
+
+	// Encrypt the item encryption key with the master key
+	var encryptedContentKey string
+	encryptedContentKey, err = crypto.EncryptString(itemEncryptionKey, s.MasterKey, nonce, b64AuthData, 32)
+	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
+	encryptedItem.EncItemKey = encItemKey
 
 	switch {
-	// case encryptedItem.EncItemKey == "":
-	// 	panic("produced encrypted ItemsKey with empty enc_item_key")
+	case encryptedItem.EncItemKey == "":
+		panic("produced encrypted ItemsKey with empty enc_item_key")
 	case encryptedItem.UUID == "":
 		panic("produced encrypted ItemsKey with empty uuid")
-	// case encryptedItem.Content == "":
-	// 	panic("produced encrypted ItemsKey with empty content")
+	case encryptedItem.Content == "":
+		panic("produced encrypted ItemsKey with empty content")
 	case encryptedItem.ItemsKeyID != "":
 		panic("produced encrypted ItemsKey non nil ItemsKeyID")
-		// case encryptedItem.CreatedAtTimestamp == 0:
-		// 	panic("encrypted items key has CreatedAtTimestamp set to 0")
+	case encryptedItem.CreatedAtTimestamp == 0:
+		panic("encrypted items key has CreatedAtTimestamp set to 0")
 	}
 
 	return encryptedItem, err

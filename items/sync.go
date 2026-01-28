@@ -342,7 +342,30 @@ func processSessionItemsKeysInSavedItems(s *session.Session, output SyncOutput, 
 	case 0:
 		break
 	default:
-		s.DefaultItemsKey = iks[0]
+		// Find the ItemsKey marked as default (isDefault: true)
+		// If none is marked as default, use the most recently updated key
+		var defaultKey session.SessionItemsKey
+		var found bool
+
+		for _, ik := range iks {
+			if ik.Default {
+				defaultKey = ik
+				found = true
+				break
+			}
+		}
+
+		// Fallback: if no key is marked default, use the most recently updated
+		if !found && len(iks) > 0 {
+			defaultKey = iks[0]
+			for _, ik := range iks {
+				if ik.UpdatedAtTimestamp > defaultKey.UpdatedAtTimestamp {
+					defaultKey = ik
+				}
+			}
+		}
+
+		s.DefaultItemsKey = defaultKey
 		s.ItemsKeys = iks
 	}
 }
