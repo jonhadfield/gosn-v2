@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -170,7 +171,8 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	if input.tokenName != "" {
 		reqBody = fmt.Sprintf(`{"api":"%s","password":"%s","email":"%s","%s":"%s","code_verifier":"%s"}`, apiVer, input.encPassword, e, input.tokenName, input.tokenValue, input.codeVerifier)
 	} else {
-		reqBody = fmt.Sprintf(`{"api":"%s","password":"%s","email":"%s","code_verifier":"%s","ephemeral":false,"hvm_token":""}`, apiVer, input.encPassword, e, input.codeVerifier)
+		// Don't send empty hvm_token field - omit it entirely when not present
+		reqBody = fmt.Sprintf(`{"api":"%s","password":"%s","email":"%s","code_verifier":"%s","ephemeral":false}`, apiVer, input.encPassword, e, input.codeVerifier)
 	}
 	log.DebugPrint(input.debug, fmt.Sprintf("sign-in request prepared with API version: %s", apiVer), common.MaxDebugChars)
 
@@ -789,7 +791,8 @@ func (input RegisterInput) Register() (token string, err error) {
 	req.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	req.Header.Set("Connection", "keep-alive")
 
-	req.Host = input.APIServer
+	// Note: req.Host should not be set manually - it's automatically derived from the URL
+	// Setting it to the full URL (e.g., "https://api.standardnotes.com") causes "http2: invalid Host header"
 
 	var response *http.Response
 
@@ -972,20 +975,24 @@ type generateLoginChallengeCodeVerifier struct {
 }
 
 func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChallengeCodeVerifier) {
-	// generate salt seed (password nonce)
-	var src cryptoSource
-	rnd := rand.New(src)
-
-	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-
-	b := make([]rune, 65)
-	for i := range b {
-		b[i] = letterRunes[rnd.Intn(len(letterRunes))]
+	// Generate 64 bytes of cryptographically secure random data for the verifier
+	verifierBytes := make([]byte, 64)
+	if _, err := crand.Read(verifierBytes); err != nil {
+		panic(fmt.Sprintf("failed to generate code verifier: %v", err))
 	}
 
-	loginCodeVerifier.codeVerifier = string(b)[:64]
-	sha25Hash := fmt.Sprintf("%x", sha256.Sum256([]byte(loginCodeVerifier.codeVerifier)))
-	loginCodeVerifier.codeChallenge = string(base64.URLEncoding.EncodeToString([]byte(sha25Hash)))[:86]
+	// Encode verifier as base64-url for JSON transmission
+	loginCodeVerifier.codeVerifier = base64.URLEncoding.EncodeToString(verifierBytes)
+
+	// Standard Notes PKCE implementation (differs from RFC 7636):
+	// 1. SHA-256 hash of the code_verifier STRING (not the original bytes)
+	// 2. Hex encode the hash (32 bytes → 64 hex characters)
+	// 3. Base64-url encode the hex string (without padding to match app behavior)
+	// Server validates: base64URLEncode(hex(SHA256(code_verifier)))
+	hash := sha256.Sum256([]byte(loginCodeVerifier.codeVerifier))
+	hashHex := make([]byte, hex.EncodedLen(len(hash)))
+	hex.Encode(hashHex, hash[:])
+	loginCodeVerifier.codeChallenge = base64.RawURLEncoding.EncodeToString(hashHex)
 
 	return loginCodeVerifier
 }
