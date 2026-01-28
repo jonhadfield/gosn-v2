@@ -165,24 +165,29 @@ func EncryptString(plainText, key, nonce, authenticatedData string, noBytes int)
 }
 
 func generateSalt(identifier, nonce string) []byte {
-	saltLength := 32
+	// Per Standard Notes Protocol 004, salt is generated from SHA-256(identifier:nonce)
+	// truncated to 32 hex characters (representing 128 bits), then decoded to 16 bytes
+	// Reference: https://github.com/standardnotes/app
+	//   - truncateHexString returns first 32 hex chars
+	//   - argon2() calls Utils.hexStringToArrayBuffer(salt) to decode hex to binary
+	const saltLengthChars = 32 // 128 bits / 4 bits-per-hex-char = 32 characters
 	hashSource := fmt.Sprintf("%s:%s", identifier, nonce)
-	h := sha256.New()
 
-	if _, err := h.Write([]byte(hashSource)); err != nil {
-		panic(err)
-	}
-
+	// Compute SHA-256 hash
 	preHash := sha256.Sum256([]byte(hashSource))
+
+	// Convert to hex string (64 characters)
 	hash := make([]byte, hex.EncodedLen(len(preHash)))
 	hex.Encode(hash, preHash[:])
 
-	decodedHex64, err := hexDecodeStrings(string(hash)[:saltLength], SaltSize)
+	// Take first 32 hex characters and decode to 16 bytes
+	// This matches the Standard Notes app's implementation
+	salt, err := hex.DecodeString(string(hash[:saltLengthChars]))
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("failed to decode salt: %v", err))
 	}
 
-	return decodedHex64
+	return salt
 }
 
 type GenerateEncryptedPasswordInput struct {

@@ -58,6 +58,13 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
+	// Skip session setup if SN_SKIP_SESSION_TESTS is set
+	// This allows unit tests (like code challenge tests) to run without server access
+	if strings.ToLower(os.Getenv(common.EnvSkipSessionTests)) == "true" {
+		os.Exit(m.Run())
+		return
+	}
+
 	if os.Getenv(common.EnvServer) == "" || strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 	} else {
@@ -117,6 +124,10 @@ var (
 
 // server required for following tests.
 func TestSignIn(t *testing.T) {
+	if strings.ToLower(os.Getenv(common.EnvSkipSessionTests)) == "true" {
+		t.Skip("Skipping test that requires server authentication (SN_SKIP_SESSION_TESTS is set)")
+	}
+
 	sInput.HTTPClient = retryablehttp.NewClient()
 	sOut, err := SignIn(sInput)
 	require.NoError(t, err, "sign-in failed", err)
