@@ -480,20 +480,15 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	accessParts := strings.Split(session.AccessToken, ":")
 	isCookieBased := len(accessParts) >= 2 && accessParts[0] == "2"
 
-	log.DebugPrint(session.Debug, fmt.Sprintf("Token check: isCookieBased=%v, hasAccessTokenCookie=%v", isCookieBased, session.AccessTokenCookie != ""), common.MaxDebugChars)
-	if session.AccessTokenCookie != "" {
-		log.DebugPrint(session.Debug, fmt.Sprintf("AccessTokenCookie value: %s", session.AccessTokenCookie[:min(50, len(session.AccessTokenCookie))]+"..."), common.MaxDebugChars)
-	}
-
 	if isCookieBased && session.AccessTokenCookie != "" {
-		// Use manual Cookie header for cookie-based auth
+		// For cookie-based auth, send BOTH Cookie and Authorization headers
 		request.Header.Set("Cookie", session.AccessTokenCookie)
-		log.DebugPrint(session.Debug, "Using manual Cookie header for cookie-based authentication", common.MaxDebugChars)
-		log.DebugPrint(session.Debug, fmt.Sprintf("Cookie: %s", session.AccessTokenCookie[:min(50, len(session.AccessTokenCookie))]+"..."), common.MaxDebugChars)
-	} else {
-		// Use Authorization header for header-based auth
 		request.Header.Set("Authorization", "Bearer "+session.AccessToken)
-		log.DebugPrint(session.Debug, "Using Authorization header for header-based authentication", common.MaxDebugChars)
+		log.DebugPrint(session.Debug, "Using cookie-based authentication (Cookie + Authorization headers)", common.MaxDebugChars)
+	} else {
+		// For header-based auth, send Authorization header only
+		request.Header.Set("Authorization", "Bearer "+session.AccessToken)
+		log.DebugPrint(session.Debug, "Using header-based authentication (Authorization header only)", common.MaxDebugChars)
 	}
 
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
