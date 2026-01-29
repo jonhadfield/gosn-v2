@@ -397,8 +397,8 @@ func GetSessionFromUser(httpClient *retryablehttp.Client, server string, debug b
 
 	signInSession, err := auth.CliSignIn(email, password, server, debug)
 	sess = Session{
-		Debug: debug,
-		// HTTPClient:        nil,
+		Debug:             debug,
+		HTTPClient:        signInSession.HTTPClient, // Preserve HTTP client with cookies
 		SchemaValidation:  signInSession.SchemaValidation,
 		Server:            server,
 		FilesServerUrl:    signInSession.FilesServerUrl,
