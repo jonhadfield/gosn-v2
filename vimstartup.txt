@@ -1,0 +1,76 @@
+
+
+times in msec
+ clock   self+sourced   self:  sourced script
+ clock   elapsed:              other lines
+
+000.009  000.009: --- VIM STARTING ---
+000.060  000.051: Allocated generic buffers
+003.032  002.972: locale set
+003.037  000.005: clipboard setup
+003.041  000.004: window checked
+003.971  000.930: inits 1
+004.010  000.039: parsing arguments
+004.011  000.001: expanding arguments
+017.127  013.116: shell init
+018.302  001.175: Termcap init
+018.318  000.016: inits 2
+018.439  000.121: init highlight
+023.443  002.370  002.370: sourcing /Users/hadfielj/.vim/autoload/plug.vim
+036.673  000.257  000.257: sourcing /Users/hadfielj/.vim/plugged/ultisnips/ftdetect/snippets.vim
+037.480  000.471  000.471: sourcing /usr/local/share/vim/vimfiles/ftdetect/augeas.vim
+037.905  000.312  000.312: sourcing /usr/local/share/vim/vimfiles/ftdetect/pullrequest.vim
+038.084  009.562  008.522: sourcing /usr/local/share/vim/vim82/filetype.vim
+038.672  000.284  000.284: sourcing /usr/local/share/vim/vim82/ftplugin.vim
+039.388  000.392  000.392: sourcing /usr/local/share/vim/vim82/indent.vim
+045.673  003.501  003.501: sourcing /usr/local/share/vim/vim82/colors/lists/default.vim
+046.119  004.684  001.183: sourcing /usr/local/share/vim/vim82/syntax/syncolor.vim
+046.294  005.364  000.680: sourcing /usr/local/share/vim/vim82/syntax/synload.vim
+046.406  006.755  001.391: sourcing /usr/local/share/vim/vim82/syntax/syntax.vim
+046.491  027.709  008.346: sourcing $HOME/.vimrc
+046.497  000.349: sourcing vimrc file(s)
+048.165  000.314  000.314: sourcing /Users/hadfielj/.vim/plugged/lightline.vim/plugin/lightline.vim
+050.930  000.518  000.518: sourcing /Users/hadfielj/.vim/plugged/vim-gitgutter/autoload/gitgutter/utility.vim
+052.539  000.536  000.536: sourcing /Users/hadfielj/.vim/plugged/vim-gitgutter/autoload/gitgutter/highlight.vim
+053.968  004.608  003.554: sourcing /Users/hadfielj/.vim/plugged/vim-gitgutter/plugin/gitgutter.vim
+055.343  000.653  000.653: sourcing /Users/hadfielj/.vim/plugged/vim-easy-align/plugin/easy_align.vim
+056.256  000.344  000.344: sourcing /Users/hadfielj/.vim/plugged/vim-smoothie/plugin/smoothie.vim
+058.162  000.361  000.361: sourcing /Users/hadfielj/.vim/plugged/ultisnips/autoload/UltiSnips/map_keys.vim
+058.298  001.574  001.213: sourcing /Users/hadfielj/.vim/plugged/ultisnips/plugin/UltiSnips.vim
+059.475  000.334  000.334: sourcing /Users/hadfielj/.vim/plugged/vim-snippets/plugin/vimsnippets.vim
+060.703  000.425  000.425: sourcing /Users/hadfielj/.vim/plugged/YCM-Generator/plugin/ycm-generator.vim
+063.410  001.637  001.637: sourcing /Users/hadfielj/.vim/plugged/fzf/plugin/fzf.vim
+065.263  000.410  000.410: sourcing /usr/local/share/vim/vim82/plugin/getscriptPlugin.vim
+065.995  000.576  000.576: sourcing /usr/local/share/vim/vim82/plugin/gzip.vim
+066.824  000.675  000.675: sourcing /usr/local/share/vim/vim82/plugin/logiPat.vim
+067.164  000.205  000.205: sourcing /usr/local/share/vim/vim82/plugin/manpager.vim
+067.840  000.563  000.563: sourcing /usr/local/share/vim/vim82/plugin/matchparen.vim
+069.009  001.034  001.034: sourcing /usr/local/share/vim/vim82/plugin/netrwPlugin.vim
+069.416  000.227  000.227: sourcing /usr/local/share/vim/vim82/plugin/rrhelper.vim
+069.788  000.196  000.196: sourcing /usr/local/share/vim/vim82/plugin/spellfile.vim
+070.334  000.395  000.395: sourcing /usr/local/share/vim/vim82/plugin/tarPlugin.vim
+071.099  000.630  000.630: sourcing /usr/local/share/vim/vim82/plugin/tohtml.vim
+071.695  000.439  000.439: sourcing /usr/local/share/vim/vim82/plugin/vimballPlugin.vim
+072.306  000.472  000.472: sourcing /usr/local/share/vim/vim82/plugin/zipPlugin.vim
+072.320  010.112: loading plugins
+072.493  000.173: loading packages
+073.253  000.441  000.441: sourcing /Users/hadfielj/.vim/plugged/ultisnips/after/plugin/UltiSnips_after.vim
+073.320  000.386: loading after plugins
+073.329  000.009: inits 3
+074.640  001.311: reading viminfo
+074.684  000.044: setting raw mode
+074.699  000.015: start termcap
+074.736  000.037: clearing screen
+074.813  000.077: opening buffers
+076.097  000.980  000.980: sourcing /Users/hadfielj/.vim/plugged/lightline.vim/autoload/lightline.vim
+077.382  000.303  000.303: sourcing /Users/hadfielj/.vim/plugged/lightline.vim/autoload/lightline/tab.vim
+079.622  000.639  000.639: sourcing /Users/hadfielj/.vim/plugged/lightline.vim/autoload/lightline/colorscheme.vim
+083.293  004.780  004.141: sourcing /Users/hadfielj/.vim/plugged/lightline.vim/autoload/lightline/colorscheme/powerline.vim
+083.328  005.181  000.401: sourcing /Users/hadfielj/.vim/plugged/lightline.vim/autoload/lightline/colorscheme/default.vim
+089.749  000.878  000.878: sourcing /Users/hadfielj/.vim/plugged/vim-gitgutter/autoload/gitgutter.vim
+090.183  008.028: BufEnter autocommands
+090.187  000.004: editing files in windows
+090.703  000.516: VimEnter autocommands
+090.707  000.004: before starting main loop
+096.936  006.229: first screen update
+096.941  000.005: --- VIM STARTED ---

@@ -552,10 +552,16 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	// Check if HTTP client has cookie jar
 	if client.Jar != nil {
 		log.DebugPrint(session.Debug, "Cookie jar is enabled", common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("Checking cookies for URL: %s", request.URL.String()), common.MaxDebugChars)
 		cookies := client.Jar.Cookies(request.URL)
 		log.DebugPrint(session.Debug, fmt.Sprintf("Cookies for URL: %d cookies", len(cookies)), common.MaxDebugChars)
 		for i, cookie := range cookies {
-			log.DebugPrint(session.Debug, fmt.Sprintf("Cookie %d: %s=%s...", i, cookie.Name, cookie.Value[:min(10, len(cookie.Value))]), common.MaxDebugChars)
+			cookieValue := cookie.Value
+			if len(cookieValue) > 10 {
+				cookieValue = cookieValue[:10] + "..."
+			}
+			log.DebugPrint(session.Debug, fmt.Sprintf("Cookie %d: %s=%s (Domain=%s Path=%s Secure=%v HttpOnly=%v)",
+				i, cookie.Name, cookieValue, cookie.Domain, cookie.Path, cookie.Secure, cookie.HttpOnly), common.MaxDebugChars)
 		}
 	} else {
 		log.DebugPrint(session.Debug, "Cookie jar is NOT enabled", common.MaxDebugChars)

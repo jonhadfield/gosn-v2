@@ -206,6 +206,19 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 		_ = signInResp.Body.Close()
 	}()
 
+	// Log response headers to see if Set-Cookie headers are present
+	log.DebugPrint(input.debug, fmt.Sprintf("Response status: %s", signInResp.Status), common.MaxDebugChars)
+	setCookieHeaders := signInResp.Header.Values("Set-Cookie")
+	if len(setCookieHeaders) > 0 {
+		log.DebugPrint(input.debug, fmt.Sprintf("Set-Cookie headers received: %d", len(setCookieHeaders)), common.MaxDebugChars)
+		for i, cookie := range setCookieHeaders {
+			// Log FULL cookie to see domain, path, secure, etc. - use higher limit to see complete header
+			log.DebugPrint(input.debug, fmt.Sprintf("Set-Cookie[%d]: %s", i, cookie), 1000)
+		}
+	} else {
+		log.DebugPrint(input.debug, "No Set-Cookie headers in response", common.MaxDebugChars)
+	}
+
 	var signInRespBody []byte
 
 	// readStart := time.Now()
@@ -221,7 +234,86 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 		return
 	}
 
-	// Cookies are handled automatically by HTTP client cookie jar
+	// Manual cookie handling due to Go cookie jar not supporting Partitioned attribute
+	// Parse Set-Cookie headers and manually set cookies in the jar
+	if input.client.HTTPClient.Jar != nil && len(setCookieHeaders) > 0 {
+		signInURL, urlErr := url.Parse(input.signInURL)
+		if urlErr == nil {
+			var manualCookies []*http.Cookie
+
+			for _, setCookieHeader := range setCookieHeaders {
+				// Parse the Set-Cookie header manually
+				parts := strings.Split(setCookieHeader, ";")
+				if len(parts) == 0 {
+					continue
+				}
+
+				// First part is name=value
+				nameValue := strings.SplitN(strings.TrimSpace(parts[0]), "=", 2)
+				if len(nameValue) != 2 {
+					continue
+				}
+
+				cookie := &http.Cookie{
+					Name:   nameValue[0],
+					Value:  nameValue[1],
+					Domain: signInURL.Hostname(), // Use the request hostname
+					Path:   "/",                   // Default to root path
+					Secure: true,
+					HttpOnly: true,
+				}
+
+				// Parse other attributes
+				for i := 1; i < len(parts); i++ {
+					attr := strings.TrimSpace(parts[i])
+					attrParts := strings.SplitN(attr, "=", 2)
+					attrName := strings.ToLower(strings.TrimSpace(attrParts[0]))
+
+					switch attrName {
+					case "domain":
+						if len(attrParts) == 2 {
+							// If domain is set, prefix with a dot for subdomain matching
+							domain := strings.TrimSpace(attrParts[1])
+							if !strings.HasPrefix(domain, ".") {
+								cookie.Domain = "." + domain
+							} else {
+								cookie.Domain = domain
+							}
+						}
+					case "path":
+						if len(attrParts) == 2 {
+							cookie.Path = strings.TrimSpace(attrParts[1])
+						}
+					case "expires":
+						if len(attrParts) == 2 {
+							// Parse expires date if needed
+							expiresStr := strings.TrimSpace(attrParts[1])
+							if t, err := time.Parse(time.RFC1123, expiresStr); err == nil {
+								cookie.Expires = t
+							}
+						}
+					}
+				}
+
+				manualCookies = append(manualCookies, cookie)
+				log.DebugPrint(input.debug, fmt.Sprintf("Manually setting cookie: %s (Domain=%s Path=%s)", cookie.Name, cookie.Domain, cookie.Path), common.MaxDebugChars)
+			}
+
+			// Set the cookies in the jar
+			input.client.HTTPClient.Jar.SetCookies(signInURL, manualCookies)
+
+			// Verify cookies were set
+			cookies := input.client.HTTPClient.Jar.Cookies(signInURL)
+			log.DebugPrint(input.debug, fmt.Sprintf("After manual cookie setting, jar has %d cookies for URL %s", len(cookies), signInURL.String()), common.MaxDebugChars)
+			for i, cookie := range cookies {
+				cookieValue := cookie.Value
+				if len(cookieValue) > 10 {
+					cookieValue = cookieValue[:10] + "..."
+				}
+				log.DebugPrint(input.debug, fmt.Sprintf("Verified Cookie %d: %s=%s (Domain=%s Path=%s)", i, cookie.Name, cookieValue, cookie.Domain, cookie.Path), common.MaxDebugChars)
+			}
+		}
+	}
 
 	// unmarshal failure
 	err = json.Unmarshal(signInRespBody, &signInFailure)
@@ -655,6 +747,22 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 	defer func() {
 		_ = signInResp.Body.Close()
 	}()
+
+	// Log response headers to see if Set-Cookie headers are present
+	log.DebugPrint(debug, fmt.Sprintf("Refresh response status: %s", signInResp.Status), common.MaxDebugChars)
+	setCookieHeaders := signInResp.Header.Values("Set-Cookie")
+	if len(setCookieHeaders) > 0 {
+		log.DebugPrint(debug, fmt.Sprintf("Refresh Set-Cookie headers received: %d", len(setCookieHeaders)), common.MaxDebugChars)
+		for i, cookie := range setCookieHeaders {
+			cookiePreview := cookie
+			if len(cookiePreview) > 50 {
+				cookiePreview = cookiePreview[:50] + "..."
+			}
+			log.DebugPrint(debug, fmt.Sprintf("Refresh Set-Cookie[%d]: %s", i, cookiePreview), common.MaxDebugChars)
+		}
+	} else {
+		log.DebugPrint(debug, "No Set-Cookie headers in refresh response", common.MaxDebugChars)
+	}
 
 	var respBody []byte
 	respBody, err = io.ReadAll(signInResp.Body)

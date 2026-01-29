@@ -1,0 +1,35 @@
+{
+  "version": "004",
+  "items": [
+  {
+    "uuid": "586b52cf-9d4e-4f1f-9ba7-871b51b960fb",
+    "content": "004:da0bc59328fbe52537e23395ee597f6d4e170c3015f0f1cb:DED1+tP0DJD0DKfGGANd0Da1c6xICAahB9afrhkZS0jL6lGVFE2vKpcDbF8Kk1xPSNYFeupO28es5k3rfiG4IgcuVbMxQezdWaMrq6mguXgLnFrQUwQ0nHUTR+9VM52D7eJJCkTYjdn8x1/kksgbgagTzZl9O2Ndte72zemNtKqC7u6XmniA/sjkB5qqQpSBSOw0ryCHhBNq5CRp84+peTXxRFqHxuCZ77esi0gsy9iDCHK2Bo6evGfiLAU6d2aOvwl40tLUK0H9vI1COXCAGlSysWLk+KjTPkZNz8nv1pvkl45ewES5j6beJgeaPWgl/xHVOvTe:eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12Mi0yMDIzMDgyMC0xQGxlc3Nrbm93bi5jby51ayIsInB3X25vbmNlIjoiZDQ4NjY5YzkzM2M4YWY4MWYwNzE1Mjg1MjI2ZjIyOTdlYWMzNjE5MjhmMzM3ZjZmNTNhMTYxYTYxMTAwNDFkOCIsInZlcnNpb24iOiIwMDQiLCJvcmlnaW5hdGlvbiI6InJlZ2lzdHJhdGlvbiIsImNyZWF0ZWQiOiIxNjkyNTY0MTg2NzQ1In0sInUiOiI1ODZiNTJjZi05ZDRlLTRmMWYtOWJhNy04NzFiNTFiOTYwZmIiLCJ2IjoiMDA0In0=",
+    "content_type": "SN|ItemsKey",
+    "enc_item_key": "004:7018f22ff2925567e28e4f04392cc4076bd3f7ed2bbf5042:qrOI/lQz25uOeogYWQO59trUfps63d/YIvznbpXdIEwW0LBc1kVIDUlZ5hcbvjOQQLW9TkB2wGpV9f+26JCpHVb/8wJ5eEqy7gxr0opgebo=:eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12Mi0yMDIzMDgyMC0xQGxlc3Nrbm93bi5jby51ayIsInB3X25vbmNlIjoiZDQ4NjY5YzkzM2M4YWY4MWYwNzE1Mjg1MjI2ZjIyOTdlYWMzNjE5MjhmMzM3ZjZmNTNhMTYxYTYxMTAwNDFkOCIsInZlcnNpb24iOiIwMDQiLCJvcmlnaW5hdGlvbiI6InJlZ2lzdHJhdGlvbiIsImNyZWF0ZWQiOiIxNjkyNTY0MTg2NzQ1In0sInUiOiI1ODZiNTJjZi05ZDRlLTRmMWYtOWJhNy04NzFiNTFiOTYwZmIiLCJ2IjoiMDA0In0=",
+    "created_at": "2023-08-21T21:10:28.393583Z",
+    "updated_at": "2023-08-21T21:10:28.759161Z",
+    "created_at_timestamp": 1692652228393583,
+    "updated_at_timestamp": 1692652228759161,
+    "duplicate_of": null
+  },
+  {
+    "uuid": "ee5af303-77e4-4410-9abe-4adecc81bd51",
+    "items_key_id": "586b52cf-9d4e-4f1f-9ba7-871b51b960fb",
+    "content": "004:c8ecbeaad8e8500a1451f01eda1357553389045edd318f8c:dH5MiMs0yl1lcy68ujnq1EszPn/gXJL6a/7xHYTWcRMkX/2+FussSs6ZkPqF1rFafDwIqWbyPKabWUbgiqKl5nB+zJpGqt1CQuZI93+enn4AoHE7p/vRODa03+WpTMLYB1iL/7sEyCyxOjS8G8boSuI7RdamTkQhyZdqEZDWejqkYlpyvHyzBcs+/fMG3Z8wA07NOlnMv0scXQgwR/sMCxVZQw2K1/78v6fUdEJzI6DaWwq4TO6wjmoEWtTPOE8F/J1mVqtOy+89ZUti/5T8jhT0fRzxGcdCcVt2Fxzb3W6STA9wYqCRI1Smw5gzUrt+CK4aiVeTwZ8rgXYYfjDZU1SM:eyJ1IjoiZWU1YWYzMDMtNzdlNC00NDEwLTlhYmUtNGFkZWNjODFiZDUxIiwidiI6IjAwNCJ9",
+    "content_type": "Note",
+    "enc_item_key": "004:eec93474d8e6140176abfb522dd885c6666aad0c610b553f:zVQKa3AJUD9iA7HW5oQYnnKCLLcLqMsUBMMCyO3tUtAjcps+2z6D1PNHzER4qaLi:eyJ1IjoiZWU1YWYzMDMtNzdlNC00NDEwLTlhYmUtNGFkZWNjODFiZDUxIiwidiI6IjAwNCJ9",
+    "created_at": "2023-08-24T18:41:58.892328Z",
+    "updated_at": "2023-08-24T18:41:59.077286Z",
+    "created_at_timestamp": 1692902518892328,
+    "updated_at_timestamp": 1692902519077286,
+    "duplicate_of": null
+  }
+],
+  "keyParams": {
+    "identifier": "gosn-v2-20230820-1@lessknown.co.uk",
+    "version": "004",
+    "origination": "registration",
+    "created": "1692564186745",
+    "pw_nonce": "d48669c933c8af81f0715285226f2297eac361928f337f6f53a161a6110041d8"
+  }
+}
