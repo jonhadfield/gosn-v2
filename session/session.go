@@ -386,6 +386,7 @@ func GetSessionFromUser(httpClient *retryablehttp.Client, server string, debug b
 		if strings.Contains(errMsg, "password not defined") {
 			err = fmt.Errorf("password not defined")
 		} else {
+			err = fmt.Errorf("%s", errMsg)
 			fmt.Printf("\nerror: %s\n\n", errMsg)
 		}
 
