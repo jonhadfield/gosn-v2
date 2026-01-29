@@ -77,8 +77,22 @@ func NewHTTPClient() *retryablehttp.Client {
 	}
 
 	// Add cookie jar for automatic cookie handling (API version 20240226)
-	// Note: cookiejar is not thread-safe for concurrent requests
-	// For consecutive sync requests, this can cause race conditions
+	//
+	// ⚠️  THREAD-SAFETY WARNING ⚠️
+	// Go's http.CookieJar is NOT thread-safe for concurrent requests.
+	//
+	// This affects:
+	// - Cookie-based authentication (tokens with "2:" prefix)
+	// - Concurrent sync operations on the same session
+	// - Sharing session.HTTPClient across goroutines
+	//
+	// Mitigation: items.syncMutex serializes sync requests to prevent races.
+	//
+	// Safe usage:
+	//   - Use separate Session instances for concurrent operations
+	//   - Serialize requests to the same session with mutex
+	//
+	// See claudedocs/thread_safety.md for detailed guidance.
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		log.Fatalf("Failed to create cookie jar: %v\n", err)

@@ -51,6 +51,21 @@ type SessionItemsKey struct {
 
 // Session holds authentication and encryption parameters required
 // to communicate with the API and process transferred data.
+//
+// ⚠️  THREAD-SAFETY WARNING ⚠️
+// Session is NOT safe for concurrent use by multiple goroutines.
+//
+// Reasons:
+//   - HTTPClient contains http.CookieJar which is not thread-safe
+//   - Mutable fields (tokens, expiration times) can race
+//   - Connection pool state can be corrupted
+//
+// Safe concurrent usage patterns:
+//   1. Create separate Session instances for each goroutine
+//   2. Use mutex to serialize access to shared Session
+//   3. Never share HTTPClient with cookie jar across goroutines
+//
+// See claudedocs/thread_safety.md for detailed guidance and examples.
 type Session struct {
 	Debug            bool
 	HTTPClient       *retryablehttp.Client
@@ -640,6 +655,22 @@ func SessionStatus(sKey string, k keyring.Keyring) (msg string, err error) {
 	return sb.String(), err
 }
 
+// Refresh renews the access and refresh tokens for the current session.
+//
+// ⚠️  THREAD-SAFETY WARNING ⚠️
+// This method is NOT safe for concurrent calls on the same Session instance.
+//
+// Race conditions can occur with:
+//   - Reading RefreshToken while another goroutine is updating it
+//   - HTTP cookie jar access (not thread-safe)
+//   - Updating session fields (AccessToken, RefreshToken, etc.)
+//
+// Safe usage:
+//   - Serialize calls using a mutex if sharing Session
+//   - Or use separate Session instances per goroutine
+//
+// The items.Sync() function protects its Refresh() calls with syncMutex.
+// If calling Refresh() directly, you must provide your own synchronization.
 func (sess *Session) Refresh() error {
 	if sess.HTTPClient == nil {
 		sess.HTTPClient = retryablehttp.NewClient()
