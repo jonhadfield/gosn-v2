@@ -68,21 +68,26 @@ type Session struct {
 	RefreshToken      string         `json:"refresh_token"`
 	AccessExpiration  int64          `json:"access_expiration"`
 	RefreshExpiration int64          `json:"refresh_expiration"`
-	ReadOnlyAccess    bool           `json:"readonly_access"`
-	PasswordNonce     string
+	ReadOnlyAccess     bool           `json:"readonly_access"`
+	PasswordNonce      string
 	Schemas            map[string]*jsonschema.Schema
+	// Cookie values extracted from Set-Cookie headers for manual cookie handling
+	AccessTokenCookie  string `json:"access_token_cookie,omitempty"`
+	RefreshTokenCookie string `json:"refresh_token_cookie,omitempty"`
 }
 
 type MinimalSession struct {
-	Server            string
-	Token             string
-	MasterKey         string
-	KeyParams         auth.KeyParams `json:"keyParams"`
-	AccessToken       string         `json:"access_token"`
-	RefreshToken      string         `json:"refresh_token"`
-	AccessExpiration  int64          `json:"access_expiration"`
-	RefreshExpiration int64          `json:"refresh_expiration"`
-	SchemaValidation  bool
+	Server             string
+	Token              string
+	MasterKey          string
+	KeyParams          auth.KeyParams `json:"keyParams"`
+	AccessToken        string         `json:"access_token"`
+	RefreshToken       string         `json:"refresh_token"`
+	AccessExpiration   int64          `json:"access_expiration"`
+	RefreshExpiration  int64          `json:"refresh_expiration"`
+	SchemaValidation   bool
+	AccessTokenCookie  string `json:"access_token_cookie,omitempty"`
+	RefreshTokenCookie string `json:"refresh_token_cookie,omitempty"`
 }
 
 // func (s *Session) Export(path string) error {
@@ -304,15 +309,17 @@ func UpdateSession(sess *Session, k keyring.Keyring, debug bool) error {
 
 func makeMinimalSessionString(s Session) string {
 	ms := MinimalSession{
-		Server:            s.Server,
-		Token:             s.Token,
-		MasterKey:         s.MasterKey,
-		KeyParams:         s.KeyParams,
-		AccessToken:       s.AccessToken,
-		RefreshToken:      s.RefreshToken,
-		AccessExpiration:  s.AccessExpiration,
-		RefreshExpiration: s.RefreshExpiration,
-		SchemaValidation:  s.SchemaValidation,
+		Server:             s.Server,
+		Token:              s.Token,
+		MasterKey:          s.MasterKey,
+		KeyParams:          s.KeyParams,
+		AccessToken:        s.AccessToken,
+		RefreshToken:       s.RefreshToken,
+		AccessExpiration:   s.AccessExpiration,
+		RefreshExpiration:  s.RefreshExpiration,
+		SchemaValidation:   s.SchemaValidation,
+		AccessTokenCookie:  s.AccessTokenCookie,
+		RefreshTokenCookie: s.RefreshTokenCookie,
 	}
 
 	sb, err := json.Marshal(ms)
@@ -397,19 +404,21 @@ func GetSessionFromUser(httpClient *retryablehttp.Client, server string, debug b
 
 	signInSession, err := auth.CliSignIn(email, password, server, debug)
 	sess = Session{
-		Debug:             debug,
-		HTTPClient:        signInSession.HTTPClient, // Preserve HTTP client with cookies
-		SchemaValidation:  signInSession.SchemaValidation,
-		Server:            server,
-		FilesServerUrl:    signInSession.FilesServerUrl,
-		Token:             signInSession.Token,
-		MasterKey:         signInSession.MasterKey,
-		KeyParams:         signInSession.KeyParams,
-		AccessToken:       signInSession.AccessToken,
-		RefreshToken:      signInSession.RefreshToken,
-		AccessExpiration:  signInSession.AccessExpiration,
-		RefreshExpiration: signInSession.RefreshExpiration,
-		ReadOnlyAccess:    signInSession.ReadOnlyAccess,
+		Debug:              debug,
+		HTTPClient:         signInSession.HTTPClient, // Preserve HTTP client with cookies
+		SchemaValidation:   signInSession.SchemaValidation,
+		Server:             server,
+		FilesServerUrl:     signInSession.FilesServerUrl,
+		Token:              signInSession.Token,
+		MasterKey:          signInSession.MasterKey,
+		KeyParams:          signInSession.KeyParams,
+		AccessToken:        signInSession.AccessToken,
+		RefreshToken:       signInSession.RefreshToken,
+		AccessExpiration:   signInSession.AccessExpiration,
+		RefreshExpiration:  signInSession.RefreshExpiration,
+		ReadOnlyAccess:     signInSession.ReadOnlyAccess,
+		AccessTokenCookie:  signInSession.AccessTokenCookie,
+		RefreshTokenCookie: signInSession.RefreshTokenCookie,
 	}
 
 	if err != nil {
@@ -530,14 +539,16 @@ func ParseSessionString(ss string) (Session, error) {
 	}
 
 	return Session{
-		Server:            ms.Server,
-		AccessToken:       ms.AccessToken,
-		AccessExpiration:  ms.AccessExpiration,
-		RefreshToken:      ms.RefreshToken,
-		RefreshExpiration: ms.RefreshExpiration,
-		MasterKey:         ms.MasterKey,
-		KeyParams:         ms.KeyParams,
-		PasswordNonce:     ms.KeyParams.PwNonce,
+		Server:             ms.Server,
+		AccessToken:        ms.AccessToken,
+		AccessExpiration:   ms.AccessExpiration,
+		RefreshToken:       ms.RefreshToken,
+		RefreshExpiration:  ms.RefreshExpiration,
+		MasterKey:          ms.MasterKey,
+		KeyParams:          ms.KeyParams,
+		PasswordNonce:      ms.KeyParams.PwNonce,
+		AccessTokenCookie:  ms.AccessTokenCookie,
+		RefreshTokenCookie: ms.RefreshTokenCookie,
 	}, nil
 }
 

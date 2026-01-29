@@ -475,8 +475,26 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	}
 	request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 
-	// Always use Authorization header - cookies are handled automatically by HTTP client cookie jar
-	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	// For cookie-based authentication (tokens starting with "2:"), set Cookie header manually
+	// because Go's cookie jar doesn't properly handle the Partitioned attribute
+	accessParts := strings.Split(session.AccessToken, ":")
+	isCookieBased := len(accessParts) >= 2 && accessParts[0] == "2"
+
+	log.DebugPrint(session.Debug, fmt.Sprintf("Token check: isCookieBased=%v, hasAccessTokenCookie=%v", isCookieBased, session.AccessTokenCookie != ""), common.MaxDebugChars)
+	if session.AccessTokenCookie != "" {
+		log.DebugPrint(session.Debug, fmt.Sprintf("AccessTokenCookie value: %s", session.AccessTokenCookie[:min(50, len(session.AccessTokenCookie))]+"..."), common.MaxDebugChars)
+	}
+
+	if isCookieBased && session.AccessTokenCookie != "" {
+		// Use manual Cookie header for cookie-based auth
+		request.Header.Set("Cookie", session.AccessTokenCookie)
+		log.DebugPrint(session.Debug, "Using manual Cookie header for cookie-based authentication", common.MaxDebugChars)
+		log.DebugPrint(session.Debug, fmt.Sprintf("Cookie: %s", session.AccessTokenCookie[:min(50, len(session.AccessTokenCookie))]+"..."), common.MaxDebugChars)
+	} else {
+		// Use Authorization header for header-based auth
+		request.Header.Set("Authorization", "Bearer "+session.AccessToken)
+		log.DebugPrint(session.Debug, "Using Authorization header for header-based authentication", common.MaxDebugChars)
+	}
 
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
 

@@ -234,84 +234,40 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 		return
 	}
 
-	// Manual cookie handling due to Go cookie jar not supporting Partitioned attribute
-	// Parse Set-Cookie headers and manually set cookies in the jar
-	if input.client.HTTPClient.Jar != nil && len(setCookieHeaders) > 0 {
-		signInURL, urlErr := url.Parse(input.signInURL)
-		if urlErr == nil {
-			var manualCookies []*http.Cookie
-
-			for _, setCookieHeader := range setCookieHeaders {
-				// Parse the Set-Cookie header manually
-				parts := strings.Split(setCookieHeader, ";")
-				if len(parts) == 0 {
-					continue
-				}
-
-				// First part is name=value
-				nameValue := strings.SplitN(strings.TrimSpace(parts[0]), "=", 2)
-				if len(nameValue) != 2 {
-					continue
-				}
-
-				cookie := &http.Cookie{
-					Name:   nameValue[0],
-					Value:  nameValue[1],
-					Domain: signInURL.Hostname(), // Use the request hostname
-					Path:   "/",                   // Default to root path
-					Secure: true,
-					HttpOnly: true,
-				}
-
-				// Parse other attributes
-				for i := 1; i < len(parts); i++ {
-					attr := strings.TrimSpace(parts[i])
-					attrParts := strings.SplitN(attr, "=", 2)
-					attrName := strings.ToLower(strings.TrimSpace(attrParts[0]))
-
-					switch attrName {
-					case "domain":
-						if len(attrParts) == 2 {
-							// If domain is set, prefix with a dot for subdomain matching
-							domain := strings.TrimSpace(attrParts[1])
-							if !strings.HasPrefix(domain, ".") {
-								cookie.Domain = "." + domain
-							} else {
-								cookie.Domain = domain
-							}
-						}
-					case "path":
-						if len(attrParts) == 2 {
-							cookie.Path = strings.TrimSpace(attrParts[1])
-						}
-					case "expires":
-						if len(attrParts) == 2 {
-							// Parse expires date if needed
-							expiresStr := strings.TrimSpace(attrParts[1])
-							if t, err := time.Parse(time.RFC1123, expiresStr); err == nil {
-								cookie.Expires = t
-							}
-						}
-					}
-				}
-
-				manualCookies = append(manualCookies, cookie)
-				log.DebugPrint(input.debug, fmt.Sprintf("Manually setting cookie: %s (Domain=%s Path=%s)", cookie.Name, cookie.Domain, cookie.Path), common.MaxDebugChars)
+	// Extract cookie values from Set-Cookie headers for manual handling
+	// This is needed because Go's cookie jar doesn't handle the Partitioned attribute properly
+	var accessTokenCookie string
+	var refreshTokenCookie string
+	if len(setCookieHeaders) > 0 {
+		for _, setCookieHeader := range setCookieHeaders {
+			// Parse the Set-Cookie header to extract name=value
+			parts := strings.Split(setCookieHeader, ";")
+			if len(parts) == 0 {
+				continue
 			}
 
-			// Set the cookies in the jar
-			input.client.HTTPClient.Jar.SetCookies(signInURL, manualCookies)
-
-			// Verify cookies were set
-			cookies := input.client.HTTPClient.Jar.Cookies(signInURL)
-			log.DebugPrint(input.debug, fmt.Sprintf("After manual cookie setting, jar has %d cookies for URL %s", len(cookies), signInURL.String()), common.MaxDebugChars)
-			for i, cookie := range cookies {
-				cookieValue := cookie.Value
-				if len(cookieValue) > 10 {
-					cookieValue = cookieValue[:10] + "..."
-				}
-				log.DebugPrint(input.debug, fmt.Sprintf("Verified Cookie %d: %s=%s (Domain=%s Path=%s)", i, cookie.Name, cookieValue, cookie.Domain, cookie.Path), common.MaxDebugChars)
+			// First part is name=value
+			nameValue := strings.TrimSpace(parts[0])
+			if nameValue == "" {
+				continue
 			}
+
+			// Check if this is an access_token or refresh_token cookie
+			if strings.HasPrefix(nameValue, "access_token_") {
+				accessTokenCookie = nameValue
+				log.DebugPrint(input.debug, fmt.Sprintf("Extracted access_token cookie: %s", nameValue[:min(50, len(nameValue))]+"..."), common.MaxDebugChars)
+			} else if strings.HasPrefix(nameValue, "refresh_token_") {
+				refreshTokenCookie = nameValue
+				log.DebugPrint(input.debug, fmt.Sprintf("Extracted refresh_token cookie: %s", nameValue[:min(50, len(nameValue))]+"..."), common.MaxDebugChars)
+			}
+		}
+
+		// Store cookie values in the response for later use
+		signInSuccess.Data.Session.AccessTokenCookie = accessTokenCookie
+		signInSuccess.Data.Session.RefreshTokenCookie = refreshTokenCookie
+
+		if accessTokenCookie != "" && refreshTokenCookie != "" {
+			log.DebugPrint(input.debug, "Successfully extracted both access and refresh token cookies", common.MaxDebugChars)
 		}
 	}
 
@@ -491,6 +447,10 @@ type SignInResponseDataSession struct {
 	RefreshExpiration int64     `json:"refresh_expiration"`
 	ReadOnlyAccess    bool      `json:"readonly_access"`
 	PasswordNonce     string
+	// Cookie values extracted from Set-Cookie headers for manual cookie handling
+	// This is needed because Go's cookie jar doesn't handle the Partitioned attribute properly
+	AccessTokenCookie  string // Format: "cookie_name=cookie_value"
+	RefreshTokenCookie string // Format: "cookie_name=cookie_value"
 }
 
 type signInResponseData struct {
@@ -674,16 +634,26 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	// output.Session = tokenResp.Data.Session
 	output.KeyParams = tokenResp.Data.KeyParams
 	output.User = tokenResp.Data.User
+
+	// Log token format for debugging
+	accessTokenPrefix := "unknown"
+	if len(tokenResp.Data.Session.AccessToken) > 10 {
+		accessTokenPrefix = tokenResp.Data.Session.AccessToken[:min(10, len(tokenResp.Data.Session.AccessToken))]
+	}
+	log.DebugPrint(input.Debug, fmt.Sprintf("Access token format: %s... (length: %d)", accessTokenPrefix, len(tokenResp.Data.Session.AccessToken)), common.MaxDebugChars)
+
 	ds := SignInResponseDataSession{
-		HTTPClient:        input.HTTPClient,
-		MasterKey:         mk,
-		KeyParams:         tokenResp.Data.KeyParams,
-		AccessToken:       tokenResp.Data.Session.AccessToken,
-		RefreshToken:      tokenResp.Data.Session.RefreshToken,
-		AccessExpiration:  tokenResp.Data.Session.AccessExpiration,
-		RefreshExpiration: tokenResp.Data.Session.RefreshExpiration,
-		ReadOnlyAccess:    tokenResp.Data.Session.ReadOnlyAccess,
-		PasswordNonce:     tokenResp.Data.KeyParams.PwNonce,
+		HTTPClient:         input.HTTPClient,
+		MasterKey:          mk,
+		KeyParams:          tokenResp.Data.KeyParams,
+		AccessToken:        tokenResp.Data.Session.AccessToken,
+		RefreshToken:       tokenResp.Data.Session.RefreshToken,
+		AccessExpiration:   tokenResp.Data.Session.AccessExpiration,
+		RefreshExpiration:  tokenResp.Data.Session.RefreshExpiration,
+		ReadOnlyAccess:     tokenResp.Data.Session.ReadOnlyAccess,
+		PasswordNonce:      tokenResp.Data.KeyParams.PwNonce,
+		AccessTokenCookie:  tokenResp.Data.Session.AccessTokenCookie,
+		RefreshTokenCookie: tokenResp.Data.Session.RefreshTokenCookie,
 	}
 
 	// Cookies are handled automatically by HTTP client cookie jar
@@ -728,9 +698,21 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	refreshSessionReq.Header.Set("Connection", "keep-alive")
 
-	// Use Authorization header - cookies are handled automatically by HTTP client cookie jar
-	refreshSessionReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	log.DebugPrint(debug, "Using Authorization header for token refresh", common.MaxDebugChars)
+	// For cookie-based authentication (tokens starting with "2:"), set Cookie header manually
+	accessParts := strings.Split(session.AccessToken, ":")
+	isCookieBased := len(accessParts) >= 2 && accessParts[0] == "2"
+
+	if isCookieBased && session.RefreshTokenCookie != "" {
+		// Use manual Cookie header for cookie-based auth refresh
+		// Refresh endpoint needs the refresh_token cookie, not access_token
+		refreshSessionReq.Header.Set("Cookie", session.RefreshTokenCookie)
+		log.DebugPrint(debug, "Using manual Cookie header for cookie-based refresh", common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("Cookie: %s", session.RefreshTokenCookie[:min(50, len(session.RefreshTokenCookie))]+"..."), common.MaxDebugChars)
+	} else {
+		// Use Authorization header for header-based auth
+		refreshSessionReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+		log.DebugPrint(debug, "Using Authorization header for header-based refresh", common.MaxDebugChars)
+	}
 
 	var signInResp *http.Response
 
