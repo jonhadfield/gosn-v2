@@ -698,18 +698,19 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	refreshSessionReq.Header.Set("Connection", "keep-alive")
 
-	// For cookie-based authentication (tokens starting with "2:"), set Cookie header manually
+	// For cookie-based authentication (tokens starting with "2:"), we need BOTH Cookie and Authorization headers
 	accessParts := strings.Split(session.AccessToken, ":")
 	isCookieBased := len(accessParts) >= 2 && accessParts[0] == "2"
 
 	if isCookieBased && session.RefreshTokenCookie != "" {
-		// Use manual Cookie header for cookie-based auth refresh
-		// Refresh endpoint needs the refresh_token cookie, not access_token
+		// Set BOTH Cookie and Authorization headers for cookie-based auth refresh
+		// Refresh endpoint needs the refresh_token cookie
 		refreshSessionReq.Header.Set("Cookie", session.RefreshTokenCookie)
-		log.DebugPrint(debug, "Using manual Cookie header for cookie-based refresh", common.MaxDebugChars)
+		refreshSessionReq.Header.Set("Authorization", "Bearer "+session.RefreshToken)
+		log.DebugPrint(debug, "Using both Cookie and Authorization headers for cookie-based refresh", common.MaxDebugChars)
 		log.DebugPrint(debug, fmt.Sprintf("Cookie: %s", session.RefreshTokenCookie[:min(50, len(session.RefreshTokenCookie))]+"..."), common.MaxDebugChars)
 	} else {
-		// Use Authorization header for header-based auth
+		// Use Authorization header only for header-based auth
 		refreshSessionReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
 		log.DebugPrint(debug, "Using Authorization header for header-based refresh", common.MaxDebugChars)
 	}
