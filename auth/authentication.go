@@ -23,21 +23,15 @@ import (
 	"github.com/jonhadfield/gosn-v2/log"
 )
 
-type cryptoSource struct{}
-
-func (s cryptoSource) Seed(seed int64) {}
-
-func (s cryptoSource) Int63() int64 {
-	return int64(s.Uint64() & ^uint64(1<<63))
-}
-
-func (s cryptoSource) Uint64() (v uint64) {
-	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+// generateCryptoSeed generates a cryptographically secure random seed for use with math/rand.
+// This is safer than using a custom rand.Source that could crash the application.
+func generateCryptoSeed() (int64, error) {
+	var seed int64
+	err := binary.Read(crand.Reader, binary.BigEndian, &seed)
 	if err != nil {
-		log.Fatal(err.Error())
+		return 0, fmt.Errorf("failed to generate crypto-secure random seed: %w", err)
 	}
-
-	return v
+	return seed, nil
 }
 
 type doAuthRequestOutput struct {
@@ -985,9 +979,12 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 	genInput.Identifier = email
 	// genInput.PasswordCost = common.DefaultPasswordCost
 
-	// generate salt seed (password nonce)
-	var src cryptoSource
-	rnd := rand.New(src)
+	// generate salt seed (password nonce) using crypto-secure random seed
+	seed, err := generateCryptoSeed()
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to generate password nonce seed: %w", err)
+	}
+	rnd := rand.New(rand.NewSource(seed))
 
 	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
