@@ -440,21 +440,32 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	defer syncMutex.Unlock()
 	// time.Sleep(3 * time.Second) // REMOVED: This was causing unnecessary delays
 	// fmt.Println(string(reqBody))
-	// Create a fresh HTTP client for each sync request to avoid connection reuse issues
-	// This prevents HTTP connection state corruption while preserving authentication cookies
-	log.DebugPrint(session.Debug, "makeSyncRequest | creating fresh standard http client to avoid connection reuse issues", common.MaxDebugChars)
+	// Create HTTP client with connection pooling optimization
+	// Reuse the Transport from session.HTTPClient for connection pooling benefits
+	// while creating a fresh http.Client instance to avoid request state corruption
+	log.DebugPrint(session.Debug, "makeSyncRequest | creating http client with connection pool reuse", common.MaxDebugChars)
 
-	// Preserve the existing cookie jar if it exists
+	// Preserve both cookie jar and transport from session's HTTP client
 	var existingCookieJar http.CookieJar
-	if session.HTTPClient != nil && session.HTTPClient.HTTPClient.Jar != nil {
-		existingCookieJar = session.HTTPClient.HTTPClient.Jar
-		log.DebugPrint(session.Debug, "makeSyncRequest | preserving existing cookie jar with authentication cookies", common.MaxDebugChars)
+	var existingTransport http.RoundTripper
+
+	if session.HTTPClient != nil && session.HTTPClient.HTTPClient != nil {
+		if session.HTTPClient.HTTPClient.Jar != nil {
+			existingCookieJar = session.HTTPClient.HTTPClient.Jar
+			log.DebugPrint(session.Debug, "makeSyncRequest | preserving existing cookie jar with authentication cookies", common.MaxDebugChars)
+		}
+		if session.HTTPClient.HTTPClient.Transport != nil {
+			existingTransport = session.HTTPClient.HTTPClient.Transport
+			log.DebugPrint(session.Debug, "makeSyncRequest | reusing HTTP transport for connection pool optimization", common.MaxDebugChars)
+		}
 	}
 
-	// Create a new standard HTTP client instead of retryable client
+	// Create a new http.Client instance but reuse Transport for connection pooling
+	// This gives us connection pool benefits while avoiding request state corruption
 	client := &http.Client{
-		Timeout: time.Duration(common.RequestTimeout) * time.Second,
-		Jar:     existingCookieJar,
+		Timeout:   time.Duration(common.RequestTimeout) * time.Second,
+		Jar:       existingCookieJar,
+		Transport: existingTransport, // Reuse transport for connection pooling
 	}
 
 	// Allow overriding timeout via environment variable
