@@ -1,0 +1,143 @@
+version: 2
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable-all: false
+
+  # Disabled as per original Makefile line 19
+  disable:
+    - lll             # line length check
+    - misspell        # spelling mistakes
+    - gochecknoglobals # global variables check
+    - goconst         # repeated strings that could be constants
+    - dupl            # duplicate code detection
+    - forbidigo       # forbid specific identifiers
+    - tagliatelle     # struct tag naming conventions
+
+    # Additional pragmatic disables for established codebase
+    - wrapcheck       # requires wrapping all errors (too strict)
+    - exhaustruct     # requires all struct fields initialized (impractical)
+    - testpackage     # requires separate test packages (stylistic)
+    - varnamelen      # variable name length (too opinionated)
+    - nlreturn        # blank line before return (stylistic)
+    - wsl             # whitespace linter (too opinionated)
+    - ireturn         # accept interfaces return concrete (controversial)
+    - nolintlint      # nolint directive format
+    - depguard        # import restrictions (project-specific)
+    - nonamedreturns  # naked returns (stylistic choice)
+    - paralleltest    # parallel test execution (may break tests)
+    - testifylint     # testify linter (too opinionated)
+    - protogetter     # protobuf getters (not using protobuf)
+    - copyloopvar     # Go 1.22+ handles this
+    - intrange        # Go 1.22+ range over int
+    - mnd             # magic number detector (too strict)
+    - gosmopolitan    # timezone/locale checks (not needed)
+    - perfsprint      # performance sprintf (too aggressive)
+    - gochecksumtype  # sum type exhaustiveness (experimental)
+    - godot           # comment punctuation (too opinionated)
+    - revive          # too many stylistic rules (using gocritic instead)
+    - prealloc        # slice preallocation (performance suggestions, not critical)
+    - predeclared     # shadowing predeclared identifiers (sometimes intentional)
+    - unconvert       # unnecessary conversions (sometimes needed for type safety)
+
+  enable:
+    # Error detection
+    - errcheck       # unchecked errors
+    - govet          # go vet
+    - staticcheck    # staticcheck suite
+    - unused         # unused code detection
+    - ineffassign    # ineffectual assignments
+
+    # Bug detection
+    - bodyclose      # HTTP response body close
+    - contextcheck   # context usage
+    - durationcheck  # duration arithmetic
+    - errorlint      # error wrapping (Go 1.13+)
+    - nilerr         # returning nil error
+    - nilnil         # simultaneous nil return
+    - rowserrcheck   # SQL rows.Err check
+    - sqlclosecheck  # SQL Close check
+
+    # Code quality & complexity
+    - gocognit       # cognitive complexity
+    - gocyclo        # cyclomatic complexity
+    - funlen         # function length
+    - cyclop         # package/function complexity
+    - nestif         # deeply nested if statements
+    - maintidx       # maintainability index
+
+    # Code style & best practices
+    - gocritic       # comprehensive checks
+    - whitespace     # leading/trailing whitespace
+
+    # Naming & documentation
+    - errname        # error naming conventions
+
+    # Security
+    - gosec          # security checks
+
+linters-settings:
+  gocyclo:
+    min-complexity: 20
+
+  gocognit:
+    min-complexity: 25
+
+  funlen:
+    lines: 150
+    statements: 70
+
+  cyclop:
+    max-complexity: 25
+
+  nestif:
+    min-complexity: 6
+
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow  # variable shadowing can be intentional
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocognit
+        - gocyclo
+        - cyclop
+        - maintidx
+        - errcheck
+
+    # Exclude known false positives
+    - linters:
+        - staticcheck
+      text: "SA1019:" # deprecated usage
+
+    # Allow weak random in tests
+    - path: _test\.go
+      linters:
+        - gosec
+      text: "G404" # Weak random
+
+    # Ignore unused code that may be needed for future features
+    - linters:
+        - unused
+      text: "is unused"
+
+    # Ignore staticcheck warnings for deprecated rand.Seed in tests
+    - path: _test\.go
+      linters:
+        - staticcheck
+      text: "SA1019.*rand.Seed"

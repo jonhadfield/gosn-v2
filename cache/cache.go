@@ -1154,7 +1154,8 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	// convert dirty to items.Items
-	var dirtyItemsToPush items.EncryptedItems
+	// Pre-allocate with capacity to avoid reallocations (some items may be filtered out)
+	dirtyItemsToPush := make(items.EncryptedItems, 0, len(dirty))
 
 	for _, d := range dirty {
 		// CRITICAL SAFEGUARD: Never push deleted or modified SN|ItemsKey items
@@ -1197,6 +1198,21 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	// TODO: add all the items keys in the session to SN (dupes will be handled)?
+
+	// Optimization: Skip API call if no changes and recent sync token exists
+	if len(dirtyItemsToPush) == 0 && syncToken != "" {
+		var syncTokens []SyncToken
+		if err = db.All(&syncTokens); err == nil && len(syncTokens) == 1 {
+			tokenAge := time.Since(syncTokens[0].CreatedAt)
+			if tokenAge < common.MinSyncInterval {
+				log.DebugPrint(si.Debug,
+					fmt.Sprintf("Sync | Skipping API call - no changes and recent sync (age: %v)", tokenAge),
+					common.MaxDebugChars)
+				so.DB = db
+				return so, nil
+			}
+		}
+	}
 
 	// call gosn sync with dirty items to push
 	var gSI items.SyncInput

@@ -50,6 +50,8 @@ const (
 	MinPasswordLength = 8           // minimum password length when registering
 	// PageSize is the maximum number of items to return with each call.
 	PageSize            = 150
+	// MinSyncInterval is the minimum time between sync operations when no changes exist
+	MinSyncInterval     = 5 * time.Minute
 	TimeLayout          = "2006-01-02T15:04:05.000Z"
 	TimeLayout2         = "2006-01-02T15:04:05.000000Z"
 	DefaultSNVersion    = "004"

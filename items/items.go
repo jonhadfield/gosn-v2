@@ -67,7 +67,21 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []se
 		return
 	}
 
-	var eiks EncryptedItems
+	// Pre-count items keys to pre-allocate exact size (avoids reallocations)
+	keyCount := 0
+	for _, e := range ei {
+		if e.ContentType == common.SNItemTypeItemsKey && !e.Deleted {
+			keyCount++
+		}
+	}
+
+	if keyCount == 0 {
+		// err = fmt.Errorf("no items keys were retrieved")
+		return
+	}
+
+	// Pre-allocate with exact capacity
+	eiks := make(EncryptedItems, 0, keyCount)
 
 	for _, e := range ei {
 		if e.ContentType == common.SNItemTypeItemsKey && !e.Deleted {
@@ -84,6 +98,7 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []se
 	}
 
 	if len(eiks) == 0 {
+		// Shouldn't happen given keyCount check, but keep for safety
 		// err = fmt.Errorf("no items keys were retrieved")
 
 		return

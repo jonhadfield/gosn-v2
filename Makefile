@@ -3,7 +3,7 @@ TEST_PATTERN?=.
 TEST_OPTIONS?=-race -v
 
 setup:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin
 	go install -v github.com/go-critic/go-critic/cmd/gocritic@latest
 
 test:
@@ -16,7 +16,7 @@ fmt:
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do gofmt -w -s "$$file"; goimports -w "$$file"; done
 
 lint:
-	golangci-lint run --enable-all --disable lll --disable misspell --disable gochecknoglobals --disable goconst --disable dupl --disable forbidigo --disable tagliatelle
+	golangci-lint run
 
 ci: lint test
 
