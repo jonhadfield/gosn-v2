@@ -117,6 +117,41 @@ func (i Items) UUIDs() []string {
 	return uuids
 }
 
+// filterProtectedItems removes any deleted or modified protected items (ItemsKey, UserPreferences)
+// from the slice to prevent accidental data loss. Returns filtered items.
+func filterProtectedItems(items Items, debug bool, context string) Items {
+	var safeItems Items
+	for _, item := range items {
+		if item.ContentType == common.SNItemTypeItemsKey && item.Deleted {
+			log.DebugPrint(debug, fmt.Sprintf("%s | WARNING: Refusing to process deleted SN|ItemsKey %s", context, item.UUID), common.MaxDebugChars)
+			continue
+		}
+		if item.ContentType == common.SNItemTypeUserPreferences && item.Deleted {
+			log.DebugPrint(debug, fmt.Sprintf("%s | WARNING: Refusing to process deleted SN|UserPreferences %s", context, item.UUID), common.MaxDebugChars)
+			continue
+		}
+		safeItems = append(safeItems, item)
+	}
+	return safeItems
+}
+
+// encryptedItemToCacheItem converts an items.EncryptedItem to a cache.Item
+func encryptedItemToCacheItem(ei items.EncryptedItem) Item {
+	return Item{
+		UUID:               ei.UUID,
+		Content:            ei.Content,
+		ContentType:        ei.ContentType,
+		ItemsKeyID:         ei.ItemsKeyID,
+		EncItemKey:         ei.EncItemKey,
+		Deleted:            ei.Deleted,
+		CreatedAt:          ei.CreatedAt,
+		UpdatedAt:          ei.UpdatedAt,
+		CreatedAtTimestamp: ei.CreatedAtTimestamp,
+		UpdatedAtTimestamp: ei.UpdatedAtTimestamp,
+		DuplicateOf:        ei.DuplicateOf,
+	}
+}
+
 func (s *Session) gosn() *session.Session {
 	gs := session.Session{
 		Debug:             s.Debug,
@@ -382,19 +417,7 @@ func SaveCacheItems(db *storm.DB, items Items, close bool) error {
 	}
 
 	// CRITICAL SAFEGUARD: Filter out any deleted protected items
-	var safeItems Items
-	for _, item := range items {
-		if item.ContentType == common.SNItemTypeItemsKey && item.Deleted {
-			log.DebugPrint(false, fmt.Sprintf("SaveCacheItems | WARNING: Refusing to save deleted SN|ItemsKey %s", item.UUID), common.MaxDebugChars)
-			continue
-		}
-		if item.ContentType == common.SNItemTypeUserPreferences && item.Deleted {
-			log.DebugPrint(false, fmt.Sprintf("SaveCacheItems | WARNING: Refusing to save deleted SN|UserPreferences %s", item.UUID), common.MaxDebugChars)
-			continue
-		}
-		safeItems = append(safeItems, item)
-	}
-	items = safeItems
+	items = filterProtectedItems(items, false, "SaveCacheItems")
 
 	total := len(items)
 
@@ -449,19 +472,7 @@ func DeleteCacheItems(db *storm.DB, items Items, close bool) error {
 	}
 
 	// CRITICAL SAFEGUARD: Never delete protected items from cache
-	var safeItems Items
-	for _, item := range items {
-		if item.ContentType == common.SNItemTypeItemsKey {
-			log.DebugPrint(false, fmt.Sprintf("DeleteCacheItems | WARNING: Refusing to delete SN|ItemsKey %s from cache", item.UUID), common.MaxDebugChars)
-			continue
-		}
-		if item.ContentType == common.SNItemTypeUserPreferences {
-			log.DebugPrint(false, fmt.Sprintf("DeleteCacheItems | WARNING: Refusing to delete SN|UserPreferences %s from cache", item.UUID), common.MaxDebugChars)
-			continue
-		}
-		safeItems = append(safeItems, item)
-	}
-	items = safeItems
+	items = filterProtectedItems(items, false, "DeleteCacheItems")
 
 	if len(items) == 0 {
 		return nil // Nothing left to delete after filtering
@@ -1353,19 +1364,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		log.DebugPrint(si.Debug, fmt.Sprintf("adding %s %s to db", x.ContentType, x.UUID), common.MaxDebugChars)
 		// fmt.Printf("ITEM IS: %+v\n", x)
 
-		item := Item{
-			UUID:               x.UUID,
-			Content:            x.Content,
-			ContentType:        x.ContentType,
-			ItemsKeyID:         x.ItemsKeyID,
-			EncItemKey:         x.EncItemKey,
-			Deleted:            x.Deleted,
-			CreatedAt:          x.CreatedAt,
-			UpdatedAt:          x.UpdatedAt,
-			CreatedAtTimestamp: x.CreatedAtTimestamp,
-			UpdatedAtTimestamp: x.UpdatedAtTimestamp,
-			DuplicateOf:        x.DuplicateOf,
-		}
+		item := encryptedItemToCacheItem(x)
 
 		if item.Deleted {
 			panic(fmt.Sprintf("adding deleted item to db: %+v", item))
@@ -1453,19 +1452,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		if i.Deleted {
 			log.DebugPrint(si.Debug, fmt.Sprintf("Sync | adding uuid for deletion %s %s and skipping addition to db", i.ContentType, i.UUID), common.MaxDebugChars)
 
-			di := Item{
-				UUID:               i.UUID,
-				Content:            i.Content,
-				ContentType:        i.ContentType,
-				ItemsKeyID:         i.ItemsKeyID,
-				EncItemKey:         i.EncItemKey,
-				Deleted:            i.Deleted,
-				CreatedAt:          i.CreatedAt,
-				UpdatedAt:          i.UpdatedAt,
-				CreatedAtTimestamp: i.CreatedAtTimestamp,
-				UpdatedAtTimestamp: i.UpdatedAtTimestamp,
-				DuplicateOf:        i.DuplicateOf,
-			}
+			di := encryptedItemToCacheItem(i)
 			itemsToDelete = append(itemsToDelete, di)
 
 			continue
@@ -1475,19 +1462,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			eiks = append(eiks, i)
 		}
 
-		item := Item{
-			UUID:               i.UUID,
-			Content:            i.Content,
-			ContentType:        i.ContentType,
-			ItemsKeyID:         i.ItemsKeyID,
-			EncItemKey:         i.EncItemKey,
-			Deleted:            i.Deleted,
-			CreatedAt:          i.CreatedAt,
-			UpdatedAt:          i.UpdatedAt,
-			CreatedAtTimestamp: i.CreatedAtTimestamp,
-			UpdatedAtTimestamp: i.UpdatedAtTimestamp,
-			DuplicateOf:        i.DuplicateOf,
-		}
+		item := encryptedItemToCacheItem(i)
 
 		newItems = append(newItems, item)
 	}
