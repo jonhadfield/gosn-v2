@@ -68,12 +68,15 @@ const (
 	LibName       = "gosn-v2" // name of library used in logging
 	MaxDebugChars = 120       // number of characters to display when logging API response body
 
-	// HTTP.
-	MaxIdleConnections = 100 // HTTP transport limit
-	RequestTimeout     = 30  // HTTP transport limit - increased from 5 to handle large syncs
-	ConnectionTimeout  = 10  // HTTP transport dialer limit - increased from 3
-	KeepAliveTimeout   = 60  // HTTP transport dialer limit
-	MaxRequestRetries  = 5
+	// HTTP connection pool settings (optimized for typical single-user client)
+	MaxIdleConnections     = 5   // Reduced from 100 (realistic concurrency)
+	MaxIdleConnsPerHost    = 2   // Limit per-host idle connections
+	IdleConnTimeout        = 90  // Cleanup idle connections after 90s
+	RequestTimeout         = 30  // Request timeout - increased from 5 to handle large syncs
+	ConnectionTimeout      = 10  // Dialer timeout - increased from 3
+	KeepAliveTimeout       = 60  // Keep-alive timeout
+	ResponseHeaderTimeout  = 10  // Prevent slow header hangs
+	MaxRequestRetries      = 5
 )
 
 func NewHTTPClient() *retryablehttp.Client {
@@ -110,6 +113,13 @@ func NewHTTPClient() *retryablehttp.Client {
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 
+	// Optimize connection pool settings
+	t.MaxIdleConns = MaxIdleConnections
+	t.MaxIdleConnsPerHost = MaxIdleConnsPerHost
+	t.IdleConnTimeout = time.Duration(IdleConnTimeout) * time.Second
+	t.ResponseHeaderTimeout = time.Duration(ResponseHeaderTimeout) * time.Second
+	t.DisableCompression = false // Enable compression for bandwidth savings
+
 	envProxyUrl := os.Getenv("HTTP_PROXY")
 
 	if envProxyUrl != "" {
@@ -121,9 +131,7 @@ func NewHTTPClient() *retryablehttp.Client {
 		t.Proxy = http.ProxyURL(proxyUrl)
 	}
 
-	t.MaxIdleConns = MaxIdleConnections
-	t.MaxConnsPerHost = MaxIdleConnections
-	t.MaxIdleConnsPerHost = MaxIdleConnections
+	// Note: MaxConnsPerHost settings already applied above in optimization block
 	c.HTTPClient.Transport = t
 
 	c.RetryMax = MaxRequestRetries
