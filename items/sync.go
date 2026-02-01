@@ -814,6 +814,44 @@ func (cis ConflictedItems) Validate(debug bool) error {
 }
 
 // determineLimit returns the page size to use for the sync request.
+// calculateOptimalBatchSize determines the best batch size based on item content size
+func calculateOptimalBatchSize(items EncryptedItems, startIdx int, defaultSize int) int {
+	if len(items) <= startIdx {
+		return defaultSize
+	}
+
+	// Sample first few items to estimate average size
+	sampleSize := 10
+	remainingItems := len(items) - startIdx
+	if sampleSize > remainingItems {
+		sampleSize = remainingItems
+	}
+
+	totalSize := 0
+	for i := 0; i < sampleSize; i++ {
+		// Estimate size: content + metadata overhead (~200 bytes)
+		totalSize += len(items[startIdx+i].Content) + 200
+	}
+
+	avgItemSize := totalSize / sampleSize
+	if avgItemSize == 0 {
+		return defaultSize
+	}
+
+	// Calculate batch size to hit target payload
+	optimalSize := common.TargetPayloadSize / avgItemSize
+
+	// Clamp to reasonable bounds
+	if optimalSize < common.MinPageSize {
+		return common.MinPageSize
+	}
+	if optimalSize > common.MaxPageSize {
+		return common.MaxPageSize
+	}
+
+	return optimalSize
+}
+
 func determineLimit(pageSize int, debug bool) int {
 	if pageSize > 0 {
 		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.PageSize: %d", pageSize), common.MaxDebugChars)
@@ -888,6 +926,17 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	// log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
 
 	limit := determineLimit(input.PageSize, debug)
+
+	// Dynamic batch sizing: optimize for payload size when using default PageSize
+	if limit == common.PageSize && len(input.Items) > 0 && input.NextItem < len(input.Items) {
+		dynamicLimit := calculateOptimalBatchSize(input.Items, input.NextItem, limit)
+		if dynamicLimit != limit {
+			log.DebugPrint(debug,
+				fmt.Sprintf("syncItemsViaAPI | Dynamic batch size: %d (default: %d)", dynamicLimit, limit),
+				common.MaxDebugChars)
+			limit = dynamicLimit
+		}
+	}
 
 	// Pre-allocate slices for recursive appends to avoid reallocations
 	// Estimate capacity: items to push + typical response size
