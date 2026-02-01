@@ -670,7 +670,7 @@ func enforceMinimumSyncDelay() {
 	defer syncMutex.Unlock()
 
 	// Enforce minimum delay between sync operations
-	const minDelay = 1 * time.Second
+	minDelay := common.SyncDelayMinimum
 	if elapsed := time.Since(lastSyncTime); elapsed < minDelay {
 		sleepDuration := minDelay - elapsed
 		log.DebugPrint(false, fmt.Sprintf("Sync | Enforcing %v delay before next sync (elapsed: %v)", sleepDuration, elapsed), common.MaxDebugChars)
@@ -683,8 +683,8 @@ func enforceMinimumSyncDelay() {
 func enforceRateLimitBackoff(backoff *RateLimitBackoff) {
 	// Initialize defaults if not set
 	if backoff.attempts == 0 && backoff.baseDelayMs == 0 {
-		backoff.baseDelayMs = 1000 // Start at 1 second
-		backoff.maxDelayMs = 5000  // Max 5 seconds
+		backoff.baseDelayMs = common.RateLimitBaseDelay
+		backoff.maxDelayMs = common.RateLimitMaxDelay
 	}
 
 	backoff.attempts++
@@ -713,7 +713,7 @@ func classifySyncError(err error) *SyncError {
 			Original:  err,
 			Message:   "Rate limit exceeded - server requested backoff",
 			Retryable: true,
-			BackoffMs: 5000, // 5 second initial backoff
+			BackoffMs: common.RateLimitInitialBackoff,
 		}
 	}
 
@@ -758,7 +758,7 @@ func classifySyncError(err error) *SyncError {
 			Original:  err,
 			Message:   "Network connectivity issue - temporary failure",
 			Retryable: true,
-			BackoffMs: 2000, // 2 second backoff
+			BackoffMs: common.NetworkErrorBackoff,
 		}
 	}
 
@@ -769,7 +769,7 @@ func classifySyncError(err error) *SyncError {
 			Original:  err,
 			Message:   "Sync conflict detected - items may need resolution",
 			Retryable: true,
-			BackoffMs: 1000, // 1 second backoff
+			BackoffMs: common.ConflictErrorBackoff,
 		}
 	}
 
@@ -779,7 +779,7 @@ func classifySyncError(err error) *SyncError {
 		Original:  err,
 		Message:   fmt.Sprintf("Unknown sync error: %v", err),
 		Retryable: true,
-		BackoffMs: 1000,
+		BackoffMs: common.UnknownErrorBackoff,
 	}
 }
 
