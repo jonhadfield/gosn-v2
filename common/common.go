@@ -56,6 +56,9 @@ const (
 	TargetPayloadSize   = 256 * 1024       // Target 256KB per request
 	// MinSyncInterval is the minimum time between sync operations when no changes exist
 	MinSyncInterval     = 5 * time.Minute
+	// Sync token TTL settings
+	SyncTokenMaxAge     = 24 * time.Hour  // Maximum age before token expires
+	SyncTokenSoftAge    = 12 * time.Hour  // Age when warning is logged
 	TimeLayout          = "2006-01-02T15:04:05.000Z"
 	TimeLayout2         = "2006-01-02T15:04:05.000000Z"
 	DefaultSNVersion    = "004"
