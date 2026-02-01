@@ -922,16 +922,29 @@ func validateAndCleanSyncToken(db *storm.DB, session *session.Session) (string, 
 		return "", nil
 	}
 
-	// Validate token age - reset if older than 1 hour
+	// Validate token age with graduated approach
 	if len(syncTokens) == 1 {
 		token := syncTokens[0]
-		if time.Since(token.CreatedAt) > time.Hour {
-			log.DebugPrint(session.Debug, "Sync | Sync token expired, resetting", common.MaxDebugChars)
+		age := time.Since(token.CreatedAt)
+
+		// Hard expiry: reset token if older than 24 hours
+		if age > common.SyncTokenMaxAge {
+			log.DebugPrint(session.Debug,
+				fmt.Sprintf("Sync | Sync token expired (%v old), resetting", age),
+				common.MaxDebugChars)
 			if dropErr := db.Drop("SyncToken"); dropErr != nil {
 				return "", dropErr
 			}
 			return "", nil
 		}
+
+		// Soft warning: log if token is aging (>12 hours)
+		if age > common.SyncTokenSoftAge {
+			log.DebugPrint(session.Debug,
+				fmt.Sprintf("Sync | Sync token aging (%v old), consider refresh soon", age),
+				common.MaxDebugChars)
+		}
+
 		return token.SyncToken, nil
 	}
 
