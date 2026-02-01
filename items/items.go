@@ -48,7 +48,6 @@ type AppTagConfig struct {
 }
 
 const (
-	retryScaleFactor   = 0.25
 	statusInvalidToken = 498
 )
 

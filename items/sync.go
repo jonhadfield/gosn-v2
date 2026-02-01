@@ -1057,9 +1057,9 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 func resizeForRetry(in *SyncInput) {
 	if in.PageSize != 0 {
-		in.PageSize = int(math.Ceil(float64(in.PageSize) * retryScaleFactor))
+		in.PageSize = int(math.Ceil(float64(in.PageSize) * common.RetryScaleFactor))
 	} else {
-		in.PageSize = int(math.Ceil(float64(common.PageSize) * retryScaleFactor))
+		in.PageSize = int(math.Ceil(float64(common.PageSize) * common.RetryScaleFactor))
 	}
 }
 

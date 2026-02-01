@@ -59,6 +59,19 @@ const (
 	// Sync token TTL settings
 	SyncTokenMaxAge     = 24 * time.Hour  // Maximum age before token expires
 	SyncTokenSoftAge    = 12 * time.Hour  // Age when warning is logged
+
+	// Retry and backoff configuration
+	RetryScaleFactor           = 0.25            // Scale factor for retry batch size reduction
+	RateLimitBaseDelay         = 1000            // Base delay for rate limit backoff (ms)
+	RateLimitMaxDelay          = 5000            // Maximum delay for rate limit backoff (ms)
+	RateLimitInitialBackoff    = 5000            // Initial backoff for rate limit errors (ms)
+	NetworkErrorBackoff        = 2000            // Backoff for network errors (ms)
+	ConflictErrorBackoff       = 1000            // Backoff for conflict errors (ms)
+	UnknownErrorBackoff        = 1000            // Backoff for unknown errors (ms)
+
+	// Sync operation thresholds
+	SyncDelayMinimum           = 1 * time.Second // Minimum delay between sync operations
+
 	TimeLayout          = "2006-01-02T15:04:05.000Z"
 	TimeLayout2         = "2006-01-02T15:04:05.000000Z"
 	DefaultSNVersion    = "004"
