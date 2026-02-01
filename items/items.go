@@ -337,17 +337,16 @@ func (i *Items) Encrypt(s *session.Session, ik session.SessionItemsKey) (e Encry
 }
 
 type EncryptedItem struct {
+	// String fields (16 bytes each on 64-bit) - ordered for better cache locality
 	UUID        string `json:"uuid"`
 	ItemsKeyID  string `json:"items_key_id,omitempty"`
 	Content     string `json:"content"`
 	ContentType string `json:"content_type"`
 	EncItemKey  string `json:"enc_item_key"`
-	Deleted     bool   `json:"deleted"`
-	// Default            bool    `json:"isDefault"`
-	CreatedAt           string  `json:"created_at"`
-	UpdatedAt           string  `json:"updated_at"`
-	CreatedAtTimestamp  int64   `json:"created_at_timestamp"`
-	UpdatedAtTimestamp  int64   `json:"updated_at_timestamp"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+
+	// Pointer fields (8 bytes each)
 	DuplicateOf         *string `json:"duplicate_of,omitempty"`
 	AuthHash            *string `json:"auth_hash,omitempty"`
 	UpdatedWithSession  *string `json:"updated_with_session,omitempty"`
@@ -355,6 +354,14 @@ type EncryptedItem struct {
 	SharedVaultUUID     *string `json:"shared_vault_uuid,omitempty"`
 	UserUUID            *string `json:"user_uuid,omitempty"`
 	LastEditedByUUID    *string `json:"last_edited_by_uuid,omitempty"`
+
+	// Integer fields (8 bytes each)
+	CreatedAtTimestamp int64 `json:"created_at_timestamp"`
+	UpdatedAtTimestamp int64 `json:"updated_at_timestamp"`
+
+	// Boolean field (1 byte, minimal padding to 8-byte boundary)
+	Deleted bool `json:"deleted"`
+	// Default            bool    `json:"isDefault"`
 }
 
 func (ei EncryptedItem) GetItemsKeyID() string {
@@ -883,7 +890,7 @@ type TagContent struct {
 	Expanded       bool           `json:"expanded,omitempty"`   // Whether tag is expanded in UI
 	ParentId       string         `json:"parentId,omitempty"`   // Parent tag for nested tags
 	// Missing attributes from official Standard Notes
-	Preferences    interface{}    `json:"preferences,omitempty"` // TagPreferences object
+	Preferences interface{} `json:"preferences,omitempty"` // TagPreferences object
 }
 
 func removeStringFromSlice(inSt string, inSl []string) []string {
