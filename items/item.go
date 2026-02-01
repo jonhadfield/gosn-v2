@@ -38,32 +38,39 @@ type Content interface {
 }
 
 // ItemCommon contains the fields common to all SN Items.
+// Fields are ordered to minimize memory padding: strings, pointers, integers, then bools.
 type ItemCommon struct {
-	UUID                string
-	ItemsKeyID          string
-	EncryptedItemKey    string
-	ContentType         string
-	Deleted             bool
-	DuplicateOf         string
-	CreatedAt           string
-	UpdatedAt           string
-	CreatedAtTimestamp  int64
-	UpdatedAtTimestamp  int64
-	ContentSize         int
+	// String fields (16 bytes each on 64-bit)
+	UUID             string
+	ItemsKeyID       string
+	EncryptedItemKey string
+	ContentType      string
+	DuplicateOf      string
+	CreatedAt        string
+	UpdatedAt        string
+
+	// Pointer fields (8 bytes each on 64-bit)
 	AuthHash            *string
 	UpdatedWithSession  *string
 	KeySystemIdentifier *string
 	SharedVaultUUID     *string
 	UserUUID            *string
 	LastEditedByUUID    *string
-	// Base ItemContent attributes from official Standard Notes
 	ConflictOf          *string `json:"conflict_of,omitempty"`
-	Protected           bool    `json:"protected,omitempty"`
-	Trashed             bool    `json:"trashed,omitempty"`
-	Pinned              bool    `json:"pinned,omitempty"`
-	Archived            bool    `json:"archived,omitempty"`
-	Starred             bool    `json:"starred,omitempty"`
-	Locked              bool    `json:"locked,omitempty"`
+
+	// Integer fields (8 bytes each)
+	CreatedAtTimestamp int64
+	UpdatedAtTimestamp int64
+	ContentSize        int
+
+	// Boolean fields packed together (1 byte each, minimal padding)
+	Deleted   bool
+	Protected bool `json:"protected,omitempty"`
+	Trashed   bool `json:"trashed,omitempty"`
+	Pinned    bool `json:"pinned,omitempty"`
+	Archived  bool `json:"archived,omitempty"`
+	Starred   bool `json:"starred,omitempty"`
+	Locked    bool `json:"locked,omitempty"`
 }
 
 func GetMatchingItem(uuid string, iks []session.SessionItemsKey) session.SessionItemsKey {

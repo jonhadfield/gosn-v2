@@ -63,19 +63,28 @@ type RateLimitBackoff struct {
 }
 
 type Item struct {
-	UUID               string `storm:"id,unique"`
-	Content            string
-	ContentType        string `storm:"index"`
-	ItemsKeyID         string
-	EncItemKey         string
-	Deleted            bool
-	CreatedAt          string
-	UpdatedAt          string
+	// String fields (16 bytes each) - ordered for optimal memory layout
+	UUID        string `storm:"id,unique"`
+	Content     string
+	ContentType string `storm:"index"`
+	ItemsKeyID  string
+	EncItemKey  string
+	CreatedAt   string
+	UpdatedAt   string
+
+	// Pointer field (8 bytes)
+	DuplicateOf *string
+
+	// time.Time is 24 bytes (3 words on 64-bit)
+	DirtiedDate time.Time
+
+	// Integer fields (8 bytes each)
 	CreatedAtTimestamp int64
 	UpdatedAtTimestamp int64
-	DuplicateOf        *string
-	Dirty              bool
-	DirtiedDate        time.Time
+
+	// Boolean fields packed together (1 byte each, minimal padding)
+	Deleted bool
+	Dirty   bool
 }
 
 type SyncToken struct {
