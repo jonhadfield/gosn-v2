@@ -1,6 +1,7 @@
 package items
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
@@ -57,6 +59,14 @@ const (
 	ConflictTypeUUIDError   = "uuid_error"
 	ConflictTypeInvalidItem = "invalid_server_item"
 )
+
+// encodeBufferPool provides reusable buffers for JSON encoding
+var encodeBufferPool = sync.Pool{
+	New: func() interface{} {
+		// Pre-allocate 256KB buffer (typical sync size)
+		return bytes.NewBuffer(make([]byte, 0, 256*1024))
+	},
+}
 
 // getConflictTypes returns a slice of conflict types for debugging
 func getConflictTypes(conflicts ConflictedItems) []string {
@@ -873,14 +883,28 @@ func encodeItems(items EncryptedItems, start, limit int, debug bool) ([]byte, in
 	finalItem := min(len(items)-1, start+limit-1)
 	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | going to put items: %d to %d", start+1, finalItem+1), common.MaxDebugChars)
 
-	encItemJSON, err := json.Marshal(items[start : finalItem+1])
-	if err != nil {
+	// Get buffer from pool for reuse
+	buf := encodeBufferPool.Get().(*bytes.Buffer)
+	buf.Reset() // Clear any previous content
+
+	// Encode directly to buffer
+	encoder := json.NewEncoder(buf)
+	if err := encoder.Encode(items[start : finalItem+1]); err != nil {
+		encodeBufferPool.Put(buf) // Return buffer even on error
 		return nil, 0, err
 	}
 
-	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | request size: %d bytes", len(encItemJSON)), common.MaxDebugChars)
+	// Get bytes (removes trailing newline from Encoder)
+	encItemJSON := bytes.TrimSpace(buf.Bytes())
+	result := make([]byte, len(encItemJSON))
+	copy(result, encItemJSON)
 
-	return encItemJSON, finalItem, nil
+	// Return buffer to pool for reuse
+	encodeBufferPool.Put(buf)
+
+	log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | request size: %d bytes", len(result)), common.MaxDebugChars)
+
+	return result, finalItem, nil
 }
 
 // buildRequestBody constructs the sync request body.
