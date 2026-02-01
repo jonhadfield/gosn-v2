@@ -3,6 +3,8 @@ package items
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
+	"sync"
 
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/log"
@@ -120,7 +122,49 @@ func DecryptAndParseItemKeys(mk string, eiks EncryptedItems) (iks []ItemsKey, er
 }
 
 // DecryptItems.
+const (
+	// DecryptionBatchThreshold determines when to use parallel vs sequential decryption
+	DecryptionBatchThreshold = 50
+)
+
+// decryptJob represents a single decryption task
+type decryptJob struct {
+	item  EncryptedItem
+	index int
+}
+
+// decryptResult holds the result of a decryption operation
+type decryptResult struct {
+	item  DecryptedItem
+	index int
+	err   error
+}
+
+// DecryptItems decrypts multiple items, using parallel processing for large batches
 func DecryptItems(s *session.Session, ei EncryptedItems, iks []session.SessionItemsKey) (o DecryptedItems, err error) {
+	// Count non-deleted items
+	nonDeletedCount := 0
+	for _, e := range ei {
+		if !e.Deleted {
+			nonDeletedCount++
+		}
+	}
+
+	if nonDeletedCount == 0 {
+		return o, nil
+	}
+
+	// For small batches, sequential is faster (avoids goroutine overhead)
+	if nonDeletedCount < DecryptionBatchThreshold {
+		return decryptItemsSequential(s, ei, iks)
+	}
+
+	// Parallel decryption for large batches
+	return decryptItemsParallel(s, ei, iks, nonDeletedCount)
+}
+
+// decryptItemsSequential processes items one at a time (for small batches)
+func decryptItemsSequential(s *session.Session, ei EncryptedItems, iks []session.SessionItemsKey) (o DecryptedItems, err error) {
 	for _, e := range ei {
 		if e.Deleted {
 			continue
@@ -136,6 +180,64 @@ func DecryptItems(s *session.Session, ei EncryptedItems, iks []session.SessionIt
 	}
 
 	return o, nil
+}
+
+// decryptItemsParallel processes items concurrently using a worker pool
+func decryptItemsParallel(s *session.Session, ei EncryptedItems, iks []session.SessionItemsKey, nonDeletedCount int) (o DecryptedItems, err error) {
+	// Use number of CPUs as worker count
+	workers := runtime.NumCPU()
+	if workers > nonDeletedCount {
+		workers = nonDeletedCount
+	}
+
+	// Create channels for jobs and results
+	jobs := make(chan decryptJob, nonDeletedCount)
+	results := make(chan decryptResult, nonDeletedCount)
+
+	// Start worker goroutines
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				di, decryptErr := DecryptItem(job.item, s, iks)
+				results <- decryptResult{
+					item:  di,
+					index: job.index,
+					err:   decryptErr,
+				}
+			}
+		}()
+	}
+
+	// Queue all decryption jobs
+	jobIndex := 0
+	for _, e := range ei {
+		if e.Deleted {
+			continue
+		}
+		jobs <- decryptJob{item: e, index: jobIndex}
+		jobIndex++
+	}
+	close(jobs)
+
+	// Wait for all workers to finish and close results channel
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results in order
+	decrypted := make([]DecryptedItem, nonDeletedCount)
+	for result := range results {
+		if result.err != nil {
+			return nil, result.err
+		}
+		decrypted[result.index] = result.item
+	}
+
+	return decrypted, nil
 }
 
 const (

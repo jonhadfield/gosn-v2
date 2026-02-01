@@ -889,6 +889,16 @@ func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 
 	limit := determineLimit(input.PageSize, debug)
 
+	// Pre-allocate slices for recursive appends to avoid reallocations
+	// Estimate capacity: items to push + typical response size
+	if input.NextItem == 0 && len(input.Items) > 0 {
+		estimatedTotal := len(input.Items) + 200 // Heuristic: items + typical response
+		out.Data.Items = make(EncryptedItems, 0, estimatedTotal)
+		out.Data.SavedItems = make(EncryptedItems, 0, len(input.Items))
+		out.Data.Unsaved = make(EncryptedItems, 0, 10) // Usually very few
+		out.Data.Conflicts = make(ConflictedItems, 0, 10)
+	}
+
 	out.Data.PutLimitUsed = limit
 	// fmt.Printf("[syncItemsViaAPI] Starting sync at %s with %d items, limit %d\n", time.Now().Format("15:04:05.000"), len(input.Items), limit)
 	encItemJSON, finalItem, err := encodeItems(input.Items, input.NextItem, limit, debug)
