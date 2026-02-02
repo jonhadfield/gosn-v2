@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -225,11 +224,11 @@ func (pi Items) ToItems(s *Session) (items.Items, error) {
 
 	if eItems != nil {
 		if len(s.Session.ItemsKeys) == 0 {
-			panic("trying to convert cache items to items with no items keys")
+			return items.Items{}, fmt.Errorf("toItems: cannot convert cache items to items with no items keys")
 		}
 
 		if s.Session.DefaultItemsKey.ItemsKey == "" {
-			panic("trying to convert cache items to items with no default items key")
+			return items.Items{}, fmt.Errorf("toItems: cannot convert cache items to items with no default items key")
 		}
 
 		its, err = eItems.DecryptAndParse(s.Session)
@@ -249,18 +248,16 @@ func (pi Items) ToItems(s *Session) (items.Items, error) {
 // 	return s.Session.Export(path)
 // }
 
-func (s *Session) RemoveDB() {
+func (s *Session) RemoveDB() error {
 	if err := os.Remove(s.CacheDBPath); err != nil {
-		if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
-			if !strings.Contains(err.Error(), "no such file or directory") {
-				panic(err)
-			}
+		// Check if the error is because the file doesn't exist (which is acceptable)
+		if os.IsNotExist(err) {
+			return nil
 		}
-
-		if runtime.GOOS == "windows" && !(strings.Contains(err.Error(), "cannot find the file specified") || strings.Contains(err.Error(), "cannot find the path specified")) {
-			panic(err)
-		}
+		// Return any other error
+		return fmt.Errorf("removeDB: failed to remove cache database: %w", err)
 	}
+	return nil
 }
 
 // Import reads a json export file into SN and then syncs with the db.
@@ -308,7 +305,7 @@ func (s *Session) RemoveDB() {
 // 	return err
 // }
 
-func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items) {
+func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items, err error) {
 	for _, i := range items {
 		var cItem Item
 		cItem.UUID = i.UUID
@@ -326,7 +323,7 @@ func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items) {
 		iik := ""
 
 		if !i.Deleted && i.ItemsKeyID == "" && !(i.ContentType == common.SNItemTypeItemsKey || strings.HasPrefix(i.ContentType, "SF")) {
-			panic(fmt.Sprintf("we've received %s %s from SN without ItemsKeyID", i.ContentType, i.UUID))
+			return nil, fmt.Errorf("toCacheItems: received %s %s from SN without ItemsKeyID", i.ContentType, i.UUID)
 		}
 
 		if i.ItemsKeyID != "" {
@@ -346,7 +343,7 @@ func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items) {
 		pitems = append(pitems, cItem)
 	}
 
-	return pitems
+	return pitems, nil
 }
 
 // SaveNotes encrypts, converts to cache items, and then persists to db.
@@ -356,7 +353,10 @@ func SaveNotes(s *Session, db *storm.DB, notes items.Notes, close bool) error {
 		return err
 	}
 
-	cItems := ToCacheItems(eItems, false)
+	cItems, err := ToCacheItems(eItems, false)
+	if err != nil {
+		return err
+	}
 
 	return SaveCacheItems(db, cItems, close)
 }
@@ -368,14 +368,20 @@ func SaveTags(db *storm.DB, s *Session, tags items.Tags, close bool) error {
 		return err
 	}
 
-	cItems := ToCacheItems(eItems, false)
+	cItems, err := ToCacheItems(eItems, false)
+	if err != nil {
+		return err
+	}
 
 	return SaveCacheItems(db, cItems, close)
 }
 
 // SaveEncryptedItems converts to cache items and persists to db.
 func SaveEncryptedItems(db *storm.DB, items items.EncryptedItems, close bool) error {
-	cItems := ToCacheItems(items, false)
+	cItems, err := ToCacheItems(items, false)
+	if err != nil {
+		return err
+	}
 
 	return SaveCacheItems(db, cItems, close)
 }
@@ -401,7 +407,10 @@ func SaveItems(s *Session, db *storm.DB, its items.Items, close bool) error {
 		eItems = append(eItems, eItem)
 	}
 
-	cItems := ToCacheItems(eItems, false)
+	cItems, err := ToCacheItems(eItems, false)
+	if err != nil {
+		return err
+	}
 
 	return SaveCacheItems(db, cItems, close)
 }
@@ -1189,7 +1198,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 				continue // Skip this item entirely
 			}
 			if d.Content == "" {
-				panic("dirty items key is empty")
+				return SyncOutput{}, fmt.Errorf("sync: dirty items key %s has empty content", d.UUID)
 			}
 			// Skip any attempt to modify existing ItemsKeys
 			if d.UUID != "" && d.UpdatedAt != "" {
@@ -1259,7 +1268,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	}
 
 	if !gSI.Session.Valid() {
-		panic("invalid Session")
+		return SyncOutput{}, fmt.Errorf("sync: invalid session")
 	}
 
 	var gSO items.SyncOutput
@@ -1309,7 +1318,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | initial sync retrieved sync token %s from SN", gSO.SyncToken), common.MaxDebugChars)
 
 	if len(gSO.Conflicts) > 0 {
-		panic("conflicts should have been resolved by gosn sync")
+		return SyncOutput{}, fmt.Errorf("sync: unexpected conflicts (%d) - should have been resolved by gosn sync", len(gSO.Conflicts))
 	}
 
 	// check items are valid
@@ -1367,7 +1376,7 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 		item := encryptedItemToCacheItem(x)
 
 		if item.Deleted {
-			panic(fmt.Sprintf("adding deleted item to db: %+v", item))
+			return SyncOutput{}, fmt.Errorf("sync: attempting to add deleted item to db: %s %s", item.ContentType, item.UUID)
 		}
 
 		// find item (from function input) matching saved item and update original with datestamps
