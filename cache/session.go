@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"fmt"
+
 	"github.com/asdine/storm/v3"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/jonhadfield/gosn-v2/auth"
@@ -20,7 +22,7 @@ func ImportSession(gs *auth.SignInResponseDataSession, path string) (*Session, e
 	var err error
 	var s *Session
 	if gs == nil {
-		panic("gs is nil")
+		return nil, fmt.Errorf("importSession: session parameter cannot be nil")
 	}
 
 	s = &Session{}
