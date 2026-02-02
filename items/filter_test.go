@@ -506,3 +506,88 @@ func TestFilterNoteByTitleAndDeletion(t *testing.T) {
 	res = applyNoteFilters(*englandNote, itemFilters, nil)
 	require.False(t, res, "failed to match note by title and deletion status")
 }
+
+func TestCompileRegexFilters(t *testing.T) {
+	// Test successful regex compilation
+	itemFilters := ItemFilters{
+		Filters: []Filter{
+			{
+				Type:       common.SNItemTypeNote,
+				Key:        "Title",
+				Comparison: "~",
+				Value:      "^[A-Z]+$",
+			},
+			{
+				Type:       common.SNItemTypeNote,
+				Key:        "Text",
+				Comparison: "==",
+				Value:      "plain text",
+			},
+			{
+				Type:       common.SNItemTypeTag,
+				Key:        "Title",
+				Comparison: "~",
+				Value:      ".*tag.*",
+			},
+		},
+		MatchAny: false,
+	}
+
+	err := itemFilters.CompileRegexFilters()
+	require.NoError(t, err, "failed to compile valid regex filters")
+
+	// Verify regex filters were compiled
+	require.NotNil(t, itemFilters.Filters[0].compiledRE, "expected first filter to have compiled regex")
+	require.Nil(t, itemFilters.Filters[1].compiledRE, "expected second filter to not have compiled regex (not a regex filter)")
+	require.NotNil(t, itemFilters.Filters[2].compiledRE, "expected third filter to have compiled regex")
+
+	// Test pre-compiled regex is used in filtering
+	gnuNote := createNote("GNU", "Is not Unix", "")
+	res := applyNoteFilters(*gnuNote, itemFilters, nil)
+	require.True(t, res, "pre-compiled regex filter should match GNU note")
+}
+
+func TestCompileRegexFiltersInvalidPattern(t *testing.T) {
+	// Test invalid regex pattern
+	itemFilters := ItemFilters{
+		Filters: []Filter{
+			{
+				Type:       common.SNItemTypeNote,
+				Key:        "Title",
+				Comparison: "~",
+				Value:      "[invalid(regex",
+			},
+		},
+		MatchAny: true,
+	}
+
+	err := itemFilters.CompileRegexFilters()
+	require.Error(t, err, "expected error for invalid regex pattern")
+}
+
+func TestRegexFilterPerformanceWithPreCompilation(t *testing.T) {
+	// Create a note and filter with regex
+	gnuNote := createNote("GNU", "Is not Unix", "")
+
+	filter := Filter{
+		Type:       common.SNItemTypeNote,
+		Key:        "Title",
+		Comparison: "~",
+		Value:      "^G.*U$",
+	}
+
+	itemFilters := ItemFilters{
+		Filters:  []Filter{filter},
+		MatchAny: true,
+	}
+
+	// Pre-compile the regex
+	err := itemFilters.CompileRegexFilters()
+	require.NoError(t, err, "failed to pre-compile regex")
+
+	// Run filter multiple times - should use pre-compiled regex
+	for i := 0; i < 100; i++ {
+		res := applyNoteFilters(*gnuNote, itemFilters, nil)
+		require.True(t, res, "filter should match on iteration %d", i)
+	}
+}
