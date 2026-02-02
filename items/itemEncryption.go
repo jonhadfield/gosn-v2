@@ -46,18 +46,21 @@ func EncryptItemsKey(ik session.SessionItemsKey, s *session.Session, new bool) (
 	encryptedItem.Deleted = ik.Deleted
 
 	if ik.CreatedAtTimestamp == 0 {
-		panic("ik.CreatedAtTimeStamp is 0")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: items key has zero CreatedAtTimestamp")
 	}
 
 	encryptedItem.CreatedAtTimestamp = ik.CreatedAtTimestamp
 
 	// Generate random item encryption key
-	itemEncryptionKey := crypto.GenerateItemKey(64)
+	itemEncryptionKey, err := crypto.GenerateItemKey(64)
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItemsKey: %w", err)
+	}
 
 	var encryptedContent string
 
 	if ik.ItemsKey == "" {
-		panic("attempting to encrypt empty items key")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: attempting to encrypt empty items key")
 	}
 
 	// Construct ItemsKeyContent from SessionItemsKey fields
@@ -81,36 +84,47 @@ func EncryptItemsKey(ik session.SessionItemsKey, s *session.Session, new bool) (
 
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
 	// Generate nonce
-	nonce := hex.EncodeToString(crypto.GenerateNonce())
+	nonceBytes, err := crypto.GenerateNonce()
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItemsKey: %w", err)
+	}
+	nonce := hex.EncodeToString(nonceBytes)
 
 	encryptedContent, err = crypto.EncryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
 	if err != nil {
-		return
+		return encryptedItem, fmt.Errorf("encryptItemsKey: failed to encrypt content: %w", err)
 	}
 
 	// Create the Encrypted Items Key content element
 	contentStr := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
 
 	encryptedItem.Content = contentStr
-	nonce = hex.EncodeToString(crypto.GenerateNonce())
+	nonceBytes, err = crypto.GenerateNonce()
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItemsKey: %w", err)
+	}
+	nonce = hex.EncodeToString(nonceBytes)
 
 	// Encrypt the item encryption key with the master key
 	var encryptedContentKey string
 	encryptedContentKey, err = crypto.EncryptString(itemEncryptionKey, s.MasterKey, nonce, b64AuthData, 32)
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItemsKey: failed to encrypt content key: %w", err)
+	}
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 
 	switch {
 	case encryptedItem.EncItemKey == "":
-		panic("produced encrypted ItemsKey with empty enc_item_key")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: produced encrypted ItemsKey with empty enc_item_key")
 	case encryptedItem.UUID == "":
-		panic("produced encrypted ItemsKey with empty uuid")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: produced encrypted ItemsKey with empty uuid")
 	case encryptedItem.Content == "":
-		panic("produced encrypted ItemsKey with empty content")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: produced encrypted ItemsKey with empty content")
 	case encryptedItem.ItemsKeyID != "":
-		panic("produced encrypted ItemsKey non nil ItemsKeyID")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: produced encrypted ItemsKey with non-nil ItemsKeyID")
 	case encryptedItem.CreatedAtTimestamp == 0:
-		panic("encrypted items key has CreatedAtTimestamp set to 0")
+		return encryptedItem, fmt.Errorf("encryptItemsKey: encrypted items key has CreatedAtTimestamp set to 0")
 	}
 
 	return encryptedItem, err
@@ -120,7 +134,7 @@ func EncryptItem(item Item, ik session.SessionItemsKey, session *session.Session
 	var contentEncryptionKey string
 
 	if ik.UUID == "" {
-		panic("in EncryptItem with invalid items key (missing UUID)")
+		return encryptedItem, fmt.Errorf("encryptItem: invalid items key (missing UUID)")
 	}
 
 	ikid := ik.UUID
@@ -136,7 +150,10 @@ func EncryptItem(item Item, ik session.SessionItemsKey, session *session.Session
 	encryptedItem.UpdatedAtTimestamp = item.GetUpdatedAtTimestamp()
 	encryptedItem.CreatedAtTimestamp = item.GetCreatedAtTimestamp()
 	// Generate Item Key
-	itemKey := crypto.GenerateItemKey(64)
+	itemKey, err := crypto.GenerateItemKey(64)
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItem: %w", err)
+	}
 	// fmt.Printf("GENERATED ITEM KEY: %s\n", itemKey)
 	// get Item Encryption Key
 	itemEncryptionKey := itemKey
@@ -146,11 +163,15 @@ func EncryptItem(item Item, ik session.SessionItemsKey, session *session.Session
 	mContent, _ := json.Marshal(item.GetContent())
 	authData := auth.GenerateAuthData(item.GetContentType(), item.GetUUID(), session.KeyParams)
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
-	nonce := hex.EncodeToString(crypto.GenerateNonce())
+	nonceBytes, err := crypto.GenerateNonce()
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItem: %w", err)
+	}
+	nonce := hex.EncodeToString(nonceBytes)
 
 	encryptedContent, err = crypto.EncryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
 	if err != nil {
-		return
+		return encryptedItem, fmt.Errorf("encryptItem: failed to encrypt content: %w", err)
 	}
 
 	content := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
@@ -158,6 +179,9 @@ func EncryptItem(item Item, ik session.SessionItemsKey, session *session.Session
 	// encrypt content encryption key
 	var encryptedContentKey string
 	encryptedContentKey, err = crypto.EncryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData, 32)
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encryptItem: failed to encrypt content key: %w", err)
+	}
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 
@@ -181,7 +205,7 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *session.Session) (encrypte
 	var contentEncryptionKey string
 
 	if ik.UUID == "" {
-		panic("in EncryptItem with invalid items key (missing UUID)")
+		return encryptedItem, fmt.Errorf("encrypt: invalid items key (missing UUID)")
 	}
 
 	ikid := ik.UUID
@@ -196,26 +220,40 @@ func (di DecryptedItem) Encrypt(ik ItemsKey, session *session.Session) (encrypte
 	encryptedItem.UpdatedAtTimestamp = di.UpdatedAtTimestamp
 	encryptedItem.CreatedAtTimestamp = di.CreatedAtTimestamp
 	// Generate Item Key
-	itemEncryptionKey := crypto.GenerateItemKey(32)
+	itemEncryptionKey, err := crypto.GenerateItemKey(32)
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encrypt: %w", err)
+	}
 
 	mContent := []byte(di.Content)
 
 	authData := auth.GenerateAuthData(di.ContentType, di.UUID, session.KeyParams)
 
 	b64AuthData := base64.StdEncoding.EncodeToString([]byte(authData))
-	nonce := hex.EncodeToString(crypto.GenerateNonce())
+	nonceBytes, err := crypto.GenerateNonce()
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encrypt: %w", err)
+	}
+	nonce := hex.EncodeToString(nonceBytes)
 
 	encryptedContent, err := crypto.EncryptString(string(mContent), itemEncryptionKey, nonce, b64AuthData, 32)
 	if err != nil {
-		return
+		return encryptedItem, fmt.Errorf("encrypt: failed to encrypt content: %w", err)
 	}
 
 	encryptedItem.Content = fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContent, b64AuthData)
 	// generate nonce
-	nonce = hex.EncodeToString(crypto.GenerateNonce())
+	nonceBytes, err = crypto.GenerateNonce()
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encrypt: %w", err)
+	}
+	nonce = hex.EncodeToString(nonceBytes)
 	// encrypt content encryption key
 	var encryptedContentKey string
 	encryptedContentKey, err = crypto.EncryptString(itemEncryptionKey, contentEncryptionKey, nonce, b64AuthData, 32)
+	if err != nil {
+		return encryptedItem, fmt.Errorf("encrypt: failed to encrypt content key: %w", err)
+	}
 	encItemKey := fmt.Sprintf("004:%s:%s:%s", nonce, encryptedContentKey, b64AuthData)
 	encryptedItem.EncItemKey = encItemKey
 

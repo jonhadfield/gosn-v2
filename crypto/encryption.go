@@ -46,10 +46,10 @@ const (
 	MaxPlaintextSize = 10000000
 )
 
-func SplitContent(in string) (version, nonce, cipherText, authenticatedData string) {
+func SplitContent(in string) (version, nonce, cipherText, authenticatedData string, err error) {
 	components := strings.Split(in, ":")
 	if len(components) < 3 {
-		panic(components)
+		return "", "", "", "", fmt.Errorf("splitContent: invalid content format, expected at least 3 components, got %d", len(components))
 	}
 
 	version = components[0]           // protocol version
@@ -107,34 +107,34 @@ func DecryptCipherText(cipherText, rawKey, nonce, rawAuthenticatedData string) (
 	return plaintext, err
 }
 
-func GenerateItemKey(returnBytes int) string {
+func GenerateItemKey(returnBytes int) (string, error) {
 	itemKeyBytes := make([]byte, 64)
 
 	_, err := crand.Read(itemKeyBytes)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("generateItemKey: failed to generate random bytes: %w", err)
 	}
 
 	itemKey := hex.EncodeToString(itemKeyBytes)
 
-	return itemKey[:returnBytes]
+	return itemKey[:returnBytes], nil
 }
 
-func GenerateNonce() []byte {
+func GenerateNonce() ([]byte, error) {
 	bNonce := make([]byte, chacha20poly1305.NonceSizeX)
 
 	_, err := crand.Read(bNonce)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("generateNonce: failed to generate random nonce: %w", err)
 	}
 
-	return bNonce
+	return bNonce, nil
 }
 
 func EncryptString(plainText, key, nonce, authenticatedData string, noBytes int) (result string, err error) {
 	// TODO: expecting authenticatedData to be pre base64 encoded?
 	if len(nonce) == 0 {
-		panic("empty nonce")
+		return "", fmt.Errorf("encryptString: nonce cannot be empty")
 	}
 
 	itemKey := make([]byte, noBytes)
@@ -146,7 +146,7 @@ func EncryptString(plainText, key, nonce, authenticatedData string, noBytes int)
 
 	aead, err := chacha20poly1305.NewX(itemKey)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("encryptString: failed to create cipher: %w", err)
 	}
 
 	var encryptedMsg []byte
@@ -164,7 +164,7 @@ func EncryptString(plainText, key, nonce, authenticatedData string, noBytes int)
 	return base64.StdEncoding.EncodeToString(encryptedMsg), err
 }
 
-func generateSalt(identifier, nonce string) []byte {
+func generateSalt(identifier, nonce string) ([]byte, error) {
 	// Per Standard Notes Protocol 004, salt is generated from SHA-256(identifier:nonce)
 	// truncated to 32 hex characters (representing 128 bits), then decoded to 16 bytes
 	// Reference: https://github.com/standardnotes/app
@@ -184,10 +184,10 @@ func generateSalt(identifier, nonce string) []byte {
 	// This matches the Standard Notes app's implementation
 	salt, err := hex.DecodeString(string(hash[:saltLengthChars]))
 	if err != nil {
-		panic(fmt.Sprintf("failed to decode salt: %v", err))
+		return nil, fmt.Errorf("generateSalt: failed to decode salt: %w", err)
 	}
 
-	return salt
+	return salt, nil
 }
 
 type GenerateEncryptedPasswordInput struct {
@@ -202,7 +202,10 @@ func GenerateMasterKeyAndServerPassword004(input GenerateEncryptedPasswordInput)
 	iterations := uint32(5)
 	memory := uint32(64 * 1024)
 	parallel := uint8(1)
-	salt := generateSalt(input.Identifier, input.PasswordNonce)
+	salt, err := generateSalt(input.Identifier, input.PasswordNonce)
+	if err != nil {
+		return "", "", fmt.Errorf("generateMasterKeyAndServerPassword004: %w", err)
+	}
 	derivedKey := argon2.IDKey([]byte(input.UserPassword), salt, iterations, memory, parallel, keyLength)
 	derivedKeyHex := make([]byte, hex.EncodedLen(len(derivedKey)))
 	hex.Encode(derivedKeyHex, derivedKey)
@@ -222,32 +225,32 @@ func padToAESBlockSize(b []byte) []byte {
 }
 
 // Encrypt string to base64 crypto using AES.
-func Encrypt(key []byte, text string) string {
+func Encrypt(key []byte, text string) (string, error) {
 	key = padToAESBlockSize(key)
 	plaintext := []byte(text)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("encrypt: failed to create cipher: %w", err)
 	}
 
 	// fail if plaintext is over 10MB
 	if len(plaintext) > MaxPlaintextSize {
-		panic("plaintext too long. please report this issue at https://github.com/jonhadfield/gosn-v2/issues")
+		return "", fmt.Errorf("encrypt: plaintext too long (%d bytes, max %d bytes). please report this issue at https://github.com/jonhadfield/gosn-v2/issues", len(plaintext), MaxPlaintextSize)
 	}
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 
 	iv := ciphertext[:aes.BlockSize]
 	if _, err = io.ReadFull(crand.Reader, iv); err != nil {
-		panic(err)
+		return "", fmt.Errorf("encrypt: failed to generate IV: %w", err)
 	}
 
 	stream := cipher.NewCFBEncrypter(block, iv)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
 	// convert to base64
-	return base64.URLEncoding.EncodeToString(ciphertext)
+	return base64.URLEncoding.EncodeToString(ciphertext), nil
 }
 
 // decodeCryptoText decodes URL-safe base64 encoded cipher text.
