@@ -19,6 +19,23 @@ type Filter struct {
 	Key        string
 	Comparison string
 	Value      string
+	compiledRE *regexp.Regexp // Pre-compiled regex for "~" comparisons
+}
+
+// CompileRegexFilters pre-compiles regex patterns for all filters using "~" comparison.
+// This should be called once when creating ItemFilters to avoid repeated compilation
+// during filter operations. Returns error if any regex pattern is invalid.
+func (f *ItemFilters) CompileRegexFilters() error {
+	for i := range f.Filters {
+		if f.Filters[i].Comparison == "~" {
+			compiled, err := regexp.Compile(f.Filters[i].Value)
+			if err != nil {
+				return err
+			}
+			f.Filters[i].compiledRE = compiled
+		}
+	}
+	return nil
 }
 
 func (i *Items) Filter(f ItemFilters) {
@@ -84,10 +101,18 @@ func applyNoteEditorFilter(f Filter, i Note, matchAny bool) (result, matchedAll,
 	} else {
 		switch f.Comparison {
 		case "~":
-			// TODO: Don't compile every time
-			r := regexp.MustCompile(f.Value)
+			// Use pre-compiled regex from filter
+			if f.compiledRE == nil {
+				// Fallback for filters that weren't pre-compiled (shouldn't happen in normal use)
+				var err error
+				f.compiledRE, err = regexp.Compile(f.Value)
+				if err != nil {
+					matchedAll = false
+					return result, matchedAll, done
+				}
+			}
 			editorIdentifier := content.EditorIdentifier
-			if r.MatchString(editorIdentifier) {
+			if f.compiledRE.MatchString(editorIdentifier) {
 				if matchAny {
 					result = true
 					done = true
@@ -170,10 +195,17 @@ func applyNoteTextFilter(f Filter, i Note, matchAny bool) (result, matchedAll, d
 	} else {
 		switch f.Comparison {
 		case "~":
-			// TODO: Don't compile every time
-			r := regexp.MustCompile(f.Value)
+			// Use pre-compiled regex from filter
+			if f.compiledRE == nil {
+				var err error
+				f.compiledRE, err = regexp.Compile(f.Value)
+				if err != nil {
+					matchedAll = false
+					return result, matchedAll, done
+				}
+			}
 			text := content.GetText()
-			if r.MatchString(text) {
+			if f.compiledRE.MatchString(text) {
 				if matchAny {
 					result = true
 					done = true
@@ -300,8 +332,16 @@ func applyNoteTagTitleFilter(f Filter, i Note, tags Tags, matchAny bool) (result
 		} else {
 			switch f.Comparison {
 			case "~":
-				r := regexp.MustCompile(f.Value)
-				if r.MatchString(tag.Content.Title) {
+				// Use pre-compiled regex from filter
+				if f.compiledRE == nil {
+					var err error
+					f.compiledRE, err = regexp.Compile(f.Value)
+					if err != nil {
+						matchedAll = false
+						continue
+					}
+				}
+				if f.compiledRE.MatchString(tag.Content.Title) {
 					for _, ref := range tag.Content.References() {
 						if i.UUID == ref.UUID {
 							matchesTag = true
@@ -510,8 +550,16 @@ func applyNoteTitleFilter(f Filter, i Note, matchAny bool) (result, matchedAll, 
 	} else {
 		switch f.Comparison {
 		case "~":
-			r := regexp.MustCompile(f.Value)
-			if r.MatchString(i.Content.GetTitle()) {
+			// Use pre-compiled regex from filter
+			if f.compiledRE == nil {
+				var err error
+				f.compiledRE, err = regexp.Compile(f.Value)
+				if err != nil {
+					matchedAll = false
+					return result, matchedAll, done
+				}
+			}
+			if f.compiledRE.MatchString(i.Content.GetTitle()) {
 				if matchAny {
 					result = true
 					done = true
@@ -595,8 +643,16 @@ func applyTagFilters(item Tag, itemFilters ItemFilters) bool {
 			} else {
 				switch filter.Comparison {
 				case "~":
-					r := regexp.MustCompile(filter.Value)
-					if r.MatchString(item.Content.GetTitle()) {
+					// Use pre-compiled regex from filter
+					if filter.compiledRE == nil {
+						var err error
+						filter.compiledRE, err = regexp.Compile(filter.Value)
+						if err != nil {
+							matchedAll = false
+							continue
+						}
+					}
+					if filter.compiledRE.MatchString(item.Content.GetTitle()) {
 						if itemFilters.MatchAny {
 							return true
 						}
@@ -682,8 +738,16 @@ func applyComponentFilters(item Component, itemFilters ItemFilters) bool {
 			} else {
 				switch filter.Comparison {
 				case "~":
-					r := regexp.MustCompile(filter.Value)
-					if r.MatchString(item.Content.GetName()) {
+					// Use pre-compiled regex from filter
+					if filter.compiledRE == nil {
+						var err error
+						filter.compiledRE, err = regexp.Compile(filter.Value)
+						if err != nil {
+							matchedAll = false
+							continue
+						}
+					}
+					if filter.compiledRE.MatchString(item.Content.GetName()) {
 						if itemFilters.MatchAny {
 							return true
 						}
