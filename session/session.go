@@ -271,7 +271,10 @@ func AddSession(httpClient *retryablehttp.Client, snServer, inKey string, k keyr
 	rS := makeMinimalSessionString(session)
 	if inKey != "" {
 		key := []byte(inKey)
-		rS = crypto.Encrypt(key, makeMinimalSessionString(session))
+		rS, err = crypto.Encrypt(key, makeMinimalSessionString(session))
+		if err != nil {
+			return "", fmt.Errorf("failed to encrypt session: %w", err)
+		}
 	}
 
 	err = writeSession(rS, k)
@@ -309,7 +312,10 @@ func UpdateSession(sess *Session, k keyring.Keyring, debug bool) error {
 
 	rS := makeMinimalSessionString(*sess)
 	if key != "" {
-		rS = crypto.Encrypt(byteKey, makeMinimalSessionString(*sess))
+		rS, err = crypto.Encrypt(byteKey, makeMinimalSessionString(*sess))
+		if err != nil {
+			return fmt.Errorf("failed to encrypt session: %w", err)
+		}
 	}
 
 	err = writeSession(rS, k)

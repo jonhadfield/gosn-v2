@@ -1888,12 +1888,18 @@ func DedupeItemsKeys(itemsKeys []ItemsKey) (output []ItemsKey) {
 }
 
 func DecryptEncryptedItemKey(e EncryptedItem, encryptionKey string) (itemKey []byte, err error) {
-	_, nonce, cipherText, authData := crypto.SplitContent(e.EncItemKey)
+	_, nonce, cipherText, authData, err := crypto.SplitContent(e.EncItemKey)
+	if err != nil {
+		return nil, fmt.Errorf("decryptEncryptedItemKey: %w", err)
+	}
 	return crypto.DecryptCipherText(cipherText, encryptionKey, nonce, authData)
 }
 
 func DecryptContent(e EncryptedItem, encryptionKey string) (content []byte, err error) {
-	_, nonce, cipherText, authData := crypto.SplitContent(e.Content)
+	_, nonce, cipherText, authData, err := crypto.SplitContent(e.Content)
+	if err != nil {
+		return nil, fmt.Errorf("decryptContent: %w", err)
+	}
 
 	content, err = crypto.DecryptCipherText(cipherText, encryptionKey, nonce, authData)
 	if err != nil {
