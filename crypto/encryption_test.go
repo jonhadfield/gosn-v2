@@ -14,7 +14,9 @@ func TestGenerateSalt004(t *testing.T) {
 	identifier := "sn004@lessknown.co.uk"
 	nonce := "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
 	decodedHex64, _ := hex.DecodeString("7129955dbbbfb376fdcac49890ef17bc")
-	require.Equal(t, decodedHex64, generateSalt(identifier, nonce))
+	salt, err := generateSalt(identifier, nonce)
+	require.NoError(t, err)
+	require.Equal(t, decodedHex64, salt)
 }
 
 func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
