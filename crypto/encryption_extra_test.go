@@ -25,18 +25,27 @@ func TestHexDecodeStringsInvalid(t *testing.T) {
 }
 
 func TestGenerateItemKeyLength(t *testing.T) {
-	key := GenerateItemKey(32)
+	key, err := GenerateItemKey(32)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(key) != 32 {
 		t.Fatalf("expected length 32 got %d", len(key))
 	}
-	key2 := GenerateItemKey(32)
+	key2, err := GenerateItemKey(32)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if key == key2 {
 		t.Fatalf("expected different keys")
 	}
 }
 
 func TestGenerateNonceLength(t *testing.T) {
-	n := GenerateNonce()
+	n, err := GenerateNonce()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(n) != NonceSizeX {
 		t.Fatalf("expected nonce length %d got %d", NonceSizeX, len(n))
 	}
@@ -57,7 +66,10 @@ func TestPadToAESBlockSize(t *testing.T) {
 func TestEncryptDecryptRoundTrip(t *testing.T) {
 	key := []byte("0123456789abcdef")
 	msg := "hello world"
-	ct := Encrypt(key, msg)
+	ct, err := Encrypt(key, msg)
+	if err != nil {
+		t.Fatalf("encrypt error: %v", err)
+	}
 	pt, err := Decrypt(key, ct)
 	if err != nil {
 		t.Fatalf("decrypt error: %v", err)
@@ -80,9 +92,9 @@ func TestDecryptErrors(t *testing.T) {
 }
 
 func TestEncryptPlaintextTooLong(t *testing.T) {
-	defer func() { _ = recover() }()
 	key := []byte("0123456789abcdef0123456789abcdef")
 	long := make([]byte, MaxPlaintextSize+1)
-	Encrypt(key, string(long))
-	t.Fatalf("expected panic for long plaintext")
+	if _, err := Encrypt(key, string(long)); err == nil {
+		t.Fatalf("expected error for long plaintext")
+	}
 }
