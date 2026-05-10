@@ -46,11 +46,11 @@ func (fb FlexibleBool) Bool() bool {
 	return bool(fb)
 }
 
-func parseComponent(i DecryptedItem) Item {
+func parseComponent(i DecryptedItem) (Item, error) {
 	c := Component{}
 
 	if err := populateItemCommon(&c.ItemCommon, i); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parseComponent: %w", err)
 	}
 
 	var err error
@@ -60,13 +60,13 @@ func parseComponent(i DecryptedItem) Item {
 
 		content, err = processContentModel(i.ContentType, i.Content)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("parseComponent: %w", err)
 		}
 
 		c.Content = *content.(*ComponentContent)
 	}
 
-	return &c
+	return &c, nil
 }
 
 type ComponentContent struct {

@@ -460,7 +460,9 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 
 	for _, dItem := range di {
 		if dItem.ContentType == common.SNItemTypeNote {
-			dn = *parseNote(dItem).(*Note)
+			parsed, perr := parseNote(dItem)
+			require.NoError(t, perr)
+			dn = *parsed.(*Note)
 			break
 		}
 	}

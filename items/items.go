@@ -85,11 +85,11 @@ func (ei EncryptedItems) DecryptAndParseItemsKeys(mk string, debug bool) (o []se
 	for _, e := range ei {
 		if e.ContentType == common.SNItemTypeItemsKey && !e.Deleted {
 			if e.UUID == "" {
-				panic("DecryptAndParseItemsKeys | items key has no uuid")
+				return nil, fmt.Errorf("decryptAndParseItemsKeys: items key has no uuid")
 			}
 
 			if e.EncItemKey == "" {
-				panic(fmt.Sprintf("DecryptAndParseItemsKeys | items key uuid: %s has no encrypted item key", e.UUID))
+				return nil, fmt.Errorf("decryptAndParseItemsKeys: items key uuid %s has no encrypted item key", e.UUID)
 			}
 
 			eiks = append(eiks, e)
@@ -933,11 +933,20 @@ func ParseItem(di DecryptedItem) (p Item, err error) {
 		// TODO: To be implemented separately so we don't parse as a normal item and,
 		// most importantly, don't return as a normal Item
 	case common.SNItemTypeNote:
-		pi = parseNote(di)
+		pi, err = parseNote(di)
+		if err != nil {
+			return nil, err
+		}
 	case common.SNItemTypeTag:
-		pi = parseTag(di)
+		pi, err = parseTag(di)
+		if err != nil {
+			return nil, err
+		}
 	case common.SNItemTypeComponent:
-		pi = parseComponent(di)
+		pi, err = parseComponent(di)
+		if err != nil {
+			return nil, err
+		}
 	case common.SNItemTypeTheme:
 		pi = parseTheme(di)
 	case common.SNItemTypePrivileges:
@@ -987,11 +996,20 @@ func (di *DecryptedItems) Parse() (p Items, err error) {
 			// most importantly, don't return as a normal Item
 			continue
 		case common.SNItemTypeNote:
-			pi = parseNote(i)
+			pi, err = parseNote(i)
+			if err != nil {
+				return nil, err
+			}
 		case common.SNItemTypeTag:
-			pi = parseTag(i)
+			pi, err = parseTag(i)
+			if err != nil {
+				return nil, err
+			}
 		case common.SNItemTypeComponent:
-			pi = parseComponent(i)
+			pi, err = parseComponent(i)
+			if err != nil {
+				return nil, err
+			}
 		case common.SNItemTypeTheme:
 			pi = parseTheme(i)
 		case common.SNItemTypePrivileges:
