@@ -12,7 +12,8 @@ import (
 // TestCodeChallengeVerification verifies that the PKCE code challenge generation
 // follows the Standard Notes algorithm: challenge = base64(hex(sha256(verifier_string)))
 func TestCodeChallengeVerification(t *testing.T) {
-	verifier := generateChallengeAndVerifierForLogin()
+	verifier, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
 
 	// Decode the stored verifier (it's base64 encoded for JSON transmission)
 	verifierBytes, err := base64.URLEncoding.DecodeString(verifier.codeVerifier)
@@ -37,7 +38,8 @@ func TestCodeChallengeVerification(t *testing.T) {
 
 // TestCodeChallengeAlgorithm verifies the algorithm matches Standard Notes implementation
 func TestCodeChallengeAlgorithm(t *testing.T) {
-	result := generateChallengeAndVerifierForLogin()
+	result, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
 
 	// Verifier should be valid base64
 	verifierBytes, err := base64.URLEncoding.DecodeString(result.codeVerifier)
@@ -56,8 +58,10 @@ func TestCodeChallengeAlgorithm(t *testing.T) {
 
 // TestCodeChallengeUniqueness verifies each call generates unique verifier/challenge pairs
 func TestCodeChallengeUniqueness(t *testing.T) {
-	result1 := generateChallengeAndVerifierForLogin()
-	result2 := generateChallengeAndVerifierForLogin()
+	result1, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
+	result2, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
 
 	require.NotEqual(t, result1.codeVerifier, result2.codeVerifier,
 		"Each call should generate a unique verifier")
@@ -67,7 +71,8 @@ func TestCodeChallengeUniqueness(t *testing.T) {
 
 // TestCodeChallengeLengths verifies the expected base64 lengths
 func TestCodeChallengeLengths(t *testing.T) {
-	result := generateChallengeAndVerifierForLogin()
+	result, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
 
 	// Verifier: 64 bytes = 86 base64 characters (with padding) or 85-86 without
 	verifierBytes, err := base64.URLEncoding.DecodeString(result.codeVerifier)
@@ -96,7 +101,8 @@ func TestCodeVerifierServerValidation(t *testing.T) {
 	// 2. Receives code_verifier in /login request
 	// 3. Validates: base64(hex(sha256(code_verifier))) == code_challenge
 
-	result := generateChallengeAndVerifierForLogin()
+	result, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
 
 	// Step 1: Server stores the challenge from auth params request
 	storedChallenge := result.codeChallenge
@@ -122,7 +128,8 @@ func TestCodeVerifierServerValidation(t *testing.T) {
 
 // TestStandardNotesPKCEFormat verifies the exact format matches the Standard Notes app
 func TestStandardNotesPKCEFormat(t *testing.T) {
-	result := generateChallengeAndVerifierForLogin()
+	result, err := generateChallengeAndVerifierForLogin()
+	require.NoError(t, err)
 
 	// The challenge from Standard Notes app is 86 characters (base64 without padding)
 	// Example: "MDQwNjE5NGUzMWM3NTFiOWE3MmNhMzM1NTRmOGM1Y2E3ZDAzYjU3NWUyYTZiZWUyYTcwYmJmZmVhMTFlNTEyMg"

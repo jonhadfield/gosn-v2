@@ -22,11 +22,11 @@ func (n Note) IsDefault() bool {
 
 var _ Item = &Note{}
 
-func parseNote(i DecryptedItem) Item {
+func parseNote(i DecryptedItem) (Item, error) {
 	n := Note{}
 
 	if err := populateItemCommon(&n.ItemCommon, i); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parseNote: %w", err)
 	}
 
 	var err error
@@ -36,13 +36,13 @@ func parseNote(i DecryptedItem) Item {
 
 		content, err = processContentModel(i.ContentType, i.Content)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("parseNote: %w", err)
 		}
 
 		n.Content = *content.(*NoteContent)
 	}
 
-	return &n
+	return &n, nil
 }
 
 func (i Items) Notes() (n Notes) {

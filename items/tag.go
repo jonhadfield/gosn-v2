@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jonhadfield/gosn-v2/common"
-	"github.com/jonhadfield/gosn-v2/log"
 	"github.com/jonhadfield/gosn-v2/session"
 )
 
@@ -21,11 +20,11 @@ func (t Tag) IsDefault() bool {
 	return false
 }
 
-func parseTag(i DecryptedItem) Item {
+func parseTag(i DecryptedItem) (Item, error) {
 	t := Tag{}
 
 	if err := populateItemCommon(&t.ItemCommon, i); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parseTag: %w", err)
 	}
 
 	var err error
@@ -35,13 +34,13 @@ func parseTag(i DecryptedItem) Item {
 
 		content, err = processContentModel(i.ContentType, i.Content)
 		if err != nil {
-			log.Println("failed to decrypt item", t.GetContentType(), t.GetUUID())
+			return nil, fmt.Errorf("parseTag: failed to process content for %s %s: %w", t.GetContentType(), t.GetUUID(), err)
 		}
 
 		t.Content = *content.(*TagContent)
 	}
 
-	return &t
+	return &t, nil
 }
 
 func (i Items) Tags() (t Tags) {

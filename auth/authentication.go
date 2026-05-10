@@ -327,7 +327,10 @@ type ErrorResponse struct {
 
 // HTTP request bit.
 func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err error) {
-	verifier := generateChallengeAndVerifierForLogin()
+	verifier, err := generateChallengeAndVerifierForLogin()
+	if err != nil {
+		return output, fmt.Errorf("doAuthParamsRequest: %w", err)
+	}
 
 	var reqBodyBytes []byte
 	var reqBody string
@@ -657,7 +660,7 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	// check if we need to add a post sign in delay
 	psid, ok, envErr := common.ParseEnvInt64(common.EnvPostSignInDelay)
 	if envErr != nil {
-		panic(envErr)
+		return output, fmt.Errorf("signIn: failed to parse post sign-in delay environment variable: %w", envErr)
 	}
 	if ok {
 		log.DebugPrint(input.Debug, fmt.Sprintf("SignIn | sleeping %d milliseconds post sign in", psid), common.MaxDebugChars)
@@ -1062,11 +1065,11 @@ type generateLoginChallengeCodeVerifier struct {
 	codeChallenge string
 }
 
-func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChallengeCodeVerifier) {
+func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChallengeCodeVerifier, err error) {
 	// Generate 64 bytes of cryptographically secure random data for the verifier
 	verifierBytes := make([]byte, 64)
 	if _, err := crand.Read(verifierBytes); err != nil {
-		panic(fmt.Sprintf("failed to generate code verifier: %v", err))
+		return loginCodeVerifier, fmt.Errorf("generateChallengeAndVerifierForLogin: failed to generate code verifier: %w", err)
 	}
 
 	// Encode verifier as base64-url for JSON transmission
@@ -1082,5 +1085,5 @@ func generateChallengeAndVerifierForLogin() (loginCodeVerifier generateLoginChal
 	hex.Encode(hashHex, hash[:])
 	loginCodeVerifier.codeChallenge = base64.RawURLEncoding.EncodeToString(hashHex)
 
-	return loginCodeVerifier
+	return loginCodeVerifier, nil
 }
