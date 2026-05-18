@@ -523,7 +523,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		log.DebugPrint(session.Debug, "Using header-based authentication (Authorization header only)", common.MaxDebugChars)
 	}
 
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
+	common.SetStandardClientHeaders(request.Header)
 
 	// Create a context with timeout for the request
 	timeout := common.RequestTimeout
@@ -657,7 +657,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 				}
 				request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 				request.Header.Set("Authorization", "Bearer "+session.AccessToken)
-				request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
+				common.SetStandardClientHeaders(request.Header)
 				request = request.WithContext(ctx)
 
 				continue // Retry the request
@@ -828,7 +828,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		}
 		retryRequest.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 		retryRequest.Header.Set("Authorization", "Bearer "+session.AccessToken)
-		retryRequest.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) StandardNotes/3.198.18 Chrome/134.0.6998.205 Electron/35.2.0 Safari/537.36")
+		common.SetStandardClientHeaders(retryRequest.Header)
 		retryRequest = retryRequest.WithContext(ctx)
 
 		log.DebugPrint(session.Debug, "makeSyncRequest | retrying request with refreshed token", common.MaxDebugChars)
