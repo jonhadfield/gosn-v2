@@ -107,6 +107,7 @@ func RequestRefreshToken(client *retryablehttp.Client, url, accessToken, refresh
 
 	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	refreshSessionReq.Header.Set("Connection", "keep-alive")
+	common.SetStandardClientHeaders(refreshSessionReq.Header)
 
 	// For cookie-based sessions, we need more context to set proper cookies
 	// This function signature is limited - we need session context to extract actual cookie values
@@ -183,6 +184,7 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 
 	signInURLReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	signInURLReq.Header.Set("Connection", "keep-alive")
+	common.SetStandardClientHeaders(signInURLReq.Header)
 
 	var signInResp *http.Response
 
@@ -354,6 +356,7 @@ func doAuthParamsRequest(input authParamsInput) (output doAuthRequestOutput, err
 
 	req.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	req.Header.Set("Connection", "keep-alive")
+	common.SetStandardClientHeaders(req.Header)
 
 	var response *http.Response
 
@@ -694,6 +697,7 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 
 	refreshSessionReq.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	refreshSessionReq.Header.Set("Connection", "keep-alive")
+	common.SetStandardClientHeaders(refreshSessionReq.Header)
 
 	// For cookie-based authentication (tokens starting with "2:"), we need BOTH Cookie and Authorization headers
 	accessParts := strings.Split(session.AccessToken, ":")
@@ -878,6 +882,7 @@ func (input RegisterInput) Register() (token string, err error) {
 
 	req.Header.Set(common.HeaderContentType, common.SNAPIContentType)
 	req.Header.Set("Connection", "keep-alive")
+	common.SetStandardClientHeaders(req.Header)
 
 	// Note: req.Host should not be set manually - it's automatically derived from the URL
 	// Setting it to the full URL (e.g., "https://api.standardnotes.com") causes "http2: invalid Host header"
