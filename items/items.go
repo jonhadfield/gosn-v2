@@ -454,6 +454,41 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 	}
 }
 
+// newSyncRequest builds a sync POST request with every header the Standard
+// Notes gateway requires: content type, authentication, and the standard
+// client-identification headers. For cookie-based sessions (access tokens
+// prefixed with "2:") it sets the Cookie header manually because Go's cookie
+// jar does not handle the Partitioned attribute.
+//
+// Centralizing construction here ensures retried requests (HTTP 429 backoff and
+// post-token-refresh retries) carry the same authentication as the initial
+// request — notably the Cookie header, which earlier hand-rolled retry paths
+// dropped.
+func newSyncRequest(sess *session.Session, url string, reqBody []byte, ctx context.Context) (*http.Request, error) {
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
+
+	// For cookie-based authentication, send BOTH Cookie and Authorization headers.
+	accessParts := strings.Split(sess.AccessToken, ":")
+	isCookieBased := len(accessParts) >= 2 && accessParts[0] == "2"
+	if isCookieBased && sess.AccessTokenCookie != "" {
+		request.Header.Set("Cookie", sess.AccessTokenCookie)
+	}
+	request.Header.Set("Authorization", "Bearer "+sess.AccessToken)
+
+	common.SetStandardClientHeaders(request.Header)
+
+	if ctx != nil {
+		request = request.WithContext(ctx)
+	}
+
+	return request, nil
+}
+
 func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []byte, status int, err error) {
 	// Serialize sync requests to prevent race conditions
 	// This prevents concurrent access to the cookie jar and HTTP connection pool
@@ -501,30 +536,6 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 
 	u := session.Server + common.SyncPath
 	log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | URL: %s", u), common.MaxDebugChars)
-	request, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
-	if err != nil {
-		return
-	}
-	request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
-
-	// For cookie-based authentication (tokens starting with "2:"), set Cookie header manually
-	// because Go's cookie jar doesn't properly handle the Partitioned attribute
-	accessParts := strings.Split(session.AccessToken, ":")
-	isCookieBased := len(accessParts) >= 2 && accessParts[0] == "2"
-
-	if isCookieBased && session.AccessTokenCookie != "" {
-		// For cookie-based auth, send BOTH Cookie and Authorization headers
-		request.Header.Set("Cookie", session.AccessTokenCookie)
-		request.Header.Set("Authorization", "Bearer "+session.AccessToken)
-		log.DebugPrint(session.Debug, "Using cookie-based authentication (Cookie + Authorization headers)", common.MaxDebugChars)
-	} else {
-		// For header-based auth, send Authorization header only
-		request.Header.Set("Authorization", "Bearer "+session.AccessToken)
-		log.DebugPrint(session.Debug, "Using header-based authentication (Authorization header only)", common.MaxDebugChars)
-	}
-
-	common.SetStandardClientHeaders(request.Header)
-
 	// Create a context with timeout for the request
 	timeout := common.RequestTimeout
 	if envTimeout, ok, err := common.ParseEnvInt64(common.EnvRequestTimeout); err == nil && ok {
@@ -532,7 +543,17 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
-	request = request.WithContext(ctx)
+
+	request, err := newSyncRequest(session, u, reqBody, ctx)
+	if err != nil {
+		return
+	}
+
+	if request.Header.Get("Cookie") != "" {
+		log.DebugPrint(session.Debug, "Using cookie-based authentication (Cookie + Authorization headers)", common.MaxDebugChars)
+	} else {
+		log.DebugPrint(session.Debug, "Using header-based authentication (Authorization header only)", common.MaxDebugChars)
+	}
 
 	// Print headers
 	for name, values := range request.Header {
@@ -651,14 +672,10 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 				time.Sleep(delay)
 
 				// Create a new request with fresh body for retry
-				request, err = http.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
+				request, err = newSyncRequest(session, u, reqBody, ctx)
 				if err != nil {
 					return nil, 0, fmt.Errorf("failed to create retry request: %w", err)
 				}
-				request.Header.Set(common.HeaderContentType, common.SNAPIContentType)
-				request.Header.Set("Authorization", "Bearer "+session.AccessToken)
-				common.SetStandardClientHeaders(request.Header)
-				request = request.WithContext(ctx)
 
 				continue // Retry the request
 			} else {
@@ -804,6 +821,10 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 			RefreshExpiration: session.RefreshExpiration,
 			ReadOnlyAccess:    session.ReadOnlyAccess,
 			PasswordNonce:     session.PasswordNonce,
+			// Required so cookie-based sessions send the refresh_token cookie on
+			// the refresh request itself.
+			AccessTokenCookie:  session.AccessTokenCookie,
+			RefreshTokenCookie: session.RefreshTokenCookie,
 		}, refreshURL, session.Debug)
 
 		if refreshErr != nil {
@@ -817,19 +838,24 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		session.RefreshToken = refreshResp.Data.Session.RefreshToken
 		session.AccessExpiration = refreshResp.Data.Session.AccessExpiration
 		session.RefreshExpiration = refreshResp.Data.Session.RefreshExpiration
+		// For cookie-based sessions, the refresh issues fresh access/refresh token
+		// cookies. Update the manually-tracked cookies so the retry (and subsequent
+		// requests) send the new cookie rather than the stale one.
+		if refreshResp.Data.Session.AccessTokenCookie != "" {
+			session.AccessTokenCookie = refreshResp.Data.Session.AccessTokenCookie
+		}
+		if refreshResp.Data.Session.RefreshTokenCookie != "" {
+			session.RefreshTokenCookie = refreshResp.Data.Session.RefreshTokenCookie
+		}
 		log.DebugPrint(session.Debug, "makeSyncRequest | successfully refreshed access token, retrying original request", common.MaxDebugChars)
 
 		// Retry the original request with the new token
 		// Create a new request with fresh body since the original body was already consumed
-		retryRequest, retryReqErr := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(reqBody))
+		retryRequest, retryReqErr := newSyncRequest(session, u, reqBody, ctx)
 		if retryReqErr != nil {
 			log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | failed to create retry request: %v", retryReqErr), common.MaxDebugChars)
 			return nil, 0, fmt.Errorf("failed to create retry request: %w", retryReqErr)
 		}
-		retryRequest.Header.Set(common.HeaderContentType, common.SNAPIContentType)
-		retryRequest.Header.Set("Authorization", "Bearer "+session.AccessToken)
-		common.SetStandardClientHeaders(retryRequest.Header)
-		retryRequest = retryRequest.WithContext(ctx)
 
 		log.DebugPrint(session.Debug, "makeSyncRequest | retrying request with refreshed token", common.MaxDebugChars)
 		retryResponse, retryErr := client.Do(retryRequest)
@@ -856,7 +882,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		return retryResponseBody, retryResponse.StatusCode, nil
 	}
 
-	if response.StatusCode > http.StatusBadRequest {
+	if response.StatusCode >= http.StatusBadRequest {
 		log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | sync of %d req bytes failed with: %s", len(reqBody), response.Status), common.MaxDebugChars)
 		return responseBody, response.StatusCode, fmt.Errorf("unexpected status code: %d", response.StatusCode)
 	}

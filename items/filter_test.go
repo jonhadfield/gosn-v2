@@ -541,8 +541,10 @@ func TestCompileRegexFilters(t *testing.T) {
 	require.Nil(t, itemFilters.Filters[1].compiledRE, "expected second filter to not have compiled regex (not a regex filter)")
 	require.NotNil(t, itemFilters.Filters[2].compiledRE, "expected third filter to have compiled regex")
 
-	// Test pre-compiled regex is used in filtering
-	gnuNote := createNote("GNU", "Is not Unix", "")
+	// Test pre-compiled regex is used in filtering. MatchAny is false, so the
+	// note must satisfy every applicable note filter: the title matches the
+	// pre-compiled `^[A-Z]+$` regex and the text must equal "plain text".
+	gnuNote := createNote("GNU", "plain text", "")
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
 	require.True(t, res, "pre-compiled regex filter should match GNU note")
 }
