@@ -58,12 +58,8 @@ jobs:
       -
         name: Windows Tests
         run: |
-          go mod tidy
-          go mod vendor
-          go get github.com/axw/gocov/gocov
-          go get github.com/AlekSi/gocov-xml
-          go install github.com/axw/gocov/gocov
-          go install github.com/AlekSi/gocov-xml
+          go mod download
+          go test -failfast -p 1 ./...
         if: runner.os == 'Windows'
         env:
           SN_SERVER: ${{ secrets.SN_SERVER }}
