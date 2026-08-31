@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,24 +10,13 @@ import (
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/session"
+	"github.com/stretchr/testify/require"
 )
 
 // getRealTestSession creates a test session with real Standard Notes backend
 func getRealTestSession(dbPath string) (*Session, error) {
 	// Use the same environment variables as the main cache tests
-	email := os.Getenv(common.EnvEmail)
-	password := os.Getenv(common.EnvPassword)
-	server := os.Getenv(common.EnvServer)
-
-	if email == "" || password == "" {
-		// Use default test credentials if environment variables not set
-		email = "gosn-v2-20250605@lessknown.co.uk"
-		password = "gosn-v2-20250605@lessknown.co.uk"
-	}
-
-	if server == "" {
-		server = "https://api.standardnotes.com"
-	}
+	email, password, server := testCredentials()
 
 	// Sign in to get a real session
 	gs, err := auth.CliSignIn(email, password, server, true)
@@ -196,54 +186,29 @@ func TestConsecutiveCacheSync(t *testing.T) {
 		}
 	})
 
-	t.Run("ConcurrentSyncPrevention", func(t *testing.T) {
-		// Test that the sync mutex prevents concurrent operations
+	t.Run("ConcurrentSyncs", func(t *testing.T) {
+		// Session is documented as unsafe for concurrent use, so give each
+		// goroutine its own rather than sharing one: sharing it races on the
+		// session's items keys, which Sync updates as it goes. What is being
+		// checked here is that two syncs running at once both complete instead
+		// of deadlocking on the sync mutex.
+		const concurrent = 2
 
-		results := make(chan error, 2)
-		startTimes := make(chan time.Time, 2)
+		results := make(chan error, concurrent)
 
-		// Start two concurrent sync operations
-		go func() {
-			start := time.Now()
-			startTimes <- start
-			si := SyncInput{
-				Session: testSession,
-				Close:   true,
-			}
-			_, err := Sync(si)
-			results <- err
-		}()
+		for i := range concurrent {
+			sess, err := getRealTestSession(filepath.Join(tempDir, fmt.Sprintf("concurrent_%d.db", i)))
+			require.NoError(t, err)
 
-		go func() {
-			start := time.Now()
-			startTimes <- start
-			si := SyncInput{
-				Session: testSession,
-				Close:   true,
-			}
-			_, err := Sync(si)
-			results <- err
-		}()
-
-		// Wait for both to complete
-		start1 := <-startTimes
-		start2 := <-startTimes
-		err1 := <-results
-		err2 := <-results
-
-		// Log timing to verify serialization
-		t.Logf("Concurrent sync 1 started at: %v, result: %v", start1, err1)
-		t.Logf("Concurrent sync 2 started at: %v, result: %v", start2, err2)
-
-		// Calculate time difference to verify they were serialized
-		timeDiff := start2.Sub(start1)
-		if timeDiff < 0 {
-			timeDiff = start1.Sub(start2)
+			go func(s *Session) {
+				_, syncErr := Sync(SyncInput{Session: s, Close: true})
+				results <- syncErr
+			}(sess)
 		}
-		t.Logf("Time difference between concurrent starts: %v", timeDiff)
 
-		// The test passes if both goroutines complete without deadlock
-		// Successful serialization would show significant time difference due to sync delays
+		for range concurrent {
+			require.NoError(t, <-results)
+		}
 	})
 }
 

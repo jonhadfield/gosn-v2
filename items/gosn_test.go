@@ -11,6 +11,7 @@ import (
 
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
+	"github.com/jonhadfield/gosn-v2/mock"
 	"github.com/jonhadfield/gosn-v2/schemas"
 	"github.com/jonhadfield/gosn-v2/session"
 )
@@ -49,19 +50,40 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
+	os.Exit(run(m))
+}
+
+func run(m *testing.M) int {
 	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 
-		os.Exit(m.Run())
+		return m.Run()
+	}
+
+	server, email, password := os.Getenv(common.EnvServer),
+		os.Getenv(common.EnvEmail), os.Getenv(common.EnvPassword)
+
+	// Without credentials for a real account, run against a mock server. It
+	// speaks enough of the API for the client to authenticate and sync, so the
+	// tests below exercise the real encryption and sync paths either way.
+	if email == "" || password == "" {
+		srv, err := mock.New()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer srv.Close()
+
+		server, email, password = srv.URL, srv.Email, srv.Password
 	}
 
 	httpClient := common.NewHTTPClient()
 
 	sOutput, err := auth.SignIn(auth.SignInInput{
 		HTTPClient: httpClient,
-		Email:      os.Getenv(common.EnvEmail),
-		Password:   os.Getenv(common.EnvPassword),
-		APIServer:  os.Getenv(common.EnvServer),
+		Email:      email,
+		Password:   password,
+		APIServer:  server,
 		Debug:      true,
 	})
 	if err != nil {
@@ -72,7 +94,7 @@ func TestMain(m *testing.M) {
 		Debug:             true,
 		HTTPClient:        httpClient,
 		SchemaValidation:  false,
-		Server:            os.Getenv(common.EnvServer),
+		Server:            server,
 		FilesServerUrl:    sOutput.Session.FilesServerUrl,
 		Token:             "",
 		MasterKey:         sOutput.Session.MasterKey,
@@ -101,5 +123,5 @@ func TestMain(m *testing.M) {
 		log.Fatal("failed to load schemas")
 	}
 
-	os.Exit(m.Run())
+	return m.Run()
 }
