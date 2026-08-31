@@ -65,7 +65,17 @@ func TestMain(m *testing.M) {
 		return
 	}
 
-	if os.Getenv(common.EnvServer) == "" || strings.Contains(os.Getenv(common.EnvServer), "ramea") {
+	// Tests that need a server are skipped when none is configured. The mock
+	// server cannot be used from this package -- it imports auth, so using it
+	// here would be an import cycle -- so the tests that run against it live in
+	// the external auth_test package instead.
+	if os.Getenv(common.EnvServer) == "" && os.Getenv(common.EnvEmail) == "" {
+		os.Exit(m.Run())
+
+		return
+	}
+
+	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 	} else {
 		httpClient := common.NewHTTPClient()
@@ -126,6 +136,10 @@ var (
 func TestSignIn(t *testing.T) {
 	if strings.ToLower(os.Getenv(common.EnvSkipSessionTests)) == "true" {
 		t.Skip("Skipping test that requires server authentication (SN_SKIP_SESSION_TESTS is set)")
+	}
+
+	if os.Getenv(common.EnvEmail) == "" || os.Getenv(common.EnvPassword) == "" {
+		t.Skip("skipping: no account configured; see TestSignInAgainstMockServer for the equivalent run against the mock")
 	}
 
 	sInput.HTTPClient = retryablehttp.NewClient()

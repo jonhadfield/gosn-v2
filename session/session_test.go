@@ -180,20 +180,21 @@ func TestSessionStatus(t *testing.T) {
 	require.Empty(t, s)
 }
 
-func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
+// TestAddSessionWithoutCredentials checks that adding a session without any
+// credentials to hand fails rather than hanging: with nothing in the
+// environment there is nothing to sign in with, and prompting has no terminal
+// to read from. The successful path is covered against the mock server in
+// TestAddSessionAgainstMockServer.
+func TestAddSessionWithoutCredentials(t *testing.T) {
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		t.Skip("skipping session test")
 	}
 
-	_ = os.Unsetenv(common.EnvServer)
-	_ = os.Unsetenv(common.EnvEmail)
-	_ = os.Unsetenv(common.EnvPassword)
+	t.Setenv(common.EnvServer, "")
+	t.Setenv(common.EnvEmail, "")
+	t.Setenv(common.EnvPassword, "")
 
-	serverURL := os.Getenv(common.EnvServer)
-	if serverURL == "" {
-		serverURL = SNServerURL
-	}
-
-	_, err := AddSession(nil, serverURL, "", MockKeyRingUnDefined{}, true)
-	require.NoError(t, err)
+	_, err := AddSession(nil, SNServerURL, "", MockKeyRingUnDefined{}, true)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "email required")
 }

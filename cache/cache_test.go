@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,21 +17,74 @@ import (
 	"github.com/jonhadfield/gosn-v2/auth"
 	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/items"
+	"github.com/jonhadfield/gosn-v2/mock"
 	"github.com/jonhadfield/gosn-v2/session"
 	"github.com/stretchr/testify/require"
 )
 
 var testSession *Session
 
+var (
+	// testServer is the mock account the tests run against. It stays nil when
+	// they are running against a real Standard Notes account.
+	testServer   *mock.Server
+	testServerMu sync.Mutex
+)
+
+// testCredentials returns the account the tests should use: the one in the
+// environment when it is configured, and otherwise a mock server, so that the
+// sync and cache paths are exercised rather than skipped or pointed at a live
+// account.
+func testCredentials() (email, password, server string) {
+	email, password, server = os.Getenv(common.EnvEmail),
+		os.Getenv(common.EnvPassword), os.Getenv(common.EnvServer)
+
+	if email != "" && password != "" {
+		return email, password, server
+	}
+
+	testServerMu.Lock()
+	defer testServerMu.Unlock()
+
+	if testServer == nil {
+		var err error
+
+		testServer, err = mock.New()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return testServer.Email, testServer.Password, testServer.URL
+}
+
+// testSignInInput returns sign-in input for the account under test.
+func testSignInInput() auth.SignInInput {
+	email, password, server := testCredentials()
+
+	return auth.SignInInput{
+		Email:     email,
+		Password:  password,
+		APIServer: server,
+		Debug:     true,
+	}
+}
+
 func testSetup() {
 	if os.Getenv(common.EnvSkipSessionTests) != "" {
 		return
 	}
-	gs, err := auth.CliSignIn(os.Getenv(common.EnvEmail),
-		os.Getenv(common.EnvPassword), os.Getenv(common.EnvServer), true)
+
+	email, password, server := testCredentials()
+
+	gs, err := auth.CliSignIn(email, password, server, true)
 	if err != nil {
 		panic(err)
 	}
+
+	// CliSignIn does not carry the server address through to the session it
+	// returns, and ImportSession defaults an empty one to the live API.
+	gs.Server = server
 
 	testSession, err = ImportSession(&gs, "")
 	if err != nil {
@@ -75,7 +129,14 @@ func testSetup() {
 
 func TestMain(m *testing.M) {
 	testSetup()
-	os.Exit(m.Run())
+
+	code := m.Run()
+
+	if testServer != nil {
+		testServer.Close()
+	}
+
+	os.Exit(code)
 }
 
 // Create 200 notes in and sync to SN
@@ -387,7 +448,7 @@ func TestInitialSyncWithItemButNoDB(t *testing.T) {
 
 	defer removeDB(testSession.CacheDBPath)
 
-	sio, err := auth.SignIn(sInput)
+	sio, err := auth.SignIn(testSignInInput())
 	require.NoError(t, err)
 
 	sess, err := ImportSession(&sio.Session, tempDBPath)
@@ -994,12 +1055,6 @@ func cleanup(session *session.Session) {
 }
 
 var (
-	sInput = auth.SignInInput{
-		Email:     os.Getenv(common.EnvEmail),
-		Password:  os.Getenv(common.EnvPassword),
-		APIServer: os.Getenv(common.EnvServer),
-		Debug:     true,
-	}
 	testParas = []string{
 		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut venenatis est sit amet lectus aliquam, ac rutrum nibh vulputate. Etiam vel nulla dapibus, lacinia neque et, porttitor elit. Nulla scelerisque elit sem, ac posuere est gravida dignissim. Fusce laoreet, enim gravida vehicula aliquam, tellus sem iaculis lorem, rutrum congue ex lectus ut quam. Cras sollicitudin turpis magna, et tempor elit dignissim eu. Etiam sed auctor leo. Sed semper consectetur purus, nec vehicula tellus tristique ac. Cras a quam et magna posuere varius vitae posuere sapien. Morbi tincidunt tellus eu metus laoreet, quis pulvinar sapien consectetur. Fusce nec viverra lectus, sit amet ullamcorper elit. Vestibulum vestibulum augue sem, vitae egestas ipsum fringilla sit amet. Nulla eget ante sit amet velit placerat gravida.",
 		"Duis odio tortor, consequat egestas neque dictum, porttitor laoreet felis. Sed sed odio non orci dignissim vulputate. Praesent a scelerisque lectus. Phasellus sit amet vestibulum felis. Integer blandit, nulla eget tempor vestibulum, nisl dolor interdum eros, sed feugiat est augue sit amet eros. Suspendisse maximus tortor sodales dolor sagittis, vitae mattis est cursus. Etiam lobortis nunc non mi posuere, vel elementum massa congue. Aenean ut lectus vitae nisl scelerisque semper.",

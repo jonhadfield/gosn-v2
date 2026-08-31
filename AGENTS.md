@@ -4,12 +4,13 @@
 - `auth/`, `session/`, and `items/` wrap Standard Notes authentication, session state, and item models.
 - `crypto/` centralizes key derivation and encryption helpers; `common/` holds shared utilities.
 - `cache/` persists encrypted sync snapshots; tests live alongside code as `*_test.go` files (see `helpers_test.go`).
+- `mock/` is an in-memory stand-in for the Standard Notes API, used by the tests in place of a live account.
 - CLI helpers reside in `bin/`; reference docs under `docs/`; schemas and fixtures live in `schemas/` and `test.json`.
 - Use `go.mod` to manage modules; avoid editing generated assets in `cache.test` or `coverage.txt` by hand.
 
 ## Build, Test, and Development Commands
 - `go build ./...` verifies the library compiles across modules.
-- `go test ./...` runs unit tests; set `SN_SKIP_SESSION_TESTS=true` to skip live-session checks.
+- `go test ./...` runs unit tests against the `mock/` server; set `SN_EMAIL` and `SN_PASSWORD` to run against a real account instead, or `SN_SKIP_SESSION_TESTS=true` to skip the checks that need a server.
 - `make test` executes the test suite with coverage aggregation into `coverage.txt`.
 - `make fmt` applies `gofmt` and `goimports` to every Go file.
 - `make lint` runs `golangci-lint` with the repo’s tuned rule-set; `make critic` adds `gocritic` checks when you need deeper static analysis.
@@ -22,6 +23,7 @@
 
 ## Testing Guidelines
 - Add table-driven tests near the code they validate, naming files `*_test.go` and functions `TestXxx` / `BenchmarkXxx`.
+- Prefer the `mock/` server over a live one: it exercises the same client code and needs no account. `auth` and `session` import cycles mean their mock-backed tests live in the external `auth_test` and `session_test` packages.
 - Integration tests that hit a live Standard Notes server must guard with `testing.Short()` or the `SN_SKIP_SESSION_TESTS` flag.
 - Update or generate fixtures under `schemas/` or `cache/` only when behaviour changes; document new datasets in test descriptions.
 - Inspect `coverage.txt` after `make test`; target ≥80% coverage when touching core crypto/session logic.

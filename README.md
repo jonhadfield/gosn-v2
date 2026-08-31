@@ -42,6 +42,7 @@ items, err := so.Items.DecryptAndParse(&sio.Session)
 
 ## Project Layout
 - `auth/`, `session/`, `items/` — domain packages for authentication, session lifecycle, and note models.
+- `mock/` — an in-memory stand-in for the Standard Notes API, for testing clients without an account.
 - `crypto/` — key derivation, encryption, and signing helpers.
 - `cache/` — tooling for encrypted sync snapshots and cache persistence.
 - `docs/` — user guides and reference material; start with `docs/index.md`.
@@ -75,7 +76,10 @@ See `claudedocs/optimization_opportunities.md` for detailed implementation notes
 
 ## Development Workflow
 - `go build ./...` verifies every package compiles.
-- `go test ./...` runs unit tests across the repository. Set `SN_SKIP_SESSION_TESTS=true` to skip live server checks.
+- `go test ./...` runs the tests across the repository. They run against the
+  mock server in `mock/` unless `SN_EMAIL` and `SN_PASSWORD` name a real
+  account, so no account is needed. Set `SN_SKIP_SESSION_TESTS=true` to skip the
+  checks that need a server altogether.
 - `make test` aggregates coverage into `coverage.txt`; `make fmt` applies `gofmt` and `goimports` to all Go files.
 - `make lint` runs `golangci-lint` with the configured rule set; `make critic` enables additional `gocritic` analysis.
 
@@ -88,3 +92,34 @@ Review the [Repository Guidelines](AGENTS.md) before opening a pull request. The
 
 ## License
 This project is distributed under the [MIT License](LICENSE).
+
+## Testing Without an Account
+
+`mock` serves the endpoints a client needs in order to authenticate and sync,
+holding items as the encrypted blobs the client uploads. Only the server is a
+stand-in: sign-in, key derivation, encryption, decryption and the sync round
+trip all run the same code they run against the real API.
+
+```go
+srv, err := mock.New()
+if err != nil {
+        t.Fatal(err)
+}
+defer srv.Close()
+
+sess, err := srv.Session(false)
+if err != nil {
+        t.Fatal(err)
+}
+
+// the first sync collects the account's items key
+if _, err = items.Sync(items.SyncInput{Session: sess}); err != nil {
+        t.Fatal(err)
+}
+```
+
+The server can also be told to misbehave, so that error handling can be tested:
+`ExpireAccessToken` makes the next request answer 401 so the client has to
+refresh, `FailNextSyncs` queues up failure statuses, `ConflictOn` rejects writes
+to an item, and `WithPageSize` caps responses so the client has to follow the
+cursor. `Items` and `ItemsOfType` report what the account ended up holding.

@@ -541,10 +541,18 @@ func TestCompileRegexFilters(t *testing.T) {
 	require.Nil(t, itemFilters.Filters[1].compiledRE, "expected second filter to not have compiled regex (not a regex filter)")
 	require.NotNil(t, itemFilters.Filters[2].compiledRE, "expected third filter to have compiled regex")
 
-	// Test pre-compiled regex is used in filtering
-	gnuNote := createNote("GNU", "Is not Unix", "")
+	// Test pre-compiled regex is used in filtering. MatchAny is false, so the
+	// note has to satisfy every note filter: a title of all capitals and the
+	// exact text the second filter asks for. The tag filter does not apply to
+	// notes and is skipped.
+	gnuNote := createNote("GNU", "plain text", "")
 	res := applyNoteFilters(*gnuNote, itemFilters, nil)
 	require.True(t, res, "pre-compiled regex filter should match GNU note")
+
+	// a title the compiled regex rejects fails the whole set
+	mixedCaseNote := createNote("Gnu", "plain text", "")
+	require.False(t, applyNoteFilters(*mixedCaseNote, itemFilters, nil),
+		"pre-compiled regex filter should not match a mixed case title")
 }
 
 func TestCompileRegexFiltersInvalidPattern(t *testing.T) {
