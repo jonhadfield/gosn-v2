@@ -484,7 +484,11 @@ type RefreshSessionResponse struct {
 			RefreshToken      string `json:"refresh_token"`
 			AccessExpiration  int64  `json:"access_expiration"`
 			RefreshExpiration int64  `json:"refresh_expiration"`
-			ReadOnlyAccess    int    `json:"readonly_access"`
+			// readonly_access is a boolean in the session object the API
+			// returns, as SignInResponseDataSession and session.Session both
+			// expect. Decoding it as a number made every token refresh fail to
+			// unmarshal, so a 401 could never be recovered from.
+			ReadOnlyAccess bool `json:"readonly_access"`
 		} `json:"session"`
 	} `json:"data"`
 }
@@ -643,7 +647,11 @@ func SignIn(input SignInInput) (output SignInOutput, err error) {
 	log.DebugPrint(input.Debug, fmt.Sprintf("Access token format: %s... (length: %d)", accessTokenPrefix, len(tokenResp.Data.Session.AccessToken)), common.MaxDebugChars)
 
 	ds := SignInResponseDataSession{
-		HTTPClient:         input.HTTPClient,
+		HTTPClient: input.HTTPClient,
+		// Carry the server through: without it every caller has to remember to
+		// set it, and anything defaulting an empty value (cache.ImportSession,
+		// for one) silently points a self-hosted session at the live API.
+		Server:             input.APIServer,
 		MasterKey:          mk,
 		KeyParams:          tokenResp.Data.KeyParams,
 		AccessToken:        tokenResp.Data.Session.AccessToken,

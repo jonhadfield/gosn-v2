@@ -61,9 +61,9 @@ type SessionItemsKey struct {
 //   - Connection pool state can be corrupted
 //
 // Safe concurrent usage patterns:
-//   1. Create separate Session instances for each goroutine
-//   2. Use mutex to serialize access to shared Session
-//   3. Never share HTTPClient with cookie jar across goroutines
+//  1. Create separate Session instances for each goroutine
+//  2. Use mutex to serialize access to shared Session
+//  3. Never share HTTPClient with cookie jar across goroutines
 //
 // See claudedocs/thread_safety.md for detailed guidance and examples.
 type Session struct {
@@ -83,9 +83,9 @@ type Session struct {
 	RefreshToken      string         `json:"refresh_token"`
 	AccessExpiration  int64          `json:"access_expiration"`
 	RefreshExpiration int64          `json:"refresh_expiration"`
-	ReadOnlyAccess     bool           `json:"readonly_access"`
-	PasswordNonce      string
-	Schemas            map[string]*jsonschema.Schema
+	ReadOnlyAccess    bool           `json:"readonly_access"`
+	PasswordNonce     string
+	Schemas           map[string]*jsonschema.Schema
 	// Cookie values extracted from Set-Cookie headers for manual cookie handling
 	AccessTokenCookie  string `json:"access_token_cookie,omitempty"`
 	RefreshTokenCookie string `json:"refresh_token_cookie,omitempty"`
@@ -716,8 +716,7 @@ func (sess *Session) Refresh() error {
 	sess.RefreshToken = refreshSessionOutput.Data.Session.RefreshToken
 	sess.AccessExpiration = refreshSessionOutput.Data.Session.AccessExpiration
 	sess.RefreshExpiration = refreshSessionOutput.Data.Session.RefreshExpiration
-	x := 0
-	sess.ReadOnlyAccess = x != refreshSessionOutput.Data.Session.ReadOnlyAccess
+	sess.ReadOnlyAccess = refreshSessionOutput.Data.Session.ReadOnlyAccess
 
 	return err
 }
