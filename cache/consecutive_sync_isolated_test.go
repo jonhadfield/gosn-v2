@@ -29,20 +29,8 @@ func TestConsecutiveCacheSyncIsolated(t *testing.T) {
 		}
 	}()
 
-	// Get credentials from environment or use defaults
-	email := os.Getenv(common.EnvEmail)
-	password := os.Getenv(common.EnvPassword)
-	server := os.Getenv(common.EnvServer)
-
-	if email == "" || password == "" {
-		// Use default test credentials if environment variables not set
-		email = "gosn-v2-20250605@lessknown.co.uk"
-		password = "gosn-v2-20250605@lessknown.co.uk"
-	}
-
-	if server == "" {
-		server = "https://api.standardnotes.com"
-	}
+	// Get credentials from the environment, skipping if they are not configured
+	email, password, server := testCredentials(t)
 
 	t.Logf("Testing consecutive sync with server: %s, email: %s", server, email)
 

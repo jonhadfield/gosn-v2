@@ -31,7 +31,7 @@ var (
 func localTestMain() {
 	localServer := "http://ramea:3000"
 	testUserEmail = fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
-	testUserPassword = "secretsanta"
+	testUserPassword = "secretsanta" // ggignore
 
 	rInput := RegisterInput{
 		Client:    retryablehttp.NewClient(),
@@ -199,7 +199,7 @@ func TestRegistrationWithInvalidShortPassword(t *testing.T) {
 func TestRegistrationAndSignInWithNewCredentials(t *testing.T) {
 	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		emailAddr := testEmailAddr
-		password := "secretsanta"
+		password := "secretsanta" // ggignore
 
 		rInput := RegisterInput{
 			Password:  password,
