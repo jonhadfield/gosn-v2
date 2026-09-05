@@ -1,6 +1,6 @@
 # gosn-v2
 
-[![Build Status](https://www.travis-ci.org/jonhadfield/gosn-v2.svg?branch=master)](https://www.travis-ci.org/jonhadfield/gosn-v2) [![CircleCI](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master.svg?style=svg)](https://circleci.com/gh/jonhadfield/gosn-v2/tree/master) [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jonhadfield/gosn-v2/) [![Go Report Card](https://goreportcard.com/badge/github.com/jonhadfield/gosn-v2)](https://goreportcard.com/report/github.com/jonhadfield/gosn-v2)
+[![Tests](https://github.com/jonhadfield/gosn-v2/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/jonhadfield/gosn-v2/actions/workflows/tests.yml) [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/jonhadfield/gosn-v2/) [![Go Report Card](https://goreportcard.com/badge/github.com/jonhadfield/gosn-v2)](https://goreportcard.com/report/github.com/jonhadfield/gosn-v2)
 
 `gosn-v2` is a Go library for building Standard Notes clients. It wraps authentication, sync, encryption, and caching flows while letting you integrate with the official or a self-hosted Standard Notes server.
 
