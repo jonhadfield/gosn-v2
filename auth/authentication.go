@@ -485,6 +485,11 @@ type RefreshSessionResponse struct {
 			AccessExpiration  int64  `json:"access_expiration"`
 			RefreshExpiration int64  `json:"refresh_expiration"`
 			ReadOnlyAccess    int    `json:"readonly_access"`
+			// Cookie values extracted from the refresh response's Set-Cookie
+			// headers, for manual cookie handling on cookie-based sessions.
+			// Format: "cookie_name=cookie_value".
+			AccessTokenCookie  string `json:"-"`
+			RefreshTokenCookie string `json:"-"`
 		} `json:"session"`
 	} `json:"data"`
 }
@@ -760,9 +765,40 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 		return
 	}
 
-	// Cookies are handled automatically by HTTP client cookie jar
+	// Extract refreshed cookie values from Set-Cookie headers for manual handling
+	// (Go's cookie jar doesn't handle the Partitioned attribute). Cookie-based
+	// sessions must send these on subsequent requests; a stale cookie would be
+	// rejected after the refresh rotates it.
+	accessTokenCookie, refreshTokenCookie := extractTokenCookies(setCookieHeaders)
+	output.Data.Session.AccessTokenCookie = accessTokenCookie
+	output.Data.Session.RefreshTokenCookie = refreshTokenCookie
 
 	return output, nil
+}
+
+// extractTokenCookies parses Set-Cookie header values and returns the
+// access_token and refresh_token cookies as "name=value" strings (empty when
+// absent).
+func extractTokenCookies(setCookieHeaders []string) (accessTokenCookie, refreshTokenCookie string) {
+	for _, setCookieHeader := range setCookieHeaders {
+		parts := strings.Split(setCookieHeader, ";")
+		if len(parts) == 0 {
+			continue
+		}
+
+		nameValue := strings.TrimSpace(parts[0])
+		if nameValue == "" {
+			continue
+		}
+
+		if strings.HasPrefix(nameValue, "access_token_") {
+			accessTokenCookie = nameValue
+		} else if strings.HasPrefix(nameValue, "refresh_token_") {
+			refreshTokenCookie = nameValue
+		}
+	}
+
+	return accessTokenCookie, refreshTokenCookie
 }
 
 type RefreshSessionInput struct {

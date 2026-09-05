@@ -258,6 +258,7 @@ func cleanup() {
 }
 
 func TestReEncrypt(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	if !strings.Contains(testSession.Server, "ramea") {
 		return
 	}
@@ -296,6 +297,7 @@ func TestReEncrypt(t *testing.T) {
 }
 
 func TestNewNoteContent(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	note, err := NewNote("test-title", "test-text", nil)
@@ -317,6 +319,7 @@ func TestNewNoteContent(t *testing.T) {
 }
 
 func TestAddDeleteNote(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	randPara := "TestText"
@@ -403,6 +406,7 @@ func TestCreateItemsKey(t *testing.T) {
 }
 
 func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	ik, err := CreateItemsKey()
 	require.NoError(t, err)
 	require.Equal(t, common.SNItemTypeItemsKey, ik.ContentType)
@@ -480,6 +484,7 @@ func TestEncryptDecryptItemWithItemsKey(t *testing.T) {
 }
 
 func TestProcessContentModel(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	output, err := processContentModel(common.SNItemTypeNote, `
     {
         "title": "Todo1",
@@ -580,6 +585,7 @@ func TestProcessContentModel(t *testing.T) {
 //}
 
 func TestDecryptItemsKeys(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	s := testSession
 
 	require.NotEmpty(t, s.ItemsKeys)
@@ -587,6 +593,7 @@ func TestDecryptItemsKeys(t *testing.T) {
 }
 
 func TestEncryptDecryptItem(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	randPara := testParas[randInt(0, len(testParas))]
 	newNote, _ := NewNote("TestTitle", randPara, nil)
 	dItems := Items{&newNote}
@@ -605,6 +612,7 @@ func TestEncryptDecryptItem(t *testing.T) {
 }
 
 func TestPutItemsAddSingleNote(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	randPara := "TestText"
@@ -660,6 +668,7 @@ func TestPutItemsAddSingleNote(t *testing.T) {
 }
 
 func TestPutItemsAddSingleComponent(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	newComponentContent := ComponentContent{
@@ -851,6 +860,7 @@ func TestTagComparison(t *testing.T) {
 }
 
 func TestNoteTagging(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	cleanup()
 	defer cleanup()
 
@@ -1021,6 +1031,7 @@ func TestNoteTagging(t *testing.T) {
 }
 
 func TestSearchNotesByUUID(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	// create two notes
@@ -1083,6 +1094,7 @@ func TestSearchNotesByUUID(t *testing.T) {
 }
 
 func TestSearchNotesByText(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	cleanup()
 
 	defer cleanup()
@@ -1138,6 +1150,7 @@ func TestSearchNotesByText(t *testing.T) {
 }
 
 func TestSearchNotesByRegexTitleFilter(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	_, err := Sync(SyncInput{
@@ -1191,6 +1204,7 @@ func TestSearchNotesByRegexTitleFilter(t *testing.T) {
 }
 
 func TestSearchTagsByText(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	_, err := Sync(SyncInput{
@@ -1236,6 +1250,7 @@ func TestSearchTagsByText(t *testing.T) {
 }
 
 func TestSearchTagsByRegex(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	tagInput := []string{"Rod, Jane", "Zippy, Bungle"}
@@ -1275,6 +1290,7 @@ func TestSearchTagsByRegex(t *testing.T) {
 
 // create a tag, get its uuid, and then retrieve it by uuid.
 func TestSearchItemByUUID(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	defer cleanup()
 
 	tagInput := []string{"Bungle"}
@@ -1389,6 +1405,7 @@ func TestDecryptNoteText(t *testing.T) {
 }
 
 func TestDecryptItemKey(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	// decrypt encrypted item key
 	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4" // ggignore
 	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="
