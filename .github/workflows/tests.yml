@@ -11,6 +11,7 @@ jobs:
       group: test
       cancel-in-progress: true
     strategy:
+      fail-fast: false
       max-parallel: 1
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -48,18 +49,17 @@ jobs:
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           coverage-reports: coverage.xml
+        # Coverage upload is best-effort: a missing/invalid CODACY_PROJECT_TOKEN
+        # (e.g. on forks or when the secret is unset) must not fail the test job.
+        continue-on-error: true
         if: runner.os != 'Windows'
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
       -
         name: Windows Tests
         run: |
-          go mod tidy
-          go mod vendor
-          go get github.com/axw/gocov/gocov
-          go get github.com/AlekSi/gocov-xml
-          go install github.com/axw/gocov/gocov
-          go install github.com/AlekSi/gocov-xml
+          go mod download
+          go test -failfast -p 1 ./...
         if: runner.os == 'Windows'
         env:
           SN_SERVER: ${{ secrets.SN_SERVER }}

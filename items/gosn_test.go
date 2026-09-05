@@ -21,6 +21,16 @@ var (
 	testUserPassword string
 )
 
+// skipIfSessionTestsDisabled skips tests that require a live server session
+// (and thus a non-nil testSession) when SN_SKIP_SESSION_TESTS is set. TestMain
+// bypasses sign-in in that mode, leaving testSession nil.
+func skipIfSessionTestsDisabled(t *testing.T) {
+	t.Helper()
+	if strings.EqualFold(os.Getenv(common.EnvSkipSessionTests), "true") {
+		t.Skip("skipping test that requires server authentication (SN_SKIP_SESSION_TESTS is set)")
+	}
+}
+
 func localTestMain() {
 	localServer := "http://ramea:3000"
 	testUserEmail = fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
@@ -49,6 +59,15 @@ func localTestMain() {
 }
 
 func TestMain(m *testing.M) {
+	// Skip the live sign-in/sync setup when SN_SKIP_SESSION_TESTS is set so that
+	// tests not requiring a server (e.g. request construction, content helpers)
+	// can run offline. Matches the auth/session/cache packages and the documented
+	// `SN_SKIP_SESSION_TESTS=true go test ./...` workflow. Session-dependent tests
+	// rely on testSession and must be excluded via -run when this is set.
+	if strings.EqualFold(os.Getenv(common.EnvSkipSessionTests), "true") {
+		os.Exit(m.Run())
+	}
+
 	if strings.Contains(os.Getenv(common.EnvServer), "ramea") {
 		localTestMain()
 

@@ -8,6 +8,7 @@ import (
 )
 
 func TestSchemaIsLoaded(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	t.Parallel()
 
 	require.NotEmpty(t, testSession.Schemas)
@@ -15,6 +16,7 @@ func TestSchemaIsLoaded(t *testing.T) {
 }
 
 func TestSchemaValidation(t *testing.T) {
+	skipIfSessionTestsDisabled(t)
 	t.Parallel()
 
 	// succeed with valid instance
