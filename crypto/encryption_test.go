@@ -23,13 +23,13 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 	t.Parallel()
 
 	var testInput GenerateEncryptedPasswordInput
-	testInput.UserPassword = "debugtest"
+	testInput.UserPassword = "debugtest" // ggignore
 	testInput.Identifier = "sn004@lessknown.co.uk"
-	testInput.PasswordNonce = "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9"
+	testInput.PasswordNonce = "2c409996650e46c748856fbd6aa549f89f35be055a8f9bfacdf0c4b29b2152e9" // ggignore
 	masterKey, serverPassword, err := GenerateMasterKeyAndServerPassword004(testInput)
 	require.NoError(t, err)
-	require.Equal(t, "2396d6ac0bc70fe45db1d2bcf3daa522603e9c6fcc88dc933ce1a3a31bbc08ed", masterKey)
-	require.Equal(t, "a5eb9fbc767eafd6e54fd9d3646b19520e038ba2ccc9cceddf2340b37b788b47", serverPassword)
+	require.Equal(t, "2396d6ac0bc70fe45db1d2bcf3daa522603e9c6fcc88dc933ce1a3a31bbc08ed", masterKey)      // ggignore
+	require.Equal(t, "a5eb9fbc767eafd6e54fd9d3646b19520e038ba2ccc9cceddf2340b37b788b47", serverPassword) // ggignore
 }
 
 //
@@ -166,18 +166,18 @@ func TestGenerateEncryptedPasswordWithValidInput004(t *testing.T) {
 // }
 
 func TestDecryptString(t *testing.T) {
-	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4"
+	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4" // ggignore
 	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="
 	nonce := "d211fc5dee400fe54ca04ac43ecac512c9d0dabb6c4ee0f3"
 	authData := "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
 	plainText, err := DecryptCipherText(cipherText, rawKey, nonce, authData)
 
 	require.NoError(t, err)
-	require.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(plainText))
+	require.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(plainText)) // ggignore
 }
 
 func TestEncryptDecryptString(t *testing.T) {
-	rawKey := "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003"
+	rawKey := "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003" // ggignore
 	tempExpectedCipherText := "B+8vUwmSTGZCba6mU2gMSMl55fpt38Wv/yWxAF4pEveX0sjqSYgjT5PA8/yy7LKotF+kjmuiHNvYtH7hB7BaqJrG8Q4G5Sj15tIu8PtlWECJWHnPxHkeiJW1MiS1ypR0t3y+Uc7cRpGPwnQIqJDr/Yl1vp2tZXlaSy0zYtGYlw5GwUnLxXtQBQC1Ml3rzZDpaIT9zIr9Qluv7Q7JXOJ7rAbj95MtsV2CJD4RwjhhJ11fpI3N8+uXqp4="
 
 	nonce := "6045eaf9774a877203b68bb12159f9c5c0c3d19df4949e40"
