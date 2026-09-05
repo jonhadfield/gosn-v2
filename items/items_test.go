@@ -1365,13 +1365,13 @@ func genNotes(num int, textParas int) (notes Items) {
 
 func TestDecryptNoteText(t *testing.T) {
 	// decrypt encrypted items key
-	decryptedItemsKey := "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73"
+	decryptedItemsKey := "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73" // ggignore
 	cipherText := "sJhGyLDN4x/wXBcE6TWCsZMaAPfK04ojpsYzjI/zEGvkBsRPGPyihTyQGHvAqcHMWOIZZYZDC2+8YlxVdreF2LblOM8hXz3hwtFDE3DcN5g="
 	nonce := "b55df872abe8c97f82bb875a14a9b344584825edef1d0ed7"
 	authData := "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
 	contentItemKeyHexBytes, err := crypto.DecryptCipherText(cipherText, decryptedItemsKey, nonce, authData)
 	require.NoError(t, err)
-	require.Equal(t, "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003", string(contentItemKeyHexBytes))
+	require.Equal(t, "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003", string(contentItemKeyHexBytes)) // ggignore
 
 	rawKey := string(contentItemKeyHexBytes)
 	nonce = "6045eaf9774a877203b68bb12159f9c5c0c3d19df4949e40"
@@ -1390,13 +1390,13 @@ func TestDecryptNoteText(t *testing.T) {
 
 func TestDecryptItemKey(t *testing.T) {
 	// decrypt encrypted item key
-	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4"
+	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4" // ggignore
 	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="
 	nonce := "d211fc5dee400fe54ca04ac43ecac512c9d0dabb6c4ee0f3"
 	authData := "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
 	contentItemKeyHexBytes, err := crypto.DecryptCipherText(cipherText, rawKey, nonce, authData)
 	require.NoError(t, err)
-	require.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(contentItemKeyHexBytes))
+	require.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(contentItemKeyHexBytes)) // ggignore
 
 	// decrypt item key content with item key
 	rawKey = string(contentItemKeyHexBytes)
@@ -1409,7 +1409,7 @@ func TestDecryptItemKey(t *testing.T) {
 	var ik ItemsKey
 	err = json.Unmarshal(dIKeyContent, &ik)
 	require.NoError(t, err)
-	require.Equal(t, "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73", ik.ItemsKey)
+	require.Equal(t, "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73", ik.ItemsKey) // ggignore
 }
 
 // func TestRegisterExportImport(t *testing.T) {

@@ -24,7 +24,7 @@ var (
 func localTestMain() {
 	localServer := "http://ramea:3000"
 	testUserEmail = fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
-	testUserPassword = "secretsanta"
+	testUserPassword = "secretsanta" // ggignore
 
 	rInput := auth.RegisterInput{
 		Password:  testUserPassword,

@@ -11,22 +11,33 @@ import (
 	"github.com/jonhadfield/gosn-v2/session"
 )
 
-// getRealTestSession creates a test session with real Standard Notes backend
-func getRealTestSession(dbPath string) (*Session, error) {
-	// Use the same environment variables as the main cache tests
-	email := os.Getenv(common.EnvEmail)
-	password := os.Getenv(common.EnvPassword)
-	server := os.Getenv(common.EnvServer)
+// testCredentials returns the credentials used by tests that talk to a real
+// Standard Notes backend, skipping the caller when they are not configured.
+func testCredentials(tb testing.TB) (email, password, server string) {
+	tb.Helper()
+
+	email = os.Getenv(common.EnvEmail)
+	password = os.Getenv(common.EnvPassword)
+	server = os.Getenv(common.EnvServer)
 
 	if email == "" || password == "" {
-		// Use default test credentials if environment variables not set
-		email = "gosn-v2-20250605@lessknown.co.uk"
-		password = "gosn-v2-20250605@lessknown.co.uk"
+		tb.Skipf("skipping test that requires server authentication (%s and %s must be set)",
+			common.EnvEmail, common.EnvPassword)
 	}
 
 	if server == "" {
-		server = "https://api.standardnotes.com"
+		server = common.APIServer
 	}
+
+	return email, password, server
+}
+
+// getRealTestSession creates a test session with real Standard Notes backend
+func getRealTestSession(tb testing.TB, dbPath string) (*Session, error) {
+	tb.Helper()
+
+	// Use the same environment variables as the main cache tests
+	email, password, server := testCredentials(tb)
 
 	// Sign in to get a real session
 	gs, err := auth.CliSignIn(email, password, server, true)
@@ -71,7 +82,7 @@ func TestConsecutiveCacheSync(t *testing.T) {
 	dbPath := filepath.Join(tempDir, "test_consecutive.db")
 
 	// Get real session from testSetup (same as other cache tests)
-	testSession, err := getRealTestSession(dbPath)
+	testSession, err := getRealTestSession(t, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to get real test session: %v", err)
 	}
@@ -346,7 +357,7 @@ func BenchmarkConsecutiveSync(b *testing.B) {
 
 	dbPath := filepath.Join(tempDir, "bench_consecutive.db")
 
-	testSession, err := getRealTestSession(dbPath)
+	testSession, err := getRealTestSession(b, dbPath)
 	if err != nil {
 		b.Fatalf("Failed to get real test session: %v", err)
 	}
