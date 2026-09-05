@@ -622,12 +622,10 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		cookies := client.Jar.Cookies(request.URL)
 		log.DebugPrint(session.Debug, fmt.Sprintf("Cookies for URL: %d cookies", len(cookies)), common.MaxDebugChars)
 		for i, cookie := range cookies {
-			cookieValue := cookie.Value
-			if len(cookieValue) > 10 {
-				cookieValue = cookieValue[:10] + "..."
-			}
-			log.DebugPrint(session.Debug, fmt.Sprintf("Cookie %d: %s=%s (Domain=%s Path=%s Secure=%v HttpOnly=%v)",
-				i, cookie.Name, cookieValue, cookie.Domain, cookie.Path, cookie.Secure, cookie.HttpOnly), common.MaxDebugChars)
+			// The name and attributes are what matter when debugging cookie
+			// scoping; the value is a live session token, so it is never logged.
+			log.DebugPrint(session.Debug, fmt.Sprintf("Cookie %d: %s (Domain=%s Path=%s Secure=%v HttpOnly=%v)",
+				i, common.RedactCookieHeader(cookie.Name+"="+cookie.Value), cookie.Domain, cookie.Path, cookie.Secure, cookie.HttpOnly), common.MaxDebugChars)
 		}
 	} else {
 		log.DebugPrint(session.Debug, "Cookie jar is NOT enabled", common.MaxDebugChars)
@@ -728,7 +726,9 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	log.DebugPrint(session.Debug, "Response Headers:", common.MaxDebugChars)
 	for name, values := range response.Header {
 		for _, value := range values {
-			log.DebugPrint(session.Debug, fmt.Sprintf("  %s: %s", name, value), common.MaxDebugChars)
+			// Redact credential-bearing headers; Set-Cookie in particular carries
+			// live session tokens.
+			log.DebugPrint(session.Debug, fmt.Sprintf("  %s: %s", name, common.RedactHeaderValue(name, value)), common.MaxDebugChars)
 		}
 	}
 

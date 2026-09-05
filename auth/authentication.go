@@ -208,8 +208,9 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 	if len(setCookieHeaders) > 0 {
 		log.DebugPrint(input.debug, fmt.Sprintf("Set-Cookie headers received: %d", len(setCookieHeaders)), common.MaxDebugChars)
 		for i, cookie := range setCookieHeaders {
-			// Log FULL cookie to see domain, path, secure, etc. - use higher limit to see complete header
-			log.DebugPrint(input.debug, fmt.Sprintf("Set-Cookie[%d]: %s", i, cookie), 1000)
+			// Log the cookie name and its attributes (domain, path, secure, etc.)
+			// but never the value, which is a live session token.
+			log.DebugPrint(input.debug, fmt.Sprintf("Set-Cookie[%d]: %s", i, common.RedactCookieHeader(cookie)), 1000)
 		}
 	} else {
 		log.DebugPrint(input.debug, "No Set-Cookie headers in response", common.MaxDebugChars)
@@ -251,10 +252,10 @@ func requestToken(input signInInput) (signInSuccess signInResponse, signInFailur
 			// Check if this is an access_token or refresh_token cookie
 			if strings.HasPrefix(nameValue, "access_token_") {
 				accessTokenCookie = nameValue
-				log.DebugPrint(input.debug, fmt.Sprintf("Extracted access_token cookie: %s", nameValue[:min(50, len(nameValue))]+"..."), common.MaxDebugChars)
+				log.DebugPrint(input.debug, fmt.Sprintf("Extracted access_token cookie: %s", common.RedactCookieHeader(nameValue)), common.MaxDebugChars)
 			} else if strings.HasPrefix(nameValue, "refresh_token_") {
 				refreshTokenCookie = nameValue
-				log.DebugPrint(input.debug, fmt.Sprintf("Extracted refresh_token cookie: %s", nameValue[:min(50, len(nameValue))]+"..."), common.MaxDebugChars)
+				log.DebugPrint(input.debug, fmt.Sprintf("Extracted refresh_token cookie: %s", common.RedactCookieHeader(nameValue)), common.MaxDebugChars)
 			}
 		}
 
@@ -714,7 +715,7 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 		refreshSessionReq.Header.Set("Cookie", session.RefreshTokenCookie)
 		refreshSessionReq.Header.Set("Authorization", "Bearer "+session.RefreshToken)
 		log.DebugPrint(debug, "Using both Cookie and Authorization headers for cookie-based refresh", common.MaxDebugChars)
-		log.DebugPrint(debug, fmt.Sprintf("Cookie: %s", session.RefreshTokenCookie[:min(50, len(session.RefreshTokenCookie))]+"..."), common.MaxDebugChars)
+		log.DebugPrint(debug, fmt.Sprintf("Cookie: %s", common.RedactCookieHeader(session.RefreshTokenCookie)), common.MaxDebugChars)
 	} else {
 		// Use Authorization header only for header-based auth
 		refreshSessionReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
@@ -743,11 +744,7 @@ func RequestRefreshTokenWithSession(session *SignInResponseDataSession, url stri
 	if len(setCookieHeaders) > 0 {
 		log.DebugPrint(debug, fmt.Sprintf("Refresh Set-Cookie headers received: %d", len(setCookieHeaders)), common.MaxDebugChars)
 		for i, cookie := range setCookieHeaders {
-			cookiePreview := cookie
-			if len(cookiePreview) > 50 {
-				cookiePreview = cookiePreview[:50] + "..."
-			}
-			log.DebugPrint(debug, fmt.Sprintf("Refresh Set-Cookie[%d]: %s", i, cookiePreview), common.MaxDebugChars)
+			log.DebugPrint(debug, fmt.Sprintf("Refresh Set-Cookie[%d]: %s", i, common.RedactCookieHeader(cookie)), common.MaxDebugChars)
 		}
 	} else {
 		log.DebugPrint(debug, "No Set-Cookie headers in refresh response", common.MaxDebugChars)
@@ -935,7 +932,8 @@ func (input RegisterInput) Register() (token string, err error) {
 	}()
 
 	token, err = processDoRegisterRequestResponse(response, input.Debug)
-	log.DebugPrint(true, token, common.MaxDebugChars)
+	// Never log the token itself, and honour the caller's debug setting.
+	log.DebugPrint(input.Debug, fmt.Sprintf("register | received token (length: %d)", len(token)), common.MaxDebugChars)
 
 	if err != nil {
 		return
