@@ -1,11 +1,26 @@
 package common
 
 import (
+	"regexp"
 	"strings"
 )
 
 // redactedPlaceholder replaces a credential value in debug output.
 const redactedPlaceholder = "[REDACTED]"
+
+// urlHostPattern matches the scheme and authority (optional user info, host and port) of an
+// http or https URL, stopping at the first character that cannot belong to the authority.
+var urlHostPattern = regexp.MustCompile(`(?i)\b(https?)://[^\s/?#"'<>]+`)
+
+// RedactURLs replaces the host of every http and https URL in s with a placeholder, keeping
+// the scheme and path. Server addresses are often private, and a debug line truncated partway
+// through one leaves a fragment that CI secret masking no longer recognises.
+//
+// "Post \"http://192.0.2.10:3000/v2/login-params\"" becomes
+// "Post \"http://[REDACTED]/v2/login-params\"".
+func RedactURLs(s string) string {
+	return urlHostPattern.ReplaceAllString(s, "${1}://"+redactedPlaceholder)
+}
 
 // sensitiveHeaders are headers whose values carry credentials and must never
 // be written to a log in full.

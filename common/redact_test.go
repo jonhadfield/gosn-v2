@@ -142,3 +142,57 @@ func TestRedactHeaderValueCoversSensitiveHeaders(t *testing.T) {
 		require.True(t, strings.Contains(got, redactedPlaceholder), "header %q was not redacted", header)
 	}
 }
+
+func TestRedactURLs(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "no url",
+			input: "Sync | retrieved 3 existing Items from db",
+			want:  "Sync | retrieved 3 existing Items from db",
+		},
+		{
+			name:  "http ip with port and path",
+			input: "sign-in url: http://192.0.2.10:3000/v2/login",
+			want:  "sign-in url: http://[REDACTED]/v2/login",
+		},
+		{
+			name:  "https host without path",
+			input: "server 'https://sync.example.com'",
+			want:  "server 'https://[REDACTED]'",
+		},
+		{
+			name:  "user info is removed with the host",
+			input: "GET https://user@sync.example.com/v1/items?limit=10",
+			want:  "GET https://[REDACTED]/v1/items?limit=10",
+		},
+		{
+			name:  "quoted url in a go error",
+			input: `Post "http://192.0.2.10:3000/v2/login-params": context deadline exceeded`,
+			want:  `Post "http://[REDACTED]/v2/login-params": context deadline exceeded`,
+		},
+		{
+			name:  "multiple urls and mixed case scheme",
+			input: "HTTP://192.0.2.10/a then https://sync.example.com:8443/b",
+			want:  "HTTP://[REDACTED]/a then https://[REDACTED]/b",
+		},
+		{
+			name:  "scheme without host is left alone",
+			input: "unsupported protocol scheme http://",
+			want:  "unsupported protocol scheme http://",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.want, RedactURLs(tc.input))
+		})
+	}
+}
