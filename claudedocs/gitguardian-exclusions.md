@@ -31,13 +31,39 @@ retroactively, so existing incidents drop off the table once saved.
 ### Filepath exclusions
 
 ```
-**/*_test.go
+crypto/encryption_test.go
+items/items_test.go
 test.json
 testuser-encrypted-backup.txt
 claudedocs/**
 **/*_TEST_RESULTS.md
 **/*_ANALYSIS.md
 ```
+
+Deliberately **not** `**/*_test.go`. A blanket test glob would silently cover
+every test file added in future, including ones that come to hold a real
+credential by mistake. That is not hypothetical: while writing
+`common/redact_test.go` a real session token lifted from a CI log was very
+nearly committed as a fixture, and GitGuardian is what caught it. A
+`**/*_test.go` exclusion would have hidden it.
+
+Only two test files are listed, and only because inline tags cannot reach all
+of their content: both hold `nonce` and `authData` locals sitting next to
+300-character lines, where a trailing `// ggignore` makes gofmt pad the comment
+out by ~250 spaces. Every other test file with fixture key material is covered
+by inline tags instead:
+
+| File | Covered by |
+|---|---|
+| `auth/authentication_test.go` | inline tags |
+| `items/gosn_test.go` | inline tags |
+| `session/parse_test.go` | inline tags |
+| `auth/code_challenge_test.go` | nothing needed - two comment lines showing an example PKCE challenge |
+| `crypto/encryption_extra_test.go` | nothing needed - `00112233aabbccdd...` style synthetic patterns |
+
+Prefer adding a `// ggignore` tag to excluding a new path. The tags are proven
+working against this repository's scanning path, and they fail safe: a new
+credential in an untagged line still gets flagged.
 
 Notes on the non-obvious entries:
 
@@ -70,7 +96,8 @@ Only worth adding if you start running `ggshield` in pre-commit or CI. It will
 version: 2
 secret:
   ignored_paths:
-    - '**/*_test.go'
+    - 'crypto/encryption_test.go'
+    - 'items/items_test.go'
     - 'test.json'
     - 'testuser-encrypted-backup.txt'
     - 'claudedocs/**'
