@@ -94,6 +94,10 @@ type SyncToken struct {
 type SyncInput struct {
 	*Session
 	Close bool
+	// AlwaysSync makes Sync call the API even when there are no local changes and the
+	// previous sync was less than common.MinSyncInterval ago. Set it when changes made
+	// by other clients need to be seen straight away.
+	AlwaysSync bool
 }
 
 type SyncOutput struct {
@@ -1005,6 +1009,18 @@ func handleSyncError(err error, si SyncInput) (shouldRetry bool, newSi SyncInput
 	}
 }
 
+// skipAPICall reports whether a sync with nothing to push can rely on the cache, which is
+// the case when exactly one sync token is stored and it is younger than common.MinSyncInterval.
+func skipAPICall(syncTokens []SyncToken, now time.Time) (bool, time.Duration) {
+	if len(syncTokens) != 1 {
+		return false, 0
+	}
+
+	tokenAge := now.Sub(syncTokens[0].CreatedAt)
+
+	return tokenAge < common.MinSyncInterval, tokenAge
+}
+
 // shouldUseBatchedSync determines if we need progressive sync for large datasets
 func shouldUseBatchedSync(db *storm.DB) bool {
 	// Check if we have a large dataset that needs batched processing
@@ -1233,11 +1249,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 	// TODO: add all the items keys in the session to SN (dupes will be handled)?
 
 	// Optimization: Skip API call if no changes and recent sync token exists
-	if len(dirtyItemsToPush) == 0 && syncToken != "" {
+	if !si.AlwaysSync && len(dirtyItemsToPush) == 0 && syncToken != "" {
 		var syncTokens []SyncToken
-		if err = db.All(&syncTokens); err == nil && len(syncTokens) == 1 {
-			tokenAge := time.Since(syncTokens[0].CreatedAt)
-			if tokenAge < common.MinSyncInterval {
+		if err = db.All(&syncTokens); err == nil {
+			if skip, tokenAge := skipAPICall(syncTokens, time.Now()); skip {
 				log.DebugPrint(si.Debug,
 					fmt.Sprintf("Sync | Skipping API call - no changes and recent sync (age: %v)", tokenAge),
 					common.MaxDebugChars)
