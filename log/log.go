@@ -16,6 +16,9 @@ func Fatalf(format string, v ...interface{}) {
 
 func DebugPrint(show bool, msg string, maxChars int) {
 	if show {
+		// redact before truncating, so a cut can never leave part of a server address behind
+		msg = common.RedactURLs(msg)
+
 		if len(msg) > maxChars {
 			msg = msg[:maxChars] + "..."
 		}
