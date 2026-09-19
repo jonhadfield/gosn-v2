@@ -96,10 +96,12 @@ func TestConsecutiveCacheSync(t *testing.T) {
 		for i := 0; i < numSyncs; i++ {
 			syncStart := time.Now()
 
-			// Perform sync with real backend
+			// Perform sync with real backend. AlwaysSync makes every call send a request:
+			// the delay only applies to syncs that reach the API, not those answered from the cache.
 			si := SyncInput{
-				Session: testSession,
-				Close:   true,
+				Session:    testSession,
+				Close:      true,
+				AlwaysSync: true,
 			}
 
 			_, err := Sync(si)
