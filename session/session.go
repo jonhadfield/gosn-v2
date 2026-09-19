@@ -208,18 +208,9 @@ func GetCredentials(inServer string) (email, password, apiServer, errMsg string)
 }
 
 func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
-	if k == nil {
-		s, err = keyring.Get(KeyringService, KeyringApplicationName)
-		if err != nil {
-			return s, fmt.Errorf("GetSessionFromKeyring | %w", err)
-		}
-	}
-
-	if k != nil {
-		s, err = k.Get(KeyringService, KeyringApplicationName)
-		if err != nil {
-			err = fmt.Errorf("GetSessionFromKeyring | %w", err)
-		}
+	s, err = resolveKeyring(k).Get(KeyringService, KeyringApplicationName)
+	if err != nil {
+		err = fmt.Errorf("GetSessionFromKeyring | %w", err)
 	}
 
 	return
@@ -310,20 +301,25 @@ func UpdateSession(sess *Session, k keyring.Keyring, debug bool) error {
 		fmt.Println()
 	}
 
+	return saveSession(sess, k, key)
+}
+
+// saveSession writes the session to the keyring, encrypting it with key
+// unless key is empty.
+func saveSession(sess *Session, k keyring.Keyring, key string) error {
+	var err error
+
 	rS := makeMinimalSessionString(*sess)
 	if key != "" {
-		rS, err = crypto.Encrypt(byteKey, makeMinimalSessionString(*sess))
+		rS, err = crypto.Encrypt([]byte(key), rS)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt session: %w", err)
 		}
 	}
 
-	err = writeSession(rS, k)
-	if err != nil {
+	if err = writeSession(rS, k); err != nil {
 		return fmt.Errorf("failed to write refreshed session: %w", err)
 	}
-
-	// fmt.Println("session refreshed successfully")
 
 	return nil
 }
@@ -352,11 +348,7 @@ func makeMinimalSessionString(s Session) string {
 }
 
 func writeSession(s string, k keyring.Keyring) error {
-	if k == nil {
-		return keyring.Set(KeyringService, KeyringApplicationName, s)
-	}
-
-	if err := k.Set(KeyringService, KeyringApplicationName, s); err != nil {
+	if err := resolveKeyring(k).Set(KeyringService, KeyringApplicationName, s); err != nil {
 		return fmt.Errorf("writeSession | %w", err)
 	}
 
@@ -383,13 +375,7 @@ func RemoveSession(k keyring.Keyring) string {
 		return fmt.Sprintf("%s: %s", MsgSessionRemovalFailure, err.Error())
 	}
 
-	if k == nil {
-		err = keyring.Delete(KeyringService, KeyringApplicationName)
-	} else {
-		err = k.Delete(KeyringService, KeyringApplicationName)
-	}
-
-	if err != nil {
+	if err = resolveKeyring(k).Delete(KeyringService, KeyringApplicationName); err != nil {
 		return fmt.Sprintf("%s: %s", MsgSessionRemovalFailure, err.Error())
 	}
 
@@ -459,7 +445,7 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 	if loadSession {
 		var rawSess string
 
-		rawSess, err = keyring.Get(KeyringService, KeyringApplicationName)
+		rawSess, err = resolveKeyring(nil).Get(KeyringService, KeyringApplicationName)
 		if err != nil {
 			return
 		}
@@ -477,6 +463,10 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 		}
 
 		var loadedSession Session
+
+		// the key used to decrypt the stored session, so a refreshed session
+		// can be encrypted again without prompting
+		var storedKey string
 
 		if !isUnencryptedSession(rawSess) {
 			if sessionKey == "" {
@@ -508,6 +498,8 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 
 				return
 			}
+
+			storedKey = sessionKey
 		}
 
 		loadedSession, err = ParseSessionString(rawSess)
@@ -525,7 +517,7 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 				return Session{}, "", err
 			}
 
-			if err = UpdateSession(&session, nil, session.Debug); err != nil {
+			if err = saveSession(&session, nil, storedKey); err != nil {
 				return Session{}, "", err
 			}
 		}
