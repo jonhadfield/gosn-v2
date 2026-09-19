@@ -89,6 +89,12 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 		return Session{}, "", err
 	}
 
+	// Prefer the client the session was created with, which holds the connection and cookies
+	// from sign-in, so the first sync does not open a new connection.
+	if gs.HTTPClient != nil && gs.HTTPClient.HTTPClient != nil {
+		httpClient = gs.HTTPClient
+	}
+
 	cs := Session{
 		Session: &session.Session{
 			HTTPClient:         httpClient,
