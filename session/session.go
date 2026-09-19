@@ -399,8 +399,6 @@ func RemoveSession(k keyring.Keyring) string {
 func GetSessionFromUser(httpClient *retryablehttp.Client, server string, debug bool) (Session, string, error) {
 	var sess Session
 
-	sess.HTTPClient = common.NewHTTPClient()
-
 	if server == "" {
 		server = common.APIServer
 	}
@@ -423,7 +421,7 @@ func GetSessionFromUser(httpClient *retryablehttp.Client, server string, debug b
 
 	log.DebugPrint(debug, fmt.Sprintf("attempting cli sign-in with email: '%s' %d char password and server '%s'", email, len(password), apiServer), common.MaxDebugChars)
 
-	signInSession, err := auth.CliSignIn(email, password, server, debug)
+	signInSession, err := auth.CliSignInWithClient(httpClient, email, password, server, debug)
 	sess = Session{
 		Debug:              debug,
 		HTTPClient:         signInSession.HTTPClient, // Preserve HTTP client with cookies
@@ -702,6 +700,9 @@ func (sess *Session) Refresh() error {
 		AccessExpiration:  sess.AccessExpiration,
 		RefreshExpiration: sess.RefreshExpiration,
 		PasswordNonce:     sess.PasswordNonce,
+		// Required so cookie-based sessions send the refresh_token cookie on the refresh request.
+		AccessTokenCookie:  sess.AccessTokenCookie,
+		RefreshTokenCookie: sess.RefreshTokenCookie,
 	}
 
 	refreshSessionOutput, err := auth.RequestRefreshTokenWithSession(&authSession, server+common.AuthRefreshPath, sess.Debug)
@@ -716,6 +717,13 @@ func (sess *Session) Refresh() error {
 	sess.RefreshToken = refreshSessionOutput.Data.Session.RefreshToken
 	sess.AccessExpiration = refreshSessionOutput.Data.Session.AccessExpiration
 	sess.RefreshExpiration = refreshSessionOutput.Data.Session.RefreshExpiration
+	// cookie-based sessions are issued fresh token cookies by the refresh
+	if refreshSessionOutput.Data.Session.AccessTokenCookie != "" {
+		sess.AccessTokenCookie = refreshSessionOutput.Data.Session.AccessTokenCookie
+	}
+	if refreshSessionOutput.Data.Session.RefreshTokenCookie != "" {
+		sess.RefreshTokenCookie = refreshSessionOutput.Data.Session.RefreshTokenCookie
+	}
 	x := 0
 	sess.ReadOnlyAccess = x != refreshSessionOutput.Data.Session.ReadOnlyAccess
 

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,8 +31,8 @@ type syncResponseData struct {
 	Conflicts    ConflictedItems `json:"conflicts"`
 	SyncToken    string          `json:"sync_token"`
 	CursorToken  string          `json:"cursor_token"`
-	LastItemPut  int             // the last item successfully put
-	PutLimitUsed int             // the put limit used
+	NextItem     int             `json:"-"` // index of the next item to put; on error, the start of the batch that failed
+	PutLimitUsed int             `json:"-"` // the put limit used
 }
 type syncResponse struct {
 	Data syncResponseData `json:"data"`
@@ -464,6 +465,32 @@ func UpdateItemRefs(i UpdateItemRefsInput) UpdateItemRefsOutput {
 // post-token-refresh retries) carry the same authentication as the initial
 // request — notably the Cookie header, which earlier hand-rolled retry paths
 // dropped.
+// rateLimitDelay returns how long to wait before retrying a 429 response.
+// A Retry-After value in seconds is honoured, otherwise the delay doubles from one second.
+// The delay is capped so the retries fit well within the request timeout.
+func rateLimitDelay(retryAfter string, attempt int) time.Duration {
+	const maxDelay = 8 * time.Second
+
+	delay := time.Duration(1<<uint(attempt)) * time.Second
+
+	if secs, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && secs >= 0 {
+		delay = time.Duration(secs) * time.Second
+	}
+
+	return min(delay, maxDelay)
+}
+
+// drainAndClose reads a bounded amount of any remaining body before closing it,
+// allowing the HTTP/1.1 connection to return to the idle pool.
+func drainAndClose(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+
+	_, _ = io.Copy(io.Discard, io.LimitReader(body, 64*1024))
+	_ = body.Close()
+}
+
 func newSyncRequest(sess *session.Session, url string, reqBody []byte, ctx context.Context) (*http.Request, error) {
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBody))
 	if err != nil {
@@ -541,10 +568,23 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	if envTimeout, ok, err := common.ParseEnvInt64(common.EnvRequestTimeout); err == nil && ok {
 		timeout = int(envTimeout)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
+	// Each attempt (429 retries, and the retry after a token refresh) gets its own deadline,
+	// so time spent on earlier attempts and backoff does not cut the next one short.
+	var cancels []context.CancelFunc
+	defer func() {
+		for _, c := range cancels {
+			c()
+		}
+	}()
 
-	request, err := newSyncRequest(session, u, reqBody, ctx)
+	newAttempt := func() (*http.Request, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+		cancels = append(cancels, cancel)
+
+		return newSyncRequest(session, u, reqBody, ctx)
+	}
+
+	request, err := newAttempt()
 	if err != nil {
 		return
 	}
@@ -572,7 +612,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	log.DebugPrint(session.Debug, fmt.Sprintf("Request Body Size: %d bytes", len(reqBody)), common.MaxDebugChars)
 
 	// Parse and log key request body details (for debugging sync requests)
-	if len(reqBody) > 0 {
+	if session.Debug && len(reqBody) > 0 {
 		var reqData map[string]interface{}
 		if json.Unmarshal(reqBody, &reqData) == nil {
 			if api, ok := reqData["api"].(string); ok {
@@ -616,7 +656,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	log.DebugPrint(session.Debug, fmt.Sprintf("Request Context Deadline: %v (has deadline: %v)", deadline, hasDeadline), common.MaxDebugChars)
 
 	// Check if HTTP client has cookie jar
-	if client.Jar != nil {
+	if session.Debug && client.Jar != nil {
 		log.DebugPrint(session.Debug, "Cookie jar is enabled", common.MaxDebugChars)
 		log.DebugPrint(session.Debug, fmt.Sprintf("Checking cookies for URL: %s", request.URL.String()), common.MaxDebugChars)
 		cookies := client.Jar.Cookies(request.URL)
@@ -657,20 +697,16 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 		// Check for HTTP 429 (Too Many Requests)
 		if response.StatusCode == http.StatusTooManyRequests {
 			if attempt < maxRetries {
-				// Calculate exponential backoff delay: 1s, 2s, 4s, 8s, 16s
-				delay := time.Duration(1<<uint(attempt)) * time.Second
+				delay := rateLimitDelay(response.Header.Get("Retry-After"), attempt)
 				log.DebugPrint(session.Debug, fmt.Sprintf("HTTP 429 Too Many Requests - retrying in %v (attempt %d/%d)", delay, attempt+1, maxRetries+1), common.MaxDebugChars)
 
-				// Close the current response body before retrying
-				if response.Body != nil {
-					_ = response.Body.Close()
-				}
+				// Drain and close the body so the connection can be reused for the retry
+				drainAndClose(response.Body)
 
-				// Wait with exponential backoff
 				time.Sleep(delay)
 
-				// Create a new request with fresh body for retry
-				request, err = newSyncRequest(session, u, reqBody, ctx)
+				// Create a new request with fresh body and deadline for retry
+				request, err = newAttempt()
 				if err != nil {
 					return nil, 0, fmt.Errorf("failed to create retry request: %w", err)
 				}
@@ -757,7 +793,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 	log.DebugPrint(session.Debug, fmt.Sprintf("Response Body Size: %d bytes", len(responseBody)), common.MaxDebugChars)
 
 	// Parse and log key response details for successful responses
-	if response.StatusCode == http.StatusOK && len(responseBody) > 0 {
+	if session.Debug && response.StatusCode == http.StatusOK && len(responseBody) > 0 {
 		var respData map[string]interface{}
 		if json.Unmarshal(responseBody, &respData) == nil {
 			if data, ok := respData["data"].(map[string]interface{}); ok {
@@ -851,7 +887,7 @@ func makeSyncRequest(session *session.Session, reqBody []byte) (responseBody []b
 
 		// Retry the original request with the new token
 		// Create a new request with fresh body since the original body was already consumed
-		retryRequest, retryReqErr := newSyncRequest(session, u, reqBody, ctx)
+		retryRequest, retryReqErr := newAttempt()
 		if retryReqErr != nil {
 			log.DebugPrint(session.Debug, fmt.Sprintf("makeSyncRequest | failed to create retry request: %v", retryReqErr), common.MaxDebugChars)
 			return nil, 0, fmt.Errorf("failed to create retry request: %w", retryReqErr)
