@@ -688,19 +688,23 @@ func retrieveItemsKeysFromCache(s *session.Session, i Items) (items.EncryptedIte
 	return encryptedItemKeys, nil
 }
 
-// enforceMinimumSyncDelay prevents rapid consecutive sync operations with adaptive timing
+// enforceMinimumSyncDelay spaces consecutive sync requests at least common.SyncDelayMinimum apart.
+// The slot is reserved under the lock but the wait happens outside it, so concurrent callers
+// queue behind each other without holding the mutex while sleeping.
 func enforceMinimumSyncDelay() {
 	syncMutex.Lock()
-	defer syncMutex.Unlock()
-
-	// Enforce minimum delay between sync operations
-	minDelay := common.SyncDelayMinimum
-	if elapsed := time.Since(lastSyncTime); elapsed < minDelay {
-		sleepDuration := minDelay - elapsed
-		log.DebugPrint(false, fmt.Sprintf("Sync | Enforcing %v delay before next sync (elapsed: %v)", sleepDuration, elapsed), common.MaxDebugChars)
-		time.Sleep(sleepDuration)
+	now := time.Now()
+	next := lastSyncTime.Add(common.SyncDelayMinimum)
+	if next.Before(now) {
+		next = now
 	}
-	lastSyncTime = time.Now()
+	lastSyncTime = next
+	syncMutex.Unlock()
+
+	if wait := next.Sub(now); wait > 0 {
+		log.DebugPrint(false, fmt.Sprintf("Sync | Enforcing %v delay before next sync", wait), common.MaxDebugChars)
+		time.Sleep(wait)
+	}
 }
 
 // enforceRateLimitBackoff implements exponential backoff for rate limit responses
@@ -951,21 +955,12 @@ func validateAndCleanSyncToken(db *storm.DB, session *session.Session) (string, 
 		token := syncTokens[0]
 		age := time.Since(token.CreatedAt)
 
-		// Hard expiry: reset token if older than 24 hours
-		if age > common.SyncTokenMaxAge {
-			log.DebugPrint(session.Debug,
-				fmt.Sprintf("Sync | Sync token expired (%v old), resetting", age),
-				common.MaxDebugChars)
-			if dropErr := db.Drop("SyncToken"); dropErr != nil {
-				return "", dropErr
-			}
-			return "", nil
-		}
-
-		// Soft warning: log if token is aging (>12 hours)
+		// Sync tokens do not expire on the server, so an old token is still used for a delta
+		// sync rather than forcing a full download. A token the server rejects is reset by the
+		// "invalid sync token" handling in handleSyncError.
 		if age > common.SyncTokenSoftAge {
 			log.DebugPrint(session.Debug,
-				fmt.Sprintf("Sync | Sync token aging (%v old), consider refresh soon", age),
+				fmt.Sprintf("Sync | Sync token is %v old", age),
 				common.MaxDebugChars)
 		}
 
@@ -1049,9 +1044,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 			return so, validationErr
 		}
 	}
-
-	// Prevent rapid consecutive syncs
-	enforceMinimumSyncDelay()
 
 	// Track sync timing for health monitoring
 	syncStart := time.Now()
@@ -1290,6 +1282,10 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// Retry logic with enhanced error handling
 	log.DebugPrint(si.Session.Debug, fmt.Sprintf("Sync | calling items.Sync with syncToken %s", syncToken), common.MaxDebugChars)
+
+	// Prevent rapid consecutive sync requests. This runs only when a request is about to be
+	// made, so syncs answered from the cache are not delayed.
+	enforceMinimumSyncDelay()
 
 	for attempt := 0; attempt < retries; attempt++ {
 		if attempt > 0 {

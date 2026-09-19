@@ -100,16 +100,33 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		log.DebugPrint(i.Session.Debug, fmt.Sprintf("syncItemsViaAPI | sleeping %d milliseconds post each sync request",
 			i.PostSyncRequestDelay), common.MaxDebugChars)
 	}
-	// retry logic is to handle responses that are too large
-	// so we can reduce number we retrieve with each sync request
+	// retry logic is to handle responses that are too large or slow, and transient server errors.
+	// Each retry resumes from the last successful page rather than starting again, and the
+	// results of successful pages from earlier attempts are kept in acc.
+	var acc syncResponse
+
+	// resume records the position reached by a failed attempt and accumulates its partial results.
+	resume := func(partial syncResponse) {
+		acc.Data.Items = append(acc.Data.Items, partial.Data.Items...)
+		acc.Data.SavedItems = append(acc.Data.SavedItems, partial.Data.SavedItems...)
+		acc.Data.Unsaved = append(acc.Data.Unsaved, partial.Data.Unsaved...)
+		acc.Data.Conflicts = append(acc.Data.Conflicts, partial.Data.Conflicts...)
+		i.SyncToken = partial.Data.SyncToken
+		i.CursorToken = partial.Data.CursorToken
+		i.NextItem = partial.Data.NextItem
+	}
+
+	var backoff bool
+
 	start := time.Now()
 	rErr := try.Do(func(attempt int) (bool, error) {
-		// Implement exponential backoff similar to Standard Notes
-		if attempt > 1 {
+		// Back off only after server errors; for size and timeout errors the smaller page size is the remedy.
+		if attempt > 1 && backoff {
 			backoffDuration := time.Duration(1000*(1<<uint(attempt-2))) * time.Millisecond
 			log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | backing off for %v before attempt %d", backoffDuration, attempt), common.MaxDebugChars)
 			time.Sleep(backoffDuration)
 		}
+		backoff = false
 		ps := common.PageSize
 		if i.PageSize > 0 {
 			ps = i.PageSize
@@ -119,42 +136,37 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 		sResp, rErr = syncItemsViaAPI(i)
 		if rErr != nil {
 			log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | %s", rErr.Error()), common.MaxDebugChars)
+			lowerErr := strings.ToLower(rErr.Error())
 			switch {
-			case strings.Contains(strings.ToLower(rErr.Error()), "session token") &&
-				strings.Contains(strings.ToLower(rErr.Error()), "expired"):
+			case strings.Contains(lowerErr, "session token") &&
+				strings.Contains(lowerErr, "expired"):
 				fmt.Printf("\nerr: %s\n\nplease log in again", rErr)
 				os.Exit(1)
-			case strings.Contains(strings.ToLower(rErr.Error()), "too large"):
-				i.NextItem = sResp.Data.LastItemPut
+			case strings.Contains(lowerErr, "too large"):
+				resume(sResp)
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time as the request was too large so reducing to page size %d",
 					sResp.Data.PutLimitUsed, i.PageSize), common.MaxDebugChars)
-			case strings.Contains(strings.ToLower(rErr.Error()), "timeout"):
-				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | request timed out, retrying with smaller page size"), common.MaxDebugChars)
-				i.NextItem = sResp.Data.LastItemPut
+			case strings.Contains(lowerErr, "timeout"):
+				resume(sResp)
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time due to timeout so reducing to page size %d", sResp.Data.PutLimitUsed, i.PageSize), common.MaxDebugChars)
-			case strings.Contains(strings.ToLower(rErr.Error()), "unauthorized"):
-				i.NextItem = sResp.Data.LastItemPut
-				// logging.DebugPrint(i.Session.Debug, "Sync | failed with '401 Unauthorized' which is most likely due to throttling or password change since session created")
+			case strings.Contains(lowerErr, "unauthorized"):
 				return false, fmt.Errorf("sync failed due to either password change since session created, or server throttling. try re-adding session.")
-				// panic("sync failed due to either password change since session created, or server throttling. try re-adding session.")
-			case strings.Contains(strings.ToLower(rErr.Error()), "EOF"):
-				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | got EOF error, retrying with smaller page size"), common.MaxDebugChars)
-				i.NextItem = sResp.Data.LastItemPut
+			case strings.Contains(lowerErr, "eof"):
+				resume(sResp)
 				resizeForRetry(&i)
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | failed to retrieve %d items "+
 					"at a time due to EOF so reducing to page size %d", sResp.Data.PutLimitUsed, i.PageSize), common.MaxDebugChars)
-			case strings.Contains(strings.ToLower(rErr.Error()), "giving up"):
-				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | retry client gave up after multiple attempts"), common.MaxDebugChars)
+			case strings.Contains(lowerErr, "giving up"):
+				log.DebugPrint(i.Session.Debug, "Sync | retry client gave up after multiple attempts", common.MaxDebugChars)
 				return false, fmt.Errorf("sync failed: %+v", rErr)
-			case strings.Contains(strings.ToLower(rErr.Error()), "500") || strings.Contains(strings.ToLower(rErr.Error()), "internal server error"):
-				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | got HTTP 500 Internal Server Error, likely due to rate limiting - retrying with delay"), common.MaxDebugChars)
-				// Add a small delay to prevent overwhelming the server
-				time.Sleep(time.Duration(attempt) * time.Second)
-				return attempt < 4, rErr
+			case strings.Contains(lowerErr, "500") || strings.Contains(lowerErr, "internal server error"):
+				log.DebugPrint(i.Session.Debug, "Sync | got HTTP 500 Internal Server Error, likely due to rate limiting - retrying with delay", common.MaxDebugChars)
+				resume(sResp)
+				backoff = true
 			default:
 				log.DebugPrint(i.Session.Debug, fmt.Sprintf("Sync | Unhandled error details: Type=%T, Error=%+v, Session=%s, PageSize=%d, NextItem=%d", rErr, rErr, i.Session.Server, i.PageSize, i.NextItem), common.MaxDebugChars)
 				return false, fmt.Errorf("sync returned unhandled error: %w", rErr)
@@ -166,6 +178,11 @@ func syncItems(i SyncInput) (so SyncOutput, err error) {
 	if rErr != nil {
 		return so, fmt.Errorf("sync | %w", rErr)
 	}
+
+	sResp.Data.Items = append(acc.Data.Items, sResp.Data.Items...)
+	sResp.Data.SavedItems = append(acc.Data.SavedItems, sResp.Data.SavedItems...)
+	sResp.Data.Unsaved = append(acc.Data.Unsaved, sResp.Data.Unsaved...)
+	sResp.Data.Conflicts = append(acc.Data.Conflicts, sResp.Data.Conflicts...)
 
 	elapsed := time.Since(start)
 
@@ -292,8 +309,12 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 	// if we have conflicts to sync, then call sync again
 	if len(resolvedConflictsToSync) > 0 {
-		// Call Sync Again and add the syncOutput to the syncOutput we've already got
+		// Call Sync Again and add the syncOutput to the syncOutput we've already got.
+		// Continue from the token the first sync returned, so only changes since then are retrieved.
 		input.Items = resolvedConflictsToSync
+		input.SyncToken = output.SyncToken
+		input.CursorToken = ""
+		input.NextItem = 0
 
 		var resyncOutput SyncOutput
 
@@ -310,6 +331,10 @@ func Sync(input SyncInput) (output SyncOutput, err error) {
 
 		// zero the conflicts as we've resolved them
 		processedOutput.Conflicts = nil
+
+		if resyncOutput.SyncToken != "" {
+			processedOutput.SyncToken = resyncOutput.SyncToken
+		}
 
 		processedOutput.Items = append(processedOutput.Items, resyncOutput.Items...)
 		processedOutput.SavedItems = append(processedOutput.SavedItems, resyncOutput.SavedItems...)
@@ -382,12 +407,6 @@ func processSessionItemsKeysInSavedItems(s *session.Session, output SyncOutput, 
 
 func processSyncConflict(s *session.Session, items EncryptedItems, conflict ConflictedItem, refReMap map[string]string) (conflictedItem EncryptedItem, err error) {
 	debug := s.Debug
-
-	// Special handling for ItemsKey conflicts - always keep server version
-	if conflict.ServerItem.ContentType == common.SNItemTypeItemsKey {
-		log.DebugPrint(debug, "Sync | ItemsKey conflict detected, keeping server version", common.MaxDebugChars)
-		return conflict.ServerItem, nil
-	}
 
 	switch {
 	case conflict.ServerItem.Deleted:
@@ -559,39 +578,40 @@ func processUUIDConflict(input SyncInput, conflict ConflictedItem, refReMap map[
 	return
 }
 
-func processConflict(input SyncInput, conflict ConflictedItem, refReMap map[string]string) (conflictsToSync EncryptedItems, err error) {
+// processConflict resolves a single conflict. Items in conflictsToSync must be pushed to the
+// server again. Items in keepServer are conflicts the server's copy wins: they are already
+// current on the server, so they are returned as retrieved items instead of being re-sent.
+func processConflict(input SyncInput, conflict ConflictedItem, refReMap map[string]string) (conflictsToSync, keepServer EncryptedItems, err error) {
 	debug := input.Session.Debug
 	var conflictedItem EncryptedItem
 
 	switch conflict.Type {
 	case ConflictTypeSync:
+		// ItemsKey conflicts always keep the server version
+		if conflict.ServerItem.ContentType == common.SNItemTypeItemsKey {
+			log.DebugPrint(debug, "Sync | ItemsKey conflict detected, keeping server version", common.MaxDebugChars)
+			return nil, EncryptedItems{conflict.ServerItem}, nil
+		}
+
 		conflictedItem, err = processSyncConflict(input.Session, input.Items, conflict, refReMap)
 
 	case ConflictTypeUUID:
 		conflictedItem, err = processUUIDConflict(input, conflict, refReMap)
 
-	case ConflictTypeContentType, ConflictTypeContent:
-		// For content errors, we typically want to keep the server version
-		// and create a duplicate of the local version for safety
+	case ConflictTypeContentType, ConflictTypeContent, ConflictTypeReadOnly:
+		// Content errors and read-only errors keep the server version. With no server item,
+		// this is a validation error on our item, so it is skipped.
 		log.DebugPrint(debug, fmt.Sprintf("Sync | %s detected, keeping server version", conflict.Type), common.MaxDebugChars)
-		if conflict.ServerItem.UUID != "" {
-			conflictedItem = conflict.ServerItem
-		} else {
-			// If no server item, this is a validation error on our item
-			log.DebugPrint(debug, "Sync | Validation error on local item, skipping", common.MaxDebugChars)
-			return nil, nil
+		if conflict.ServerItem.UUID == "" {
+			return nil, nil, nil
 		}
 
-	case ConflictTypeReadOnly:
-		// Read-only error means we tried to modify something we shouldn't
-		// Keep the server version
-		log.DebugPrint(debug, "Sync | Read-only conflict, keeping server version", common.MaxDebugChars)
-		conflictedItem = conflict.ServerItem
+		return nil, EncryptedItems{conflict.ServerItem}, nil
 
 	case ConflictTypeUUIDError, ConflictTypeInvalidItem:
 		// These are serious errors, log and skip
 		log.DebugPrint(debug, fmt.Sprintf("Sync | Serious conflict type %s, skipping item", conflict.Type), common.MaxDebugChars)
-		return nil, nil
+		return nil, nil, nil
 
 	default:
 		err = fmt.Errorf("unhandled conflict type: %s", conflict.Type)
@@ -601,24 +621,25 @@ func processConflict(input SyncInput, conflict ConflictedItem, refReMap map[stri
 		conflictsToSync = append(conflictsToSync, conflictedItem)
 	}
 
-	return conflictsToSync, err
+	return conflictsToSync, nil, err
 }
 
-func processConflicts(input SyncInput, syncOutput SyncOutput) (conflictsToSync EncryptedItems, err error) {
+func processConflicts(input SyncInput, syncOutput SyncOutput) (conflictsToSync, keepServer EncryptedItems, err error) {
 	// Store any references that need to be remapped due to conflicts
 	var refReMap map[string]string
 	// create store for old and new uuids in case we need to remap any references to existing items with new uuids
 	refReMap = make(map[string]string)
 
 	for _, conflict := range syncOutput.Conflicts {
-		var resolvedConflictedItems EncryptedItems
+		var resolvedConflictedItems, serverItems EncryptedItems
 
-		resolvedConflictedItems, err = processConflict(input, conflict, refReMap)
+		resolvedConflictedItems, serverItems, err = processConflict(input, conflict, refReMap)
 		if err != nil {
 			return
 		}
 
 		conflictsToSync = append(conflictsToSync, resolvedConflictedItems...)
+		keepServer = append(keepServer, serverItems...)
 	}
 
 	// handle uuid reference remaps
@@ -654,9 +675,20 @@ func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflict
 
 	log.DebugPrint(debug, fmt.Sprintf("Sync | found %d conflicts", len(syncOutput.Conflicts)), common.MaxDebugChars)
 	// Resync any conflicts
-	conflictsToSync, err := processConflicts(input, syncOutput)
+	conflictsToSync, keepServer, err := processConflicts(input, syncOutput)
 	if err != nil {
 		return
+	}
+
+	// server copies that win their conflicts are current on the server, so return them
+	// as retrieved items rather than pushing them back
+	if len(keepServer) > 0 {
+		syncOutput.Items = append(syncOutput.Items, keepServer...)
+		syncOutput.Items.DeDupe()
+
+		if len(conflictsToSync)+len(keepServer) == len(syncOutput.Conflicts) {
+			syncOutput.Conflicts = nil
+		}
 	}
 
 	// if we had conflicts to sync, then we need to return them for processing
@@ -689,7 +721,7 @@ func processSyncOutput(input SyncInput, syncOutput SyncOutput) (resolvedConflict
 	// 	syncOutput.SavedItems.DeDupe()
 	// }
 
-	return
+	return nil, syncOutput, err
 }
 
 func updateEncryptedItemRefs(s *session.Session, items EncryptedItems, refMap map[string]string) (EncryptedItems, error) {
@@ -945,114 +977,109 @@ func parseSyncResponse(data []byte) (syncResponse, error) {
 	return unmarshallSyncResponse(data)
 }
 
+// syncItemsViaAPI pushes input.Items in batches, starting at input.NextItem, and
+// pages through the items the server returns until both are exhausted.
+// On error, out holds everything accumulated from the successful requests, and
+// out.Data.SyncToken, out.Data.CursorToken and out.Data.NextItem describe where a
+// retry should resume, so completed pages are neither fetched nor pushed again.
 func syncItemsViaAPI(input SyncInput) (out syncResponse, err error) {
 	debug := input.Session.Debug
-	// log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | input.FinalItem: %d", lesserOf(len(input.Items)-1, input.NextItem+150-1)+1), common.MaxDebugChars)
 
-	limit := determineLimit(input.PageSize, debug)
+	retrieveLimit := determineLimit(input.PageSize, debug)
 
-	// Dynamic batch sizing: optimize for payload size when using default PageSize
-	if limit == common.PageSize && len(input.Items) > 0 && input.NextItem < len(input.Items) {
-		dynamicLimit := calculateOptimalBatchSize(input.Items, input.NextItem, limit)
-		if dynamicLimit != limit {
-			log.DebugPrint(debug,
-				fmt.Sprintf("syncItemsViaAPI | Dynamic batch size: %d (default: %d)", dynamicLimit, limit),
-				common.MaxDebugChars)
-			limit = dynamicLimit
-		}
-	}
-
-	// Pre-allocate slices for recursive appends to avoid reallocations
-	// Estimate capacity: items to push + typical response size
-	if input.NextItem == 0 && len(input.Items) > 0 {
+	if input.NextItem < len(input.Items) {
 		estimatedTotal := len(input.Items) + 200 // Heuristic: items + typical response
 		out.Data.Items = make(EncryptedItems, 0, estimatedTotal)
-		out.Data.SavedItems = make(EncryptedItems, 0, len(input.Items))
-		out.Data.Unsaved = make(EncryptedItems, 0, 10) // Usually very few
-		out.Data.Conflicts = make(ConflictedItems, 0, 10)
+		out.Data.SavedItems = make(EncryptedItems, 0, len(input.Items)-input.NextItem)
 	}
 
-	out.Data.PutLimitUsed = limit
-	// fmt.Printf("[syncItemsViaAPI] Starting sync at %s with %d items, limit %d\n", time.Now().Format("15:04:05.000"), len(input.Items), limit)
-	encItemJSON, finalItem, err := encodeItems(input.Items, input.NextItem, limit, debug)
-	if err != nil {
-		// fmt.Printf("[syncItemsViaAPI] encodeItems failed: %v\n", err)
-		return
-	}
-	// fmt.Printf("[syncItemsViaAPI] Encoded %d bytes at %s\n", len(encItemJSON), time.Now().Format("15:04:05.000"))
-	requestBody := buildRequestBody(input, limit, encItemJSON)
-	// fmt.Printf("[syncItemsViaAPI] Built request body (%d bytes) at %s\n", len(requestBody), time.Now().Format("15:04:05.000"))
-	responseBody, status, err := makeSyncRequest(input.Session, requestBody)
-	if input.PostSyncRequestDelay > 0 {
-		// fmt.Printf("[syncItemsViaAPI] Sleeping for %dms post-sync\n", input.PostSyncRequestDelay)
-		time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
-	}
-	if err != nil {
-		// fmt.Printf("[syncItemsViaAPI] makeSyncRequest failed with status %d: %v\n", status, err)
-		return
-	}
-	// fmt.Printf("[syncItemsViaAPI] Got response (%d bytes) at %s\n", len(responseBody), time.Now().Format("15:04:05.000"))
-	if status != http.StatusOK {
-		err = fmt.Errorf("syncItemsViaAPI | unexpected status code: %d, response: %s", status, string(responseBody))
-		log.DebugPrint(debug, err.Error(), common.MaxDebugChars)
-		return out, err
-	}
+	out.Data.SyncToken = input.SyncToken
+	out.Data.CursorToken = input.CursorToken
+	out.Data.NextItem = input.NextItem
 
-	// get encrypted items from API response
-	var bodyContent syncResponse
-	// fmt.Println(string(responseBody))
-	bodyContent, err = parseSyncResponse(responseBody)
-	if err != nil {
-		return
-	}
+	for {
+		limit := retrieveLimit
+		pushing := input.NextItem < len(input.Items)
 
-	// fff, _ := json.MarshalIndent(bodyContent, "", "  ")
-	// fmt.Println("bodyContent", string(fff))
-
-	out.Data.Items = bodyContent.Data.Items
-	out.Data.SavedItems = bodyContent.Data.SavedItems
-	out.Data.Unsaved = bodyContent.Data.Unsaved
-	out.Data.SyncToken = bodyContent.Data.SyncToken
-	out.Data.CursorToken = bodyContent.Data.CursorToken
-	out.Data.Conflicts = bodyContent.Data.Conflicts
-	out.Data.LastItemPut = finalItem
-
-	if (finalItem > 0 && finalItem < len(input.Items)-1) || (bodyContent.Data.CursorToken != "" && bodyContent.Data.CursorToken != "null") {
-		var newOutput syncResponse
-
-		input.SyncToken = out.Data.SyncToken
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input sync token: %s", stripLineBreak(input.SyncToken)), common.MaxDebugChars)
-
-		input.CursorToken = out.Data.CursorToken
-		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | setting input cursor token: %s", stripLineBreak(input.CursorToken)), common.MaxDebugChars)
-
-		input.PageSize = limit
-		// sync was successful so set new item
-		if finalItem > 0 {
-			log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | sync successful so setting new item to finalItem+1: %d", finalItem+1), common.MaxDebugChars)
-			input.NextItem = finalItem + 1
+		// Dynamic batch sizing: optimise push payload size when no page size was set.
+		// It applies only to requests carrying items, so pull-only pages keep the full limit.
+		if pushing && input.PageSize <= 0 {
+			if dynamicLimit := calculateOptimalBatchSize(input.Items, input.NextItem, limit); dynamicLimit != limit {
+				log.DebugPrint(debug,
+					fmt.Sprintf("syncItemsViaAPI | Dynamic batch size: %d (default: %d)", dynamicLimit, limit),
+					common.MaxDebugChars)
+				limit = dynamicLimit
+			}
 		}
 
-		newOutput, err = syncItemsViaAPI(input)
+		out.Data.PutLimitUsed = limit
+
+		encItemJSON := []byte("[]")
+		nextItem := input.NextItem
+
+		if pushing {
+			var finalItem int
+
+			encItemJSON, finalItem, err = encodeItems(input.Items, input.NextItem, limit, debug)
+			if err != nil {
+				return out, err
+			}
+
+			nextItem = finalItem + 1
+		}
+
+		requestBody := buildRequestBody(input, limit, encItemJSON)
+
+		var (
+			responseBody []byte
+			status       int
+		)
+
+		responseBody, status, err = makeSyncRequest(input.Session, requestBody)
+		if input.PostSyncRequestDelay > 0 {
+			time.Sleep(time.Duration(input.PostSyncRequestDelay) * time.Millisecond)
+		}
 
 		if err != nil {
-			return
+			return out, err
 		}
 
-		out.Data.Items = append(out.Data.Items, newOutput.Data.Items...)
-		out.Data.SavedItems = append(out.Data.SavedItems, newOutput.Data.SavedItems...)
-		out.Data.Unsaved = append(out.Data.Unsaved, newOutput.Data.Unsaved...)
-		out.Data.Conflicts = append(out.Data.Conflicts, newOutput.Data.Conflicts...)
-		out.Data.SyncToken = newOutput.Data.SyncToken
+		if status != http.StatusOK {
+			err = fmt.Errorf("syncItemsViaAPI | unexpected status code: %d, response: %s", status, string(responseBody))
+			log.DebugPrint(debug, err.Error(), common.MaxDebugChars)
 
-		out.Data.LastItemPut = finalItem
-	} else {
-		return out, err
+			return out, err
+		}
+
+		var bodyContent syncResponse
+
+		bodyContent, err = parseSyncResponse(responseBody)
+		if err != nil {
+			return out, err
+		}
+
+		out.Data.Items = append(out.Data.Items, bodyContent.Data.Items...)
+		out.Data.SavedItems = append(out.Data.SavedItems, bodyContent.Data.SavedItems...)
+		out.Data.Unsaved = append(out.Data.Unsaved, bodyContent.Data.Unsaved...)
+		out.Data.Conflicts = append(out.Data.Conflicts, bodyContent.Data.Conflicts...)
+		out.Data.SyncToken = bodyContent.Data.SyncToken
+		out.Data.NextItem = nextItem
+
+		morePages := bodyContent.Data.CursorToken != "" && bodyContent.Data.CursorToken != "null"
+		if nextItem >= len(input.Items) && !morePages {
+			out.Data.CursorToken = ""
+
+			return out, nil
+		}
+
+		input.SyncToken = bodyContent.Data.SyncToken
+		input.CursorToken = bodyContent.Data.CursorToken
+		input.NextItem = nextItem
+		out.Data.CursorToken = input.CursorToken
+
+		log.DebugPrint(debug, fmt.Sprintf("syncItemsViaAPI | continuing with next item %d, sync token %s, cursor token %s",
+			input.NextItem, stripLineBreak(input.SyncToken), stripLineBreak(input.CursorToken)), common.MaxDebugChars)
 	}
-
-	out.Data.CursorToken = ""
-
-	return out, err
 }
 
 func resizeForRetry(in *SyncInput) {
@@ -1121,11 +1148,15 @@ func DeleteContent(session *session.Session, everything bool) (deleted int, err 
 		}
 	}
 
-	if len(itemsToPut) > 0 {
-		log.DebugPrint(session.Debug, fmt.Sprintf("DeleteContent | removing %d items", len(itemsToPut)), common.MaxDebugChars)
+	if len(itemsToPut) == 0 {
+		return 0, nil
 	}
 
+	log.DebugPrint(session.Debug, fmt.Sprintf("DeleteContent | removing %d items", len(itemsToPut)), common.MaxDebugChars)
+
 	si.Items = itemsToPut
+	// only push the deletions; everything has already been retrieved
+	si.SyncToken = so.SyncToken
 
 	so, err = Sync(si)
 

@@ -57,8 +57,7 @@ const (
 	// MinSyncInterval is the minimum time between sync operations when no changes exist
 	MinSyncInterval     = 5 * time.Minute
 	// Sync token TTL settings
-	SyncTokenMaxAge     = 24 * time.Hour  // Maximum age before token expires
-	SyncTokenSoftAge    = 12 * time.Hour  // Age when warning is logged
+	SyncTokenSoftAge    = 12 * time.Hour  // Age after which the token's age is logged
 
 	// Retry and backoff configuration
 	RetryScaleFactor           = 0.25            // Scale factor for retry batch size reduction
@@ -88,7 +87,7 @@ const (
 	RequestTimeout         = 30  // Request timeout - increased from 5 to handle large syncs
 	ConnectionTimeout      = 10  // Dialer timeout - increased from 3
 	KeepAliveTimeout       = 60  // Keep-alive timeout
-	ResponseHeaderTimeout  = 10  // Prevent slow header hangs
+	ResponseHeaderTimeout  = 10  // Minimum wait for response headers; raised to the request timeout in NewHTTPClient
 	MaxRequestRetries      = 5
 )
 
@@ -130,7 +129,10 @@ func NewHTTPClient() *retryablehttp.Client {
 	t.MaxIdleConns = MaxIdleConnections
 	t.MaxIdleConnsPerHost = MaxIdleConnsPerHost
 	t.IdleConnTimeout = time.Duration(IdleConnTimeout) * time.Second
-	t.ResponseHeaderTimeout = time.Duration(ResponseHeaderTimeout) * time.Second
+	// The server only sends headers once it has processed a sync page, so waiting for
+	// headers must be allowed the full request timeout; a shorter limit aborts slow pages
+	// that would otherwise succeed and forces them to be retried.
+	t.ResponseHeaderTimeout = time.Duration(max(timeout, ResponseHeaderTimeout)) * time.Second
 	t.DisableCompression = false // Enable compression for bandwidth savings
 
 	envProxyUrl := os.Getenv("HTTP_PROXY")
