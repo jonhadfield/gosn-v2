@@ -1051,7 +1051,16 @@ func generateInitialKeysAndAuthParamsForUser(email, password string) (pw, pwNonc
 // CliSignIn takes the server URL and credentials and sends them to the API to get a response including
 // an authentication token plus the keys required to encrypt and decrypt SN items.
 func CliSignIn(email, password, server string, debug bool) (session SignInResponseDataSession, err error) {
-	httpClient := common.NewHTTPClient()
+	return CliSignInWithClient(nil, email, password, server, debug)
+}
+
+// CliSignInWithClient is CliSignIn using the given HTTP client, so the connection opened for
+// sign-in can be reused by later requests. A new client is created if httpClient is nil.
+func CliSignInWithClient(httpClient *retryablehttp.Client, email, password, server string, debug bool) (session SignInResponseDataSession, err error) {
+	if httpClient == nil || httpClient.HTTPClient == nil {
+		httpClient = common.NewHTTPClient()
+	}
+
 	sInput := SignInInput{
 		HTTPClient: httpClient,
 		Email:      email,
