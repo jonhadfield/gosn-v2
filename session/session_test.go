@@ -180,20 +180,20 @@ func TestSessionStatus(t *testing.T) {
 	require.Empty(t, s)
 }
 
-func TestAddSessionWithoutExistingEnvVars(t *testing.T) {
-	if os.Getenv(common.EnvSkipSessionTests) != "" {
-		t.Skip("skipping session test")
-	}
-
-	_ = os.Unsetenv(common.EnvServer)
-	_ = os.Unsetenv(common.EnvEmail)
-	_ = os.Unsetenv(common.EnvPassword)
-
-	serverURL := os.Getenv(common.EnvServer)
-	if serverURL == "" {
-		serverURL = SNServerURL
-	}
-
-	_, err := AddSession(nil, serverURL, "", MockKeyRingUnDefined{}, true)
+// TestAddSessionWithoutCredentials checks that, with no credentials configured and no
+// interactive input, AddSession fails with a clear error before contacting the server.
+func TestAddSessionWithoutCredentials(t *testing.T) {
+	// Credentials come from viper, which the calling application binds to its config and
+	// environment. It is unset here, so AddSession falls back to prompting on stdin, which
+	// is empty.
+	stdin, err := os.Open(os.DevNull)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = stdin.Close() })
+
+	origStdin := os.Stdin
+	os.Stdin = stdin
+	t.Cleanup(func() { os.Stdin = origStdin })
+
+	_, err = AddSession(nil, SNServerURL, "", MockKeyRingUnDefined{}, false)
+	require.EqualError(t, err, "email required")
 }
