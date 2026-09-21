@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonhadfield/gosn-v2/common"
 	"github.com/jonhadfield/gosn-v2/session"
 )
 
@@ -99,7 +100,11 @@ func TestSyncErrorClassification(t *testing.T) {
 	}
 }
 
-// TestRateLimitBackoff tests the exponential backoff implementation
+// TestRateLimitBackoff tests the exponential backoff implementation.
+//
+// It asserts the delay the backoff calculates rather than how long a sleep
+// actually took: measuring elapsed time against a 10% tolerance made this fail
+// on loaded CI runners, and cost 3.6s per run to do it.
 func TestRateLimitBackoff(t *testing.T) {
 	t.Run("ExponentialBackoffProgression", func(t *testing.T) {
 		backoff := RateLimitBackoff{
@@ -107,26 +112,45 @@ func TestRateLimitBackoff(t *testing.T) {
 			maxDelayMs:  1000, // Cap at 1s for testing
 		}
 
-		expectedDelays := []int64{100, 200, 400, 800, 1000, 1000} // Reduced for testing, cap at 1s
+		expectedDelays := []int64{100, 200, 400, 800, 1000, 1000} // doubles, then holds at the cap
 
 		for i, expectedMs := range expectedDelays {
-			start := time.Now()
-			enforceRateLimitBackoff(&backoff)
-			elapsed := time.Since(start)
+			got := rateLimitBackoffDelay(&backoff)
 
-			elapsedMs := elapsed.Milliseconds()
-
-			// Allow 10% tolerance for timing variations
-			tolerance := expectedMs / 10
-			if elapsedMs < expectedMs-tolerance || elapsedMs > expectedMs+tolerance {
-				t.Errorf("Attempt %d: Expected ~%dms delay, got %dms", i+1, expectedMs, elapsedMs)
-			} else {
-				t.Logf("✅ Attempt %d: Correct backoff delay ~%dms", i+1, elapsedMs)
+			if got != time.Duration(expectedMs)*time.Millisecond {
+				t.Errorf("Attempt %d: Expected %dms delay, got %v", i+1, expectedMs, got)
 			}
 
-			if expectedMs >= 60000 && elapsedMs > 61000 {
-				t.Errorf("Backoff should be capped at 60s, but got %dms", elapsedMs)
+			if int64(i+1) != backoff.attempts {
+				t.Errorf("Attempt %d: Expected attempts to be %d, got %d", i+1, i+1, backoff.attempts)
 			}
+		}
+	})
+
+	t.Run("DefaultsWhenUnset", func(t *testing.T) {
+		var backoff RateLimitBackoff
+
+		got := rateLimitBackoffDelay(&backoff)
+
+		if got != time.Duration(common.RateLimitBaseDelay)*time.Millisecond {
+			t.Errorf("Expected the first delay to be the base delay of %dms, got %v", common.RateLimitBaseDelay, got)
+		}
+
+		if backoff.maxDelayMs != common.RateLimitMaxDelay {
+			t.Errorf("Expected the cap to default to %dms, got %dms", common.RateLimitMaxDelay, backoff.maxDelayMs)
+		}
+	})
+
+	// The progression above is arithmetic; this checks the caller really waits.
+	// Only a lower bound is asserted, so a slow runner cannot fail it.
+	t.Run("EnforceSleeps", func(t *testing.T) {
+		backoff := RateLimitBackoff{baseDelayMs: 20, maxDelayMs: 20}
+
+		start := time.Now()
+		enforceRateLimitBackoff(&backoff)
+
+		if elapsed := time.Since(start); elapsed < 20*time.Millisecond {
+			t.Errorf("Expected to wait at least 20ms, waited %v", elapsed)
 		}
 	})
 }
