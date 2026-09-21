@@ -707,8 +707,10 @@ func enforceMinimumSyncDelay() {
 	}
 }
 
-// enforceRateLimitBackoff implements exponential backoff for rate limit responses
-func enforceRateLimitBackoff(backoff *RateLimitBackoff) {
+// rateLimitBackoffDelay advances the backoff a step and reports how long the
+// caller should wait. Kept separate from the sleep so the progression can be
+// tested without spending the time.
+func rateLimitBackoffDelay(backoff *RateLimitBackoff) time.Duration {
 	// Initialize defaults if not set
 	if backoff.attempts == 0 && backoff.baseDelayMs == 0 {
 		backoff.baseDelayMs = common.RateLimitBaseDelay
@@ -721,7 +723,12 @@ func enforceRateLimitBackoff(backoff *RateLimitBackoff) {
 		delayMs = backoff.maxDelayMs
 	}
 
-	time.Sleep(time.Duration(delayMs) * time.Millisecond)
+	return time.Duration(delayMs) * time.Millisecond
+}
+
+// enforceRateLimitBackoff implements exponential backoff for rate limit responses
+func enforceRateLimitBackoff(backoff *RateLimitBackoff) {
+	time.Sleep(rateLimitBackoffDelay(backoff))
 }
 
 // classifySyncError analyzes error to determine type and retry strategy
