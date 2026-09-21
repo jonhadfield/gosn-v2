@@ -224,33 +224,62 @@ func padToAESBlockSize(b []byte) []byte {
 	return pb
 }
 
-// Encrypt string to base64 crypto using AES.
-func Encrypt(key []byte, text string) (string, error) {
-	key = padToAESBlockSize(key)
-	plaintext := []byte(text)
+const (
+	// sessionCryptoPrefix marks the argon2id + XChaCha20-Poly1305 format. Text
+	// without it was written by the older AES-CFB code and is still read, so
+	// sessions stored before this change keep working.
+	sessionCryptoPrefix = "gosn2:"
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return "", fmt.Errorf("encrypt: failed to create cipher: %w", err)
-	}
+	argonSaltLen = 16
+	// Unlocking a session is interactive and happens on a laptop, so this is
+	// sized to cost an attacker memory without the user noticing the wait:
+	// 64MB, which measured around 30ms on an M-series Mac.
+	argonTime    = 1
+	argonMemory  = 64 * 1024
+	argonThreads = 4
+	argonKeyLen  = chacha20poly1305.KeySize
+)
+
+// deriveSessionKey stretches a passphrase of any length into a key of the size
+// the cipher needs. The old code padded instead, which both failed outright for
+// passphrases of 32 bytes or more (the padded length was not a valid AES key
+// size) and gave a short passphrase no more entropy than it started with.
+func deriveSessionKey(key, salt []byte) []byte {
+	return argon2.IDKey(key, salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+}
+
+// Encrypt encrypts text with a key of any length, returning base64 text
+// prefixed with the format marker. The result is authenticated: Decrypt fails
+// rather than returning altered plaintext if the ciphertext is modified.
+func Encrypt(key []byte, text string) (string, error) {
+	plaintext := []byte(text)
 
 	// fail if plaintext is over 10MB
 	if len(plaintext) > MaxPlaintextSize {
 		return "", fmt.Errorf("encrypt: plaintext too long (%d bytes, max %d bytes). please report this issue at https://github.com/jonhadfield/gosn-v2/issues", len(plaintext), MaxPlaintextSize)
 	}
 
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-
-	iv := ciphertext[:aes.BlockSize]
-	if _, err = io.ReadFull(crand.Reader, iv); err != nil {
-		return "", fmt.Errorf("encrypt: failed to generate IV: %w", err)
+	salt := make([]byte, argonSaltLen)
+	if _, err := io.ReadFull(crand.Reader, salt); err != nil {
+		return "", fmt.Errorf("encrypt: failed to generate salt: %w", err)
 	}
 
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+	aead, err := chacha20poly1305.NewX(deriveSessionKey(key, salt))
+	if err != nil {
+		return "", fmt.Errorf("encrypt: failed to create cipher: %w", err)
+	}
 
-	// convert to base64
-	return base64.URLEncoding.EncodeToString(ciphertext), nil
+	nonce := make([]byte, aead.NonceSize())
+	if _, err = io.ReadFull(crand.Reader, nonce); err != nil {
+		return "", fmt.Errorf("encrypt: failed to generate nonce: %w", err)
+	}
+
+	out := make([]byte, 0, len(salt)+len(nonce)+len(plaintext)+aead.Overhead())
+	out = append(out, salt...)
+	out = append(out, nonce...)
+	out = aead.Seal(out, nonce, plaintext, nil)
+
+	return sessionCryptoPrefix + base64.URLEncoding.EncodeToString(out), nil
 }
 
 // decodeCryptoText decodes URL-safe base64 encoded cipher text.
@@ -258,8 +287,51 @@ func decodeCryptoText(s string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(s)
 }
 
-// Decrypt from base64 to decrypted string.
+// Decrypt from base64 to decrypted string. Text carrying the format marker is
+// decrypted with argon2id + XChaCha20-Poly1305; anything else is assumed to
+// have been written by the older AES-CFB code and is decrypted that way, so a
+// session stored before the change still opens.
 func Decrypt(key []byte, cryptoText string) (pt string, err error) {
+	if strings.HasPrefix(cryptoText, sessionCryptoPrefix) {
+		return decryptSession(key, strings.TrimPrefix(cryptoText, sessionCryptoPrefix))
+	}
+
+	return decryptLegacyCFB(key, cryptoText)
+}
+
+func decryptSession(key []byte, cryptoText string) (string, error) {
+	raw, err := decodeCryptoText(cryptoText)
+	if err != nil {
+		return "", err
+	}
+
+	if len(raw) < argonSaltLen+chacha20poly1305.NonceSizeX {
+		return "", errors.New("ciphertext too short")
+	}
+
+	salt := raw[:argonSaltLen]
+	nonce := raw[argonSaltLen : argonSaltLen+chacha20poly1305.NonceSizeX]
+	ciphertext := raw[argonSaltLen+chacha20poly1305.NonceSizeX:]
+
+	aead, err := chacha20poly1305.NewX(deriveSessionKey(key, salt))
+	if err != nil {
+		return "", fmt.Errorf("decrypt: failed to create cipher: %w", err)
+	}
+
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		// Either the key is wrong or the stored session has been altered, and
+		// the cipher cannot tell us which.
+		return "", fmt.Errorf("decrypt: %w", err)
+	}
+
+	return string(plaintext), nil
+}
+
+// decryptLegacyCFB reads the unauthenticated AES-CFB format written before the
+// move to argon2id + XChaCha20-Poly1305. Kept so existing sessions still open;
+// nothing writes this format any more.
+func decryptLegacyCFB(key []byte, cryptoText string) (pt string, err error) {
 	ciphertext, err := decodeCryptoText(cryptoText)
 	if err != nil {
 		return
