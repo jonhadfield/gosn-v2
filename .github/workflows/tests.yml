@@ -7,8 +7,12 @@ on:
     branches: [ master, main ]
 jobs:
   test:
+    # Keyed by branch: a new run supersedes that branch's own earlier run, and
+    # branches do not cancel each other. CI sets SN_SKIP_SESSION_TESTS, so
+    # these runs stay offline and there is no shared account to serialise
+    # against.
     concurrency:
-      group: test
+      group: test-${{ github.ref }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
