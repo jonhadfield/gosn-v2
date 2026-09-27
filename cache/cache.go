@@ -1194,7 +1194,6 @@ func Sync(si SyncInput) (so SyncOutput, err error) {
 
 	// if session doesn't contain items keys then remove sync token so we bring all items in
 	if si.Session.DefaultItemsKey.ItemsKey == "" {
-		fmt.Printf("Sync | no default items key in session so resetting sync token\n")
 		log.DebugPrint(si.Session.Debug, "Sync | no default items key in session so resetting sync token", common.MaxDebugChars)
 		syncToken = ""
 	} else if syncToken != "" {
