@@ -167,3 +167,95 @@ func TestGetSessionRefreshSavesEncryptedToFileKeyring(t *testing.T) {
 func jsonInt(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
+
+type memoryKeyring struct {
+	data map[string]string
+}
+
+func newMemoryKeyring() *memoryKeyring {
+	return &memoryKeyring{data: make(map[string]string)}
+}
+
+func (m *memoryKeyring) key(service, user string) string {
+	return service + "\x00" + user
+}
+
+func (m *memoryKeyring) Set(service, user, password string) error {
+	m.data[m.key(service, user)] = password
+	return nil
+}
+
+func (m *memoryKeyring) Get(service, user string) (string, error) {
+	v, ok := m.data[m.key(service, user)]
+	if !ok {
+		return "", keyring.ErrNotFound
+	}
+	return v, nil
+}
+
+func (m *memoryKeyring) Delete(service, user string) error {
+	if _, ok := m.data[m.key(service, user)]; !ok {
+		return keyring.ErrNotFound
+	}
+	delete(m.data, m.key(service, user))
+	return nil
+}
+
+func (m *memoryKeyring) DeleteAll(service string) error {
+	for k := range m.data {
+		if len(k) >= len(service) && k[:len(service)] == service {
+			delete(m.data, k)
+		}
+	}
+	return nil
+}
+
+func TestSetKeyringIdentityIsolatesSessions(t *testing.T) {
+	t.Cleanup(func() { SetKeyringIdentity(DefaultKeyringService, DefaultKeyringUser) })
+
+	kr := newMemoryKeyring()
+	require.NoError(t, kr.Set(DefaultKeyringService, DefaultKeyringUser, "legacy-session"))
+
+	SetKeyringIdentity("sn-dotfiles", "Session")
+	got, err := GetSessionFromKeyring(kr)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-session", got)
+
+	// migrated into the app slot; legacy left in place
+	appSlot, err := kr.Get("sn-dotfiles", "Session")
+	require.NoError(t, err)
+	require.Equal(t, "legacy-session", appSlot)
+	legacy, err := kr.Get(DefaultKeyringService, DefaultKeyringUser)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-session", legacy)
+
+	SetKeyringIdentity("sn-cli", "Session")
+	require.NoError(t, writeSession("cli-session", kr))
+
+	SetKeyringIdentity("sn-dotfiles", "Session")
+	got, err = GetSessionFromKeyring(kr)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-session", got)
+
+	SetKeyringIdentity("sn-cli", "Session")
+	got, err = GetSessionFromKeyring(kr)
+	require.NoError(t, err)
+	require.Equal(t, "cli-session", got)
+}
+
+func TestRemoveSessionOnlyTouchesAppSlot(t *testing.T) {
+	t.Cleanup(func() { SetKeyringIdentity(DefaultKeyringService, DefaultKeyringUser) })
+
+	kr := newMemoryKeyring()
+	require.NoError(t, kr.Set(DefaultKeyringService, DefaultKeyringUser, "legacy-session"))
+	require.NoError(t, kr.Set("sn-dotfiles", "Session", "dotfiles-session"))
+
+	SetKeyringIdentity("sn-dotfiles", "Session")
+	require.Equal(t, MsgSessionRemovalSuccess, RemoveSession(kr))
+
+	_, err := kr.Get("sn-dotfiles", "Session")
+	require.ErrorIs(t, err, keyring.ErrNotFound)
+	legacy, err := kr.Get(DefaultKeyringService, DefaultKeyringUser)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-session", legacy)
+}

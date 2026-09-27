@@ -26,14 +26,39 @@ import (
 )
 
 const (
-	SNServerURL              = "https://api.standardnotes.com"
-	KeyringApplicationName   = "Session"
-	KeyringService           = "StandardNotesCLI"
+	SNServerURL = "https://api.standardnotes.com"
+	// DefaultKeyringService and DefaultKeyringUser are the legacy shared
+	// keyring slot used before apps could claim their own identity.
+	DefaultKeyringService    = "StandardNotesCLI"
+	DefaultKeyringUser       = "Session"
 	MsgSessionRemovalSuccess = "session removed successfully"
 	MsgSessionRemovalFailure = "failed to remove session"
 	DefaultSessionExpiryTime = 12 * time.Hour
 	RefreshSessionThreshold  = 10 * time.Minute
 )
+
+// KeyringService and KeyringApplicationName identify the keyring entry used to
+// store the session. Defaults match the legacy shared slot. Call
+// SetKeyringIdentity at process start so apps (e.g. sn-cli, sn-dotfiles) do
+// not overwrite each other's sessions.
+var (
+	KeyringService         = DefaultKeyringService
+	KeyringApplicationName = DefaultKeyringUser
+)
+
+// SetKeyringIdentity sets the keyring service and account used to store the
+// session. Empty strings keep the corresponding default. Call once at process
+// start; it is not safe to change while other goroutines use the session API.
+func SetKeyringIdentity(service, user string) {
+	if service == "" {
+		service = DefaultKeyringService
+	}
+	if user == "" {
+		user = DefaultKeyringUser
+	}
+	KeyringService = service
+	KeyringApplicationName = user
+}
 
 type SessionItemsKey struct {
 	UUID               string `json:"uuid"`
@@ -208,12 +233,32 @@ func GetCredentials(inServer string) (email, password, apiServer, errMsg string)
 }
 
 func GetSessionFromKeyring(k keyring.Keyring) (s string, err error) {
-	s, err = resolveKeyring(k).Get(KeyringService, KeyringApplicationName)
-	if err != nil {
-		err = fmt.Errorf("GetSessionFromKeyring | %w", err)
+	kr := resolveKeyring(k)
+	s, err = kr.Get(KeyringService, KeyringApplicationName)
+	if err == nil {
+		return s, nil
 	}
 
-	return
+	// When an app uses its own slot, fall back once to the legacy shared
+	// entry and copy it across so existing users keep working.
+	if keyringNotFound(err) && usingCustomKeyringIdentity() {
+		legacy, legacyErr := kr.Get(DefaultKeyringService, DefaultKeyringUser)
+		if legacyErr == nil && legacy != "" {
+			_ = kr.Set(KeyringService, KeyringApplicationName, legacy)
+			return legacy, nil
+		}
+	}
+
+	return "", fmt.Errorf("GetSessionFromKeyring | %w", err)
+}
+
+func usingCustomKeyringIdentity() bool {
+	return KeyringService != DefaultKeyringService || KeyringApplicationName != DefaultKeyringUser
+}
+
+func keyringNotFound(err error) bool {
+	return errors.Is(err, keyring.ErrNotFound) ||
+		strings.Contains(err.Error(), "secret not found in keyring")
 }
 
 func AddSession(httpClient *retryablehttp.Client, snServer, inKey string, k keyring.Keyring, debug bool) (res string, err error) {
@@ -221,8 +266,11 @@ func AddSession(httpClient *retryablehttp.Client, snServer, inKey string, k keyr
 	var s string
 	s, err = GetSessionFromKeyring(k)
 	// only return an error if there's an issue accessing the keyring
-	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
+	if err != nil && !keyringNotFound(err) {
 		return
+	}
+	if err != nil {
+		err = nil
 	}
 
 	if inKey == "." {
@@ -280,8 +328,11 @@ func UpdateSession(sess *Session, k keyring.Keyring, debug bool) error {
 	// check if Session exists in keyring
 	existingRaw, err := GetSessionFromKeyring(k)
 	// only return an error if there's an issue accessing the keyring
-	if err != nil && !strings.Contains(err.Error(), "secret not found in keyring") {
+	if err != nil && !keyringNotFound(err) {
 		return err
+	}
+	if err != nil {
+		existingRaw = ""
 	}
 
 	var byteKey []byte
@@ -445,7 +496,7 @@ func GetSession(httpClient *retryablehttp.Client, loadSession bool, sessionKey, 
 	if loadSession {
 		var rawSess string
 
-		rawSess, err = resolveKeyring(nil).Get(KeyringService, KeyringApplicationName)
+		rawSess, err = GetSessionFromKeyring(nil)
 		if err != nil {
 			return
 		}
