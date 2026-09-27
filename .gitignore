@@ -17,3 +17,6 @@ coverage.tmp
 
 # goland
 .idea/
+
+# Local agent notes (may contain secrets)
+claudedocs/
