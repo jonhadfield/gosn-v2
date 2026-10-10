@@ -20,3 +20,6 @@ coverage.tmp
 
 # Local agent notes (may contain secrets)
 claudedocs/
+
+# Added by ggshield
+.cache_ggshield

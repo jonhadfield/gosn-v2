@@ -1384,7 +1384,7 @@ func TestDecryptNoteText(t *testing.T) {
 	decryptedItemsKey := "366df581a789de771a1613d7d0289bbaff7bf4249a7dd15e458a12c361cb7b73" // ggignore
 	cipherText := "sJhGyLDN4x/wXBcE6TWCsZMaAPfK04ojpsYzjI/zEGvkBsRPGPyihTyQGHvAqcHMWOIZZYZDC2+8YlxVdreF2LblOM8hXz3hwtFDE3DcN5g="
 	nonce := "b55df872abe8c97f82bb875a14a9b344584825edef1d0ed7"
-	authData := "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
+	authData := "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9" // ggignore
 	contentItemKeyHexBytes, err := crypto.DecryptCipherText(cipherText, decryptedItemsKey, nonce, authData)
 	require.NoError(t, err)
 	require.Equal(t, "b396412f690bfb40801c764af7975bc019f3de79b1ed24385e98787aff81c003", string(contentItemKeyHexBytes)) // ggignore
@@ -1392,7 +1392,7 @@ func TestDecryptNoteText(t *testing.T) {
 	rawKey := string(contentItemKeyHexBytes)
 	nonce = "6045eaf9774a877203b68bb12159f9c5c0c3d19df4949e40"
 	cipherText = "B+8vUwmSTGZCba6mU2gMSMl55fpt38Wv/yWxAF4pEveX0sjqSYgjT5PA8/yy7LKotF+kjmuiHNvYtH7hB7BaqJrG8Q4G5Sj15tIu8PtlWECJWHnPxHkeiJW1MiS1ypR0t3y+Uc7cRpGPwnQIqJDr/Yl1vp2tZXlaSy0zYtGYlw5GwUnLxXtQBQC1Ml3rzZDpaIT9zIr9Qluv7Q7JXOJ7rAbj95MtsV2CJDS33+kXBTUKMqYRbGDWmn0="
-	authData = "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9"
+	authData = "eyJ1IjoiYmE5MjQ4YWMtOWUxNC00ODcyLTgxNjYtNTkzMjg5ZDg5ODYwIiwidiI6IjAwNCJ9" // ggignore
 	dIKeyContent, err := crypto.DecryptCipherText(cipherText, rawKey, nonce, authData)
 	require.NoError(t, err)
 
@@ -1410,7 +1410,7 @@ func TestDecryptItemKey(t *testing.T) {
 	rawKey := "e73faf921cc265b7a001451d8760a6a6e2270d0dbf1668f9971fd75c8018ffd4" // ggignore
 	cipherText := "kRd2w+7FQBIXaNGze7G28GOIUSngrqtx/t5Jus76z3z+eM18GkJT7Lc/ZpqJiH9I6fdksNdo6uvfip8TCIT458XxcrqIP24Bxk9xaz2Q9IQ="
 	nonce := "d211fc5dee400fe54ca04ac43ecac512c9d0dabb6c4ee0f3"
-	authData := "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
+	authData := "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9" // ggignore
 	contentItemKeyHexBytes, err := crypto.DecryptCipherText(cipherText, rawKey, nonce, authData)
 	require.NoError(t, err)
 	require.Equal(t, "9381f4ac4371cd9e31c3389442897d5c7de3da3d787927709ab601e28767d18a", string(contentItemKeyHexBytes)) // ggignore
@@ -1419,7 +1419,7 @@ func TestDecryptItemKey(t *testing.T) {
 	rawKey = string(contentItemKeyHexBytes)
 	nonce = "b0a6519e605db5ecf02cdc225567b61d41f56b41387bc95e"
 	cipherText = "GHWwyAayZuu5BKLbHScaJ2e8turXbbcnkNGrmTr9alLQen9UyNRjOtKNH1WcfNb3/kkqabw8XwNxKwrrQwBZmC1wVkIvJpEQc0oI7Nc9F3zHVJyiHqFc8mWRs2jWY+/3IdWm6TTTiJro+QTzFjO5XO9J8KwAx1LizaScjKdTE20p+ryRrrfpp5x8YbbuIWLxpOZRJfF0zUe7wAo/SCI/VuIvSrTK9958VgvPzTagse644pjSo/yvcaSv5XUJhfvaBeqK0JLwiNvNmYZHXt1itfHRE1BFi6/T0fkA30VQb8JmHyHU"
-	authData = "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9"
+	authData = "eyJrcCI6eyJpZGVudGlmaWVyIjoiZ29zbi12MkBsZXNza25vd24uY28udWsiLCJwd19ub25jZSI6ImIzYjc3Yzc5YzlmZWE5ODY3MWU2NmFmNDczMzZhODhlNWE1MTUyMjI4YjEwMTQ2NDEwM2M1MjJiMWUzYWU0ZGEiLCJ2ZXJzaW9uIjoiMDA0Iiwib3JpZ2luYXRpb24iOiJyZWdpc3RyYXRpb24iLCJjcmVhdGVkIjoiMTYwODEzNDk0NjY5MiJ9LCJ1IjoiNjI3YTg4YTAtY2NkNi00YTY4LWFjZWUtYjM0ODQ5NDZmMjY1IiwidiI6IjAwNCJ9" // ggignore
 	dIKeyContent, err := crypto.DecryptCipherText(cipherText, rawKey, nonce, authData)
 	require.NoError(t, err)
 
@@ -1579,7 +1579,7 @@ func TestDecryptItemKey(t *testing.T) {
 //
 // 	// now register and sign in as a new user
 // 	secondUserEmail := fmt.Sprintf("ramea-%s", strconv.FormatInt(time.Now().UnixNano(), 16))
-// 	secondUserPassword := "secretsanta2"
+// 	secondUserPassword := "secretsanta2" // ggignore
 //
 // 	ri := RegisterInput{
 // 		Password:  secondUserPassword,
@@ -1592,7 +1592,7 @@ func TestDecryptItemKey(t *testing.T) {
 // 	require.NoError(t, err)
 // 	o, err := SignIn(SignInInput{
 // 		Email:     secondUserEmail,
-// 		Password:  "secretsanta2",
+// 		Password:  "secretsanta2", // ggignore
 // 		APIServer: "http://ramea:3000",
 // 		Debug:     true,
 // 	})
@@ -1601,11 +1601,11 @@ func TestDecryptItemKey(t *testing.T) {
 // 	newSession := o.Session
 //
 // 	// importing with wrong password should fail
-// 	_, _, err = newSession.Import(tmpfn, "", "secretsanta1")
+// 	_, _, err = newSession.Import(tmpfn, "", "secretsanta1") // ggignore
 // 	require.Error(t, err)
 //
 // 	// importing with correct password should succeed
-// 	items, key, err := newSession.Import(tmpfn, "", "secretsanta")
+// 	items, key, err := newSession.Import(tmpfn, "", "secretsanta") // ggignore
 // 	require.NoError(t, err)
 //
 // 	var keyIndex int

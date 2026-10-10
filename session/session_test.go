@@ -36,7 +36,7 @@ func (k MockKeyRingDefined) Set(user, service, password string) error {
 }
 
 func (k MockKeyRingDefined) Get(service, user string) (r string, err error) {
-	return "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"03f7f410be71838897d35cacec799503355d486a0ef4a1e3e5f64abf262a640f\",\"keyParams\":{\"created\":\"1693053961818\",\"identifier\":\"ramea@lessknown.co.uk\",\"origination\":\"registration\",\"pw_nonce\":\"93ed73375de052cb233fc9914fe8a2a264492b74ebc2968e17eb44d451ced614\",\"version\":\"004\"},\"access_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:ODAyZWRlMTg2ZjM5\",\"refresh_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:YTU4NWY3MmIxMmIz\",\"access_expiration\":1698262966000,\"refresh_expiration\":1724635892000}", nil
+	return "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"03f7f410be71838897d35cacec799503355d486a0ef4a1e3e5f64abf262a640f\",\"keyParams\":{\"created\":\"1693053961818\",\"identifier\":\"ramea@lessknown.co.uk\",\"origination\":\"registration\",\"pw_nonce\":\"93ed73375de052cb233fc9914fe8a2a264492b74ebc2968e17eb44d451ced614\",\"version\":\"004\"},\"access_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:ODAyZWRlMTg2ZjM5\",\"refresh_token\":\"1:7d90df15-7d74-46e0-a7c6-4cfa1b70f42e:YTU4NWY3MmIxMmIz\",\"access_expiration\":1698262966000,\"refresh_expiration\":1724635892000}", nil // ggignore
 }
 
 func (k MockKeyRingDefined) Delete(service, user string) error {
@@ -66,7 +66,7 @@ func (k MockKeyRingUnDefined) DeleteAll(service string) error {
 }
 
 func TestMakeSessionString(t *testing.T) {
-	sessionString := "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"5319f9c148ee3dbe78fc149e8643775242d7e83216060ee5e228ab2ec3d88a76\",\"keyParams\":{\"created\":\"1608473387799\",\"identifier\":\"test-user\",\"origination\":\"registration\",\"pw_nonce\":\"yJTyMmLr3KqOc7ifRfe1H7Pu8591n7Sj\",\"version\":\"004\"},\"access_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:Io9MOsc.WDIq0JBt\",\"refresh_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:-ixQV.-RMCCSPG0M\",\"access_expiration\":1648647400000,\"refresh_expiration\":1675020326000,\"SchemaValidation\":false}"
+	sessionString := "{\"Server\":\"http://ramea:3000\",\"Token\":\"\",\"MasterKey\":\"5319f9c148ee3dbe78fc149e8643775242d7e83216060ee5e228ab2ec3d88a76\",\"keyParams\":{\"created\":\"1608473387799\",\"identifier\":\"test-user\",\"origination\":\"registration\",\"pw_nonce\":\"yJTyMmLr3KqOc7ifRfe1H7Pu8591n7Sj\",\"version\":\"004\"},\"access_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:Io9MOsc.WDIq0JBt\",\"refresh_token\":\"1:3dc699a1-451d-4de3-b01d-fca32554292b:-ixQV.-RMCCSPG0M\",\"access_expiration\":1648647400000,\"refresh_expiration\":1675020326000,\"SchemaValidation\":false}" // ggignore
 
 	var session Session
 

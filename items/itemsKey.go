@@ -41,7 +41,7 @@ type ItemsKey struct {
 
 // ItemsKeyContent is only used when marshaling the ItemsKey, before encryption
 // For decryption, we unmarshall the decrypted content string onto the ItemsKey instance
-// split enc_item_key - nonce: xxx, cipherText: xxx, authenticatedData: eyJ1IjoiMDg5ODQzN2YtZDViOC00MTNkLWEwNTctODRiODVhNGQzNzRlIiwidiI6IjAwNCJ9
+// split enc_item_key - nonce: xxx, cipherText: xxx, authenticatedData: eyJ1IjoiMDg5ODQzN2YtZDViOC00MTNkLWEwNTctODRiODVhNGQzNzRlIiwidiI6IjAwNCJ9 // ggignore
 
 type ItemsKeyEncKey struct {
 	Version         string `json:"version"`

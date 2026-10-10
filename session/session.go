@@ -608,7 +608,7 @@ func ParseSessionString(ss string) (Session, error) {
 		RefreshExpiration:  ms.RefreshExpiration,
 		MasterKey:          ms.MasterKey,
 		KeyParams:          ms.KeyParams,
-		PasswordNonce:      ms.KeyParams.PwNonce,
+		PasswordNonce:      ms.KeyParams.PwNonce, // ggignore
 		AccessTokenCookie:  ms.AccessTokenCookie,
 		RefreshTokenCookie: ms.RefreshTokenCookie,
 	}, nil
