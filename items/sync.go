@@ -34,11 +34,15 @@ type SyncInput struct {
 // It contains slices of items based on their state
 // see: https://standardfile.org/ for state details
 type SyncOutput struct {
-	Items      EncryptedItems  // items new or modified since last sync
-	SavedItems EncryptedItems  // dirty items needing resolution
-	Unsaved    EncryptedItems  // items not saved during sync TODO: No longer needed? Replaced by Conflicts?
-	Conflicts  ConflictedItems // items not saved during sync due to significant difference in updated_time values. can be triggered by import where the server item has been updated since export.
-	SyncToken  string
+	Items      EncryptedItems // items new or modified since last sync
+	SavedItems EncryptedItems // dirty items needing resolution
+	// Unsaved is the legacy sync-response field. Official SNJS treats response
+	// "unsaved" as an alias for "conflicts" (ConflictParams[]), concatenating both
+	// into one conflict list. Modern servers emit only "conflicts". gosn still
+	// unmarshals "unsaved" as EncryptedItems for wire compatibility; prefer Conflicts.
+	Unsaved   EncryptedItems
+	Conflicts ConflictedItems // typed conflict objects (server_item / unsaved_item / type)
+	SyncToken string
 
 	Cursor string
 }

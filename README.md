@@ -24,17 +24,10 @@ It is the client library behind [sn-cli](https://github.com/jonhadfield/sn-cli) 
 
 ## Status
 
-Pre-1.0 and **unversioned**: this repository has no release tags, so `go get`
-resolves to a pseudo-version of `master`, for example:
-
-```
-github.com/jonhadfield/gosn-v2 v0.0.0-20260919171233-83a1c125b118
-```
-
-There is no semantic versioning, no changelog, and no deprecation policy. The
-API has already been reorganised once without notice (the functions that used
-to live in the root `gosn` package now live in `auth`, `session` and `items`).
-Pin the exact pseudo-version in your `go.mod` and upgrade deliberately.
+Pre-1.0. Tagged releases start at [`v0.1.0`](CHANGELOG.md); prefer a tag over
+`@master`. There is still no long-term deprecation policy — the API was
+reorganised once without notice (root `gosn` helpers now live in `auth`,
+`session`, and `items`) — so upgrade deliberately and pin an exact version.
 
 Standard Notes compatibility:
 
@@ -55,7 +48,7 @@ Standard Notes compatibility:
 ## Installation
 
 ```bash
-go get github.com/jonhadfield/gosn-v2@master
+go get github.com/jonhadfield/gosn-v2@v0.1.0
 ```
 
 There is no importable package at the module root — import the packages you

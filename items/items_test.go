@@ -1454,7 +1454,8 @@ func TestDecryptItemKey(t *testing.T) {
 //	require.Equal(t, testSession.DefaultItemsKey.ItemsKey, key.ItemsKey)
 // }
 
-// TODO: Re-enable export import test
+// TODO: Re-enable once Session.Export / Session.Import are restored (commented out since eed94cf).
+// Parsing of export fixtures is covered by TestReadExportJSONFixtures.
 // func TestRegisterCreateTagExportImportTwice(t *testing.T) {
 // 	if !strings.Contains(testSession.Server, "ramea") {
 // 		return
@@ -1507,7 +1508,8 @@ func TestDecryptItemKey(t *testing.T) {
 // 	}
 // }
 
-// TODO: Re-enable export import test
+// TODO: Re-enable once Session.Export / Session.Import are restored (commented out since eed94cf).
+// Parsing of export fixtures is covered by TestReadExportJSONFixtures.
 // func TestRegisterCreateTagExportImport(t *testing.T) {
 // 	if !strings.Contains(testSession.Server, "ramea") {
 // 		return
