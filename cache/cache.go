@@ -246,11 +246,11 @@ func (pi Items) ToItems(s *Session) (items.Items, error) {
 	return its, nil
 }
 
-// func (s *Session) Export(path string) error {
-// 	log.DebugPrint(s.Debug, fmt.Sprintf("Exporting to path: %s", path),common.MaxDebugChars)
-//
-// 	return s.Session.Export(path)
-// }
+// Export writes a Standard Notes 004 export file for this cache session.
+func (s *Session) Export(path string) error {
+	log.DebugPrint(s.Debug, fmt.Sprintf("Exporting to path: %s", path), common.MaxDebugChars)
+	return items.Export(s.Session, path)
+}
 
 func (s *Session) RemoveDB() error {
 	if err := os.Remove(s.CacheDBPath); err != nil {
@@ -264,50 +264,49 @@ func (s *Session) RemoveDB() error {
 	return nil
 }
 
-// Import reads a json export file into SN and then syncs with the db.
-// func (s *Session) Import(path string, persist bool) error {
-// 	so, err := Sync(SyncInput{
-// 		Session: s,
-// 		Close:   false,
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	var syncTokens []SyncToken
-//
-// 	err = so.DB.All(&syncTokens)
-// 	if err != nil && err.Error() != "not found" {
-// 		return err
-// 	}
-//
-// 	syncToken := ""
-//
-// 	if len(syncTokens) > 0 {
-// 		syncToken = syncTokens[0].SyncToken
-// 	}
-//
-// 	log.DebugPrint(s.Debug, fmt.Sprintf("importing from %s", path))
-//
-// 	ii, ifk, err := s.Session.Import(path, syncToken, "")
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	log.DebugPrint(s.Debug, fmt.Sprintf("importing loaded: %d items and %s key", len(ii), ifk.UUID))
-//
-// 	err = so.DB.Close()
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	_, err = Sync(SyncInput{
-// 		Session: s,
-// 		Close:   true,
-// 	})
-//
-// 	return err
-// }
+// Import reads a JSON export file into Standard Notes and then syncs the local db.
+// The persist flag is retained for API compatibility; sync always writes through.
+func (s *Session) Import(path string, _ bool) error {
+	so, err := Sync(SyncInput{
+		Session: s,
+		Close:   false,
+	})
+	if err != nil {
+		return err
+	}
+
+	var syncTokens []SyncToken
+
+	err = so.DB.All(&syncTokens)
+	if err != nil && err.Error() != "not found" {
+		return err
+	}
+
+	syncToken := ""
+	if len(syncTokens) > 0 {
+		syncToken = syncTokens[0].SyncToken
+	}
+
+	log.DebugPrint(s.Debug, fmt.Sprintf("importing from %s", path), common.MaxDebugChars)
+
+	ii, ifk, err := items.Import(s.Session, path, syncToken, "")
+	if err != nil {
+		return err
+	}
+
+	log.DebugPrint(s.Debug, fmt.Sprintf("importing loaded: %d items and %s key", len(ii), ifk.UUID), common.MaxDebugChars)
+
+	if err = so.DB.Close(); err != nil {
+		return err
+	}
+
+	_, err = Sync(SyncInput{
+		Session: s,
+		Close:   true,
+	})
+
+	return err
+}
 
 func ToCacheItems(items items.EncryptedItems, clean bool) (pitems Items, err error) {
 	for _, i := range items {
@@ -617,9 +616,7 @@ func (i Items) Validate() error {
 
 		switch {
 		case strings.HasPrefix(i[x].Content, "003"):
-			// TODO: Instructions incorrect
-			// return fmt.Errorf("found cache item %s: %s created with legacy StandardNotes version: 003\n     "+
-			// 	"please export and then import content using official app to upgrade to 004 and then run 'sn resync' to upgrade cache to version 004", i[x].ContentType, i[x].UUID)
+			return fmt.Errorf("cache item %s %s uses legacy protocol 003; upgrade content to 004 with the official Standard Notes app before syncing", i[x].ContentType, i[x].UUID)
 		case i[x].UUID == "":
 			return fmt.Errorf("cache item is missing uuid: %+v", i[x])
 		case i[x].ContentType == "":

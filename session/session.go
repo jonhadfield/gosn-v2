@@ -86,9 +86,9 @@ type SessionItemsKey struct {
 //   - Connection pool state can be corrupted
 //
 // Safe concurrent usage patterns:
-//   1. Create separate Session instances for each goroutine
-//   2. Use mutex to serialize access to shared Session
-//   3. Never share HTTPClient with cookie jar across goroutines
+//  1. Create separate Session instances for each goroutine
+//  2. Use mutex to serialize access to shared Session
+//  3. Never share HTTPClient with cookie jar across goroutines
 //
 // See claudedocs/thread_safety.md for detailed guidance and examples.
 type Session struct {
@@ -100,17 +100,18 @@ type Session struct {
 	Token            string
 	MasterKey        string
 	ItemsKeys        []SessionItemsKey
-	// ImporterItemsKeys is the key used to encrypt exported items and set during import only
-	// ImporterItemsKeys []SessionItemsKey
+	// ImporterItemsKeys holds keys from an export file while decrypting imported
+	// items. Cleared after import decrypt completes.
+	ImporterItemsKeys []SessionItemsKey
 	DefaultItemsKey   SessionItemsKey
 	KeyParams         auth.KeyParams `json:"keyParams"`
 	AccessToken       string         `json:"access_token"`
 	RefreshToken      string         `json:"refresh_token"`
 	AccessExpiration  int64          `json:"access_expiration"`
 	RefreshExpiration int64          `json:"refresh_expiration"`
-	ReadOnlyAccess     bool           `json:"readonly_access"`
-	PasswordNonce      string
-	Schemas            map[string]*jsonschema.Schema
+	ReadOnlyAccess    bool           `json:"readonly_access"`
+	PasswordNonce     string
+	Schemas           map[string]*jsonschema.Schema
 	// Cookie values extracted from Set-Cookie headers for manual cookie handling
 	AccessTokenCookie  string `json:"access_token_cookie,omitempty"`
 	RefreshTokenCookie string `json:"refresh_token_cookie,omitempty"`
@@ -129,65 +130,6 @@ type MinimalSession struct {
 	AccessTokenCookie  string `json:"access_token_cookie,omitempty"`
 	RefreshTokenCookie string `json:"refresh_token_cookie,omitempty"`
 }
-
-// func (s *Session) Export(path string) error {
-// 	// we must export all items, or otherwise we will update the encryption key
-// 	// for non exported items so they can no longer be encrypted
-// 	so, err := Sync(SyncInput{
-// 		Session: s,
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	ik := s.DefaultItemsKey
-//
-// 	// create new items key, but copy across uuid and timestamps
-// 	nk, err := auth.CreateItemsKey()
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	nk.UUID = ik.UUID
-// 	nk.CreatedAt = ik.CreatedAt
-// 	nk.UpdatedAt = ik.UpdatedAt
-// 	nk.CreatedAtTimestamp = ik.CreatedAtTimestamp
-// 	nk.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
-//
-// 	// encrypt items with the new ItemsKey
-// 	nei, err := so.Items.ReEncrypt(s, ItemsKey{}, nk, s.MasterKey)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	// encrypt items key that encrypted the items
-// 	eik, err := EncryptItemsKey(nk, s, false)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	if eik.UpdatedAtTimestamp != ik.UpdatedAtTimestamp {
-// 		panic("updated timestamp not consistent with original")
-// 	}
-//
-// 	eik.UpdatedAtTimestamp = ik.UpdatedAtTimestamp
-//
-// 	eik.UpdatedAt = ik.UpdatedAt
-//
-// 	// prepend new items key to the export
-// 	nei = append([]EncryptedItem{eik}, nei...)
-//
-// 	// add existing items keys to the export
-// 	if err = writeJSON(writeJSONConfig{
-// 		session: *s,
-// 		Path:    path,
-// 		Debug:   true,
-// 	}, nei); err != nil {
-// 		return err
-// 	}
-//
-// 	return nil
-// }
 
 func GetCredentials(inServer string) (email, password, apiServer, errMsg string) {
 	switch {

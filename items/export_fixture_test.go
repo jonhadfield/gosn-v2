@@ -9,10 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadExportJSONFixtures covers the still-live half of export/import:
-// parsing Standard Notes encrypted backup files. Session.Export / Session.Import
-// remain commented out since the package split (eed94cf), so the full
-// round-trip tests below stay disabled until those APIs are restored.
+// TestReadExportJSONFixtures covers parsing Standard Notes encrypted backup
+// files. Decrypt of fixtures is covered by TestDecryptExportFixture; live
+// round-trip Export/Import still needs a Standard Notes account.
 func TestReadExportJSONFixtures(t *testing.T) {
 	t.Parallel()
 
