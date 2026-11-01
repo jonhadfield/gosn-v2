@@ -593,3 +593,25 @@ func TestRegexFilterPerformanceWithPreCompilation(t *testing.T) {
 		require.True(t, res, "filter should match on iteration %d", i)
 	}
 }
+
+func TestFilterNoteByTagTitleIgnoresTagOrder(t *testing.T) {
+	noteUUID := GenUUID()
+	note := createNote("GNU", "Is not Unix", noteUUID)
+
+	otherTag, _ := createTag("Food", GenUUID(), nil)
+	animalTag, _ := createTag("Animal", GenUUID(), nil)
+	animalTag.Content.UpsertReferences(ItemReferences{{UUID: noteUUID, ContentType: common.SNItemTypeNote}})
+
+	for _, comparison := range []struct{ op, value string }{{"==", "Animal"}, {"~", "^Anim"}} {
+		f := ItemFilters{Filters: []Filter{{
+			Type:       common.SNItemTypeNote,
+			Key:        "TagTitle",
+			Comparison: comparison.op,
+			Value:      comparison.value,
+		}}}
+
+		require.True(t, applyNoteFilters(*note, f, Tags{*animalTag, *otherTag}), comparison.op)
+		require.True(t, applyNoteFilters(*note, f, Tags{*otherTag, *animalTag}), comparison.op)
+		require.False(t, applyNoteFilters(*note, f, Tags{*otherTag}), comparison.op)
+	}
+}

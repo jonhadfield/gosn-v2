@@ -324,70 +324,64 @@ func applyNoteTrashedFilter(f Filter, i Note, matchAny bool) (result, matchedAll
 }
 
 func applyNoteTagTitleFilter(f Filter, i Note, tags Tags, matchAny bool) (result, matchedAll, done bool) {
+	if f.Comparison == "~" && f.compiledRE == nil {
+		var err error
+
+		if f.compiledRE, err = regexp.Compile(f.Value); err != nil {
+			return
+		}
+	}
+
 	var matchesTag bool
 
+	// check every tag before deciding, as the matching tag can be anywhere in tags
 	for _, tag := range tags {
+		if matchesTag {
+			break
+		}
+
 		if tag.Content.Title == "" {
-			matchedAll = false
-		} else {
-			switch f.Comparison {
-			case "~":
-				// Use pre-compiled regex from filter
-				if f.compiledRE == nil {
-					var err error
-					f.compiledRE, err = regexp.Compile(f.Value)
-					if err != nil {
-						matchedAll = false
-						continue
-					}
-				}
-				if f.compiledRE.MatchString(tag.Content.Title) {
-					for _, ref := range tag.Content.References() {
-						if i.UUID == ref.UUID {
-							matchesTag = true
-						}
-					}
-				}
-				if matchesTag {
-					if matchAny {
-						result = true
-						done = true
-						return
-					}
-					matchedAll = true
-				} else {
-					if !matchAny {
-						result = false
-						done = true
-						return
-					}
-					matchedAll = false
-				}
-			case "==":
-				if tag.Content.Title == f.Value {
-					for _, ref := range tag.Content.References() {
-						if i.UUID == ref.UUID {
-							matchesTag = true
-						}
-					}
-				}
-				if matchesTag {
-					if matchAny {
-						result = true
-						done = true
-						return
-					}
-					matchedAll = true
-				} else {
-					if !matchAny {
-						result = false
-						done = true
-						return
-					}
-					matchedAll = false
+			continue
+		}
+
+		var matchesTitle bool
+
+		switch f.Comparison {
+		case "~":
+			matchesTitle = f.compiledRE.MatchString(tag.Content.Title)
+		case "==":
+			matchesTitle = tag.Content.Title == f.Value
+		default:
+			return
+		}
+
+		if matchesTitle {
+			for _, ref := range tag.Content.References() {
+				if i.UUID == ref.UUID {
+					matchesTag = true
 				}
 			}
 		}
+	}
+
+	if matchesTag {
+		if matchAny {
+			result = true
+			done = true
+
+			return
+		}
+
+		matchedAll = true
+	} else {
+		if !matchAny {
+			result = false
+			done = true
+
+			return
+		}
+
+		matchedAll = false
 	}
 
 	return result, matchedAll, done
