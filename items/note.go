@@ -452,7 +452,7 @@ func (n Note) Copy() Note {
 }
 
 func (noteContent *NoteContent) GetTrashed() bool {
-	return *noteContent.Trashed
+	return noteContent.Trashed != nil && *noteContent.Trashed
 }
 
 func (noteContent *NoteContent) SetTrashed(t bool) {
